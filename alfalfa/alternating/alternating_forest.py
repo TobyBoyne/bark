@@ -1,5 +1,6 @@
 import torch
 from typing import Optional
+import random
 
 def _leaf_id_iter():
     i = 0
@@ -13,19 +14,22 @@ class Leaf(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.leaf_id = next(_leaf_id)
+        self.child_leaves = torch.tensor([self.leaf_id])
     
     def forward(self, _x):
         return torch.tensor(self.leaf_id)
 
 class Node(torch.nn.Module):
-    def __init__(self, var_idx=0, threshold=0.0, 
+    def __init__(self, var_idx=0, threshold=None, 
                  left: Optional["Node"] = None, 
                  right: Optional["Node"] = None):
         super().__init__()
-        self.threshold = torch.nn.Parameter(data=torch.tensor(threshold), requires_grad=True)
+        self.threshold = torch.randn(()) - 0.5 if threshold is None else threshold
         self.var_idx = var_idx
         self.left = Leaf() if left is None else left
         self.right = Leaf() if right is None else right
+
+        self.child_leaves = torch.concat((self.left.child_leaves, self.right.child_leaves))
 
     def forward(self, x):
         var = torch.select(x, index=self.var_idx, dim=1)
@@ -44,6 +48,12 @@ class Node(torch.nn.Module):
             left = cls.create_of_depth(d-1)
             right = cls.create_of_depth(d-1)
             return Node(left=left, right=right)
+        
+    def contains_leaves(self, leaves: torch.tensor):
+        return torch.isin(leaves, self.child_leaves)
+    
+    def extra_repr(self):
+        return f"(x_{self.var_idx}<{self.threshold:.3f})"
 
     
 class AlternatingTree(torch.nn.Module):
@@ -75,16 +85,25 @@ class AlternatingTree(torch.nn.Module):
         x1_leaves = self.root(x1)
         x2_leaves = self.root(x2)
 
-        sim_mat = torch.eq(x1_leaves[:, None], x2_leaves[None, :])
-        # sim_mat = torch.sum(sim_mat, dim=2)
+        sim_mat = torch.eq(x1_leaves[:, None], x2_leaves[None, :]).float()
         return sim_mat
 
 
 
-
-
 class AlternatingForest(torch.nn.Module):
-    pass
+    def __init__(self, depth=3, num_trees=10):
+        super().__init__()
+        self.trees = [AlternatingTree(depth) for _ in range(num_trees)]
+        self.depth = depth
+
+    def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
+        x1_leaves = torch.stack([tree.root(x1) for tree in self.trees], dim=1)
+        x2_leaves = torch.stack([tree.root(x2) for tree in self.trees], dim=1)
+
+        sim_mat = torch.eq(x1_leaves[:, None, :], x2_leaves[None, :, :])
+        sim_mat = 1 / len(self.trees) * torch.sum(sim_mat, dim=2)
+        return sim_mat
+
 
 if __name__ == "__main__":
     # node1 = Node(var_idx=0, threshold=0.25)
