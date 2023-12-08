@@ -103,15 +103,3 @@ class AlternatingForest(torch.nn.Module):
         sim_mat = torch.eq(x1_leaves[:, None, :], x2_leaves[None, :, :])
         sim_mat = 1 / len(self.trees) * torch.sum(sim_mat, dim=2)
         return sim_mat
-
-
-if __name__ == "__main__":
-    # node1 = Node(var_idx=0, threshold=0.25)
-    # node2 = Node(var_idx=0, threshold=0.75)
-    # tree = Node(var_idx=0, threshold=0.5, left=node1, right=node2)
-    
-    # x = torch.tensor(torch.randn((100, 1)))
-    # print(tree(x))
-
-    tree = AlternatingTree(depth=3)
-    print(tree.nodes_by_depth)

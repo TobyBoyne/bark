@@ -10,6 +10,7 @@ torch.manual_seed(42)
 x = torch.linspace(0, 1, 10).reshape((-1, 1))
 y = (5 * x * torch.sin(5 * x)).flatten()
 
+
 likelihood = gpy.likelihoods.GaussianLikelihood()
 gp = ATGP(x, y, likelihood)
 

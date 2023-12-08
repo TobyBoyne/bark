@@ -2,6 +2,7 @@ import gpytorch as gpy
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+from typing import Callable
 
 def plot_gp_1d(model: gpy.kernels.Kernel, likelihood: gpy.likelihoods.Likelihood, 
             train_x, train_y):
@@ -29,7 +30,7 @@ def plot_gp_1d(model: gpy.kernels.Kernel, likelihood: gpy.likelihoods.Likelihood
 
 
 def plot_gp_2d(model: gpy.kernels.Kernel, likelihood: gpy.likelihoods.Likelihood, 
-            train_x, train_y, test_X, target):
+            train_x, train_y, test_X, target: Callable):
     """Plot a GP with two input dimensions."""
     fig, axs = plt.subplots(ncols=3, figsize=(8, 3))    
 

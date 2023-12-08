@@ -13,8 +13,8 @@ class AlternatingTreeKernel(gpy.kernels.Kernel):
         self.tree = tree
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor, diag=False, **params):
-        # if diag:
-        #     out = torch.ones(x1.shape[0])
+        if diag:
+            return torch.ones(x1.shape[0])
         return self.tree.gram_matrix(x1, x2)
 
 
@@ -26,8 +26,8 @@ class AlternatingForestKernel(gpy.kernels.Kernel):
         self.forest = forest
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor, diag=False, **params):
-        # if diag:
-        #     out = torch.ones(x1.shape[0])
+        if diag:
+            return torch.ones(x1.shape[0])
         return self.forest.gram_matrix(x1, x2)
 
 
