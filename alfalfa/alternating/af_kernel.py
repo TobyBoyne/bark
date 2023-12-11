@@ -31,18 +31,30 @@ class AlternatingForestKernel(gpy.kernels.Kernel):
         return self.forest.gram_matrix(x1, x2)
 
 
-class ATGP(gpy.models.ExactGP):
+class AlternatingGP(gpy.models.ExactGP):
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return gpy.distributions.MultivariateNormal(mean_x, covar_x)
+
+
+class ATGP(AlternatingGP):
     def __init__(self, train_inputs, train_targets, likelihood):
         super().__init__(train_inputs, train_targets, likelihood)
         self.tree_model = None
         self.mean_module = gpy.means.ZeroMean()
 
-        # forest = AlternatingForest(depth=3, num_trees=10)
         self.tree = AlternatingTree(depth=3)
         tree_kernel = AlternatingTreeKernel(self.tree)
         self.covar_module = gpy.kernels.ScaleKernel(tree_kernel)
 
-    def forward(self, x):
-        mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
-        return gpy.distributions.MultivariateNormal(mean_x, covar_x)
+
+class AFGP(AlternatingGP):
+    def __init__(self, train_inputs, train_targets, likelihood):
+        super().__init__(train_inputs, train_targets, likelihood)
+        self.tree_model = None
+        self.mean_module = gpy.means.ZeroMean()
+
+        self.forest = AlternatingForest(depth=3, num_trees=10)
+        forest_kernel = AlternatingForestKernel(self.forest)
+        self.covar_module = gpy.kernels.ScaleKernel(forest_kernel)
