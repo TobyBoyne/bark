@@ -3,7 +3,7 @@ import gpytorch as gpy
 from tqdm import tqdm
 
 from .af_kernel import Node, AlternatingTree, ATGP, AFGP, AlternatingGP
-from ..utils.timer import Timer
+from ..utils.logger import Timer
 
 N_ITERS = 10
 N_TREE_PER_ITER = 3

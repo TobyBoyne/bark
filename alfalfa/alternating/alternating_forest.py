@@ -1,5 +1,5 @@
 import torch
-from typing import Optional
+from typing import Any, Optional
 import random
 
 def _leaf_id_iter():
@@ -54,6 +54,13 @@ class Node(torch.nn.Module):
     
     def extra_repr(self):
         return f"(x_{self.var_idx}<{self.threshold:.3f})"
+    
+    def get_extra_state(self):
+        return {"threshold": self.threshold, "var_idx": self.var_idx}
+    
+    def set_extra_state(self, state):
+        self.threshold = state["threshold"]
+        self.var_idx = state["var_idx"]
 
     
 class AlternatingTree(torch.nn.Module):
@@ -87,13 +94,20 @@ class AlternatingTree(torch.nn.Module):
 
         sim_mat = torch.eq(x1_leaves[:, None], x2_leaves[None, :]).float()
         return sim_mat
+    
+    def get_extra_state(self):
+        return {"depth": self.depth}
+    
+    def set_extra_state(self, state):
+        if self.depth != state["depth"]:
+            raise ValueError("Saved model must have equal depth to new model.")
 
 
 
 class AlternatingForest(torch.nn.Module):
     def __init__(self, depth=3, num_trees=10):
         super().__init__()
-        self.trees = [AlternatingTree(depth) for _ in range(num_trees)]
+        self.trees = torch.nn.ModuleList([AlternatingTree(depth) for _ in range(num_trees)])
         self.depth = depth
 
     def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
