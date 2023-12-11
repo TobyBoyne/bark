@@ -2,7 +2,8 @@ import torch
 import gpytorch as gpy
 from tqdm import tqdm
 
-from .af_kernel import Node, AlternatingTree, ATGP, AFGP, AlternatingGP
+from .alternating_forest import Node, AlternatingTree
+from .af_kernel import AlternatingTree, ATGP, AFGP, AlfalfaGP
 from ..utils.logger import Timer
 
 N_ITERS = 10
@@ -16,7 +17,7 @@ def _fit_decision_node(
     tree: AlternatingTree,
     x: torch.Tensor,
     y: torch.Tensor,
-    model: AlternatingGP,
+    model: AlfalfaGP,
     likelihood: gpy.likelihoods.Likelihood,
     mll: gpy.mlls.MarginalLogLikelihood,
 ):
@@ -51,7 +52,7 @@ def fit_tree(
     tree: AlternatingTree,
     x: torch.Tensor,
     y: torch.Tensor,
-    model: AlternatingGP,
+    model: AlfalfaGP,
     likelihood: gpy.likelihoods.Likelihood,
     mll: gpy.mlls.MarginalLogLikelihood,
 ):
@@ -69,7 +70,7 @@ def fit_tree(
                 for node in nodes:
                     _fit_decision_node(node, tree, x, y, model, likelihood, mll)
 
-def fit_forest(x: torch.Tensor, y:torch.Tensor, model: AlternatingGP,
+def fit_forest(x: torch.Tensor, y:torch.Tensor, model: AlfalfaGP,
     likelihood: gpy.likelihoods.Likelihood,
     mll: gpy.mlls.MarginalLogLikelihood):
     """Fit a forest of decision trees using a GP marginal likelihood loss."""
@@ -80,7 +81,7 @@ def fit_forest(x: torch.Tensor, y:torch.Tensor, model: AlternatingGP,
         for tree in model.forest.trees:
             fit_tree(tree, x, y, model, likelihood, mll)
 
-def fit_gp(x: torch.Tensor, y:torch.Tensor, model: AlternatingGP,
+def fit_gp(x: torch.Tensor, y:torch.Tensor, model: AlfalfaGP,
     likelihood: gpy.likelihoods.Likelihood,
     mll: gpy.mlls.MarginalLogLikelihood):
     """Fit the (non-tree) hyperparameters of a Tree GP."""
@@ -106,7 +107,7 @@ def fit_gp(x: torch.Tensor, y:torch.Tensor, model: AlternatingGP,
 def fit_tree_gp(
     x: torch.Tensor,
     y: torch.Tensor,
-    model: AlternatingGP,
+    model: AlfalfaGP,
     likelihood: gpy.likelihoods.Likelihood,
     mll: gpy.mlls.MarginalLogLikelihood,
 ):

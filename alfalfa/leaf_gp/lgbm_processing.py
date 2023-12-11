@@ -1,3 +1,5 @@
+"""Taken from Leaf-GP"""
+
 def order_tree_model_dict(tree_model_dict, cat_column=None):
     """
     Sorts a tree model dict provided by LightGBM from .json file to make it

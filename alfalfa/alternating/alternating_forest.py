@@ -100,7 +100,7 @@ class AlternatingTree(torch.nn.Module):
     
     def set_extra_state(self, state):
         if self.depth != state["depth"]:
-            raise ValueError("Saved model must have equal depth to new model.")
+            raise ValueError(f"Saved model has depth {state['depth']}.")
 
 
 
@@ -117,3 +117,11 @@ class AlternatingForest(torch.nn.Module):
         sim_mat = torch.eq(x1_leaves[:, None, :], x2_leaves[None, :, :])
         sim_mat = 1 / len(self.trees) * torch.sum(sim_mat, dim=2)
         return sim_mat
+    
+    # def get_extra_state(self):
+    #     return {"depth": self.depth, "num_tress": len(self.trees)}
+    
+    # def set_extra_state(self, state):
+    #     if self.depth != state["depth"]:
+    #         raise ValueError(f"Saved model has depth {state['depth']}.")
+

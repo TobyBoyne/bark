@@ -1,3 +1,5 @@
+"""Taken from Leaf-GP"""
+
 import collections as coll
 import numpy as np
 import sys
