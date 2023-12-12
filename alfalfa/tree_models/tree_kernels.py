@@ -1,12 +1,12 @@
 import torch
 import gpytorch as gpy
-from .alternating_forest import AlternatingTree, AlternatingForest
+from .forest import AlfalfaTree, AlfalfaForest
 
 
-class AlternatingTreeKernel(gpy.kernels.Kernel):
+class AlfalfaTreeKernel(gpy.kernels.Kernel):
     is_stationary = False
 
-    def __init__(self, tree: AlternatingTree):
+    def __init__(self, tree: AlfalfaTree):
         super().__init__()
         self.tree = tree
 
@@ -16,10 +16,10 @@ class AlternatingTreeKernel(gpy.kernels.Kernel):
         return self.tree.gram_matrix(x1, x2)
 
 
-class AlternatingForestKernel(gpy.kernels.Kernel):
+class AlfalfaForestKernel(gpy.kernels.Kernel):
     is_stationary = False
 
-    def __init__(self, forest: AlternatingForest):
+    def __init__(self, forest: AlfalfaForest):
         super().__init__()
         self.forest = forest
 
@@ -37,20 +37,20 @@ class AlfalfaGP(gpy.models.ExactGP):
 
 
 class ATGP(AlfalfaGP):
-    def __init__(self, train_inputs, train_targets, likelihood, tree_model: AlternatingTree):
+    def __init__(self, train_inputs, train_targets, likelihood, tree_model: AlfalfaTree):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
 
         self.tree = tree_model
-        tree_kernel = AlternatingTreeKernel(tree_model)
+        tree_kernel = AlfalfaTreeKernel(tree_model)
         self.covar_module = gpy.kernels.ScaleKernel(tree_kernel)
 
 
 class AFGP(AlfalfaGP):
-    def __init__(self, train_inputs, train_targets, likelihood, forest_model: AlternatingForest):
+    def __init__(self, train_inputs, train_targets, likelihood, forest_model: AlfalfaForest):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
 
         self.forest = forest_model
-        forest_kernel = AlternatingForestKernel(forest_model)
+        forest_kernel = AlfalfaForestKernel(forest_model)
         self.covar_module = gpy.kernels.ScaleKernel(forest_kernel)

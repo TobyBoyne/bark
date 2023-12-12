@@ -63,7 +63,7 @@ class Node(torch.nn.Module):
         self.var_idx = state["var_idx"]
 
     
-class AlternatingTree(torch.nn.Module):
+class AlfalfaTree(torch.nn.Module):
     def __init__(self, depth=3, root:Optional[Node]=None):
         super().__init__()
         if root:
@@ -107,13 +107,13 @@ class AlternatingTree(torch.nn.Module):
 
 
 
-class AlternatingForest(torch.nn.Module):
-    def __init__(self, depth=3, num_trees=10, trees: Optional[list[AlternatingTree]] = None):
+class AlfalfaForest(torch.nn.Module):
+    def __init__(self, depth=3, num_trees=10, trees: Optional[list[AlfalfaTree]] = None):
         super().__init__()
         if trees:
             self.trees = torch.nn.ModuleList(trees)
         else:
-            self.trees = torch.nn.ModuleList([AlternatingTree(depth) for _ in range(num_trees)])
+            self.trees = torch.nn.ModuleList([AlfalfaTree(depth) for _ in range(num_trees)])
         self.depth = depth
 
     def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):

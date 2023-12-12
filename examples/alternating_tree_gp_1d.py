@@ -2,8 +2,8 @@ import torch
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 
-from alfalfa.alternating.af_kernel import ATGP
-from alfalfa.alternating.fitting import fit_tree_gp
+from alfalfa.tree_models.tree_kernels import ATGP
+from alfalfa.tree_models.alternating_fitting import fit_tree_gp
 from alfalfa.utils.plots import plot_gp_1d
 
 torch.manual_seed(42)

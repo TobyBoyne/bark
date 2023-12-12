@@ -2,8 +2,8 @@ import torch
 import gpytorch as gpy
 from tqdm import tqdm
 
-from .alternating_forest import Node, AlternatingTree
-from .af_kernel import AlternatingTree, ATGP, AFGP, AlfalfaGP
+from .forest import Node, AlfalfaTree
+from .tree_kernels import AlfalfaTree, ATGP, AFGP, AlfalfaGP
 from ..utils.logger import Timer
 
 N_ITERS = 10
@@ -14,7 +14,7 @@ timer = Timer()
 
 def _fit_decision_node(
     node: Node,
-    tree: AlternatingTree,
+    tree: AlfalfaTree,
     x: torch.Tensor,
     y: torch.Tensor,
     model: AlfalfaGP,
@@ -49,7 +49,7 @@ def _fit_decision_node(
 
 
 def fit_tree(
-    tree: AlternatingTree,
+    tree: AlfalfaTree,
     x: torch.Tensor,
     y: torch.Tensor,
     model: AlfalfaGP,

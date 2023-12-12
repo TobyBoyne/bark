@@ -4,8 +4,8 @@ import lightgbm as lgb
 import matplotlib.pyplot as plt
 
 from alfalfa.utils.benchmarks import rescaled_branin, branin
-from alfalfa.alternating.lgbm_tree import lgbm_to_alfalfa_forest
-from alfalfa.alternating.af_kernel import AFGP
+from alfalfa.tree_models.lgbm_tree import lgbm_to_alfalfa_forest
+from alfalfa.tree_models.tree_kernels import AFGP
 from alfalfa.utils.plots import plot_gp_2d
 
 def fit_gp(x, y, model, likelihood):

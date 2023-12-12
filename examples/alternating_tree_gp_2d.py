@@ -2,9 +2,9 @@ import torch
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 
-from alfalfa.alternating.af_kernel import ATGP, AFGP
-from alfalfa.alternating.alternating_forest import AlternatingForest
-from alfalfa.alternating.fitting import fit_tree_gp
+from alfalfa.tree_models.tree_kernels import ATGP, AFGP
+from alfalfa.tree_models.forest import AlfalfaForest
+from alfalfa.tree_models.alternating_fitting import fit_tree_gp
 from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.benchmarks import rescaled_branin
 
@@ -17,7 +17,7 @@ y = f + torch.randn_like(f) * 0.2**0.5
 
 
 likelihood = gpy.likelihoods.GaussianLikelihood()
-forest = AlternatingForest(depth=2, num_trees=10)
+forest = AlfalfaForest(depth=2, num_trees=10)
 gp = AFGP(x, y, likelihood, forest)
 
 # mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, gp)

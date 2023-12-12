@@ -1,13 +1,10 @@
 """Convert an LGBM tree to an instance of Alternating Tree for comparison"""
-import torch
-import gpytorch as gpy
 import lightgbm as lgb
 
-from alfalfa.alternating.alternating_forest import Node, AlternatingTree, Leaf, AlternatingForest
-from alfalfa.leaf_gp.lgbm_processing import order_tree_model_dict
-from alfalfa.leaf_gp.gbm_model import GbmModel
+from .forest import Node, AlfalfaTree, Leaf, AlfalfaForest
+from ..leaf_gp.lgbm_processing import order_tree_model_dict
 
-def lgbm_to_alfalfa_forest(tree_model):
+def lgbm_to_alfalfa_forest(tree_model: lgb.Booster):
     """Convert a lightgbm model to an alternating forest"""
     original_tree_model_dict = tree_model.dump_model()
     ordered_tree_model_dict = \
@@ -30,6 +27,6 @@ def lgbm_to_alfalfa_forest(tree_model):
     trees = []
     for tree in ordered_tree_model_dict:
         root, _ = get_subtree(tree)
-        trees.append(AlternatingTree(root=root))
+        trees.append(AlfalfaTree(root=root))
 
-    return AlternatingForest(trees=trees)
+    return AlfalfaForest(trees=trees)

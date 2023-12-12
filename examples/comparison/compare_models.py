@@ -2,9 +2,9 @@ import torch
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 
-from alfalfa.alternating.af_kernel import ATGP, AFGP
-from alfalfa.alternating.alternating_forest import AlternatingForest
-from alfalfa.alternating.fitting import fit_tree_gp
+from alfalfa.tree_models.tree_kernels import ATGP, AFGP
+from alfalfa.tree_models.forest import AlfalfaForest
+from alfalfa.tree_models.alternating_fitting import fit_tree_gp
 from alfalfa.gps import RBFGP
 from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.benchmarks import rescaled_branin
@@ -19,7 +19,7 @@ def _get_af_gp(path, x, y):
     state = torch.load(path)
     depth = state["forest.trees.0._extra_state"]["depth"]
     likelihood = gpy.likelihoods.GaussianLikelihood()
-    forest = AlternatingForest(depth=depth, num_trees=10)
+    forest = AlfalfaForest(depth=depth, num_trees=10)
     gp = AFGP(x, y, likelihood, forest)
     gp.load_state_dict(torch.load(path))
     return gp
