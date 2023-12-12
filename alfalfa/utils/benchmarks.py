@@ -35,4 +35,4 @@ def rescaled_branin(x: np.ndarray):
     x2_b = 15 * x2
     A = (x2_b - (5.1 / (4 * np.pi**2)) * x1_b**2 + (5 / np.pi) * x1_b - 6)**2
     B = 10 * (1 - 1 / (8 * np.pi)) * np.cos(x1_b) - 44.81
-    return (A + B) / 51.95
+    return -(A + B) / 51.95

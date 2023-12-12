@@ -64,9 +64,12 @@ class Node(torch.nn.Module):
 
     
 class AlternatingTree(torch.nn.Module):
-    def __init__(self, depth=3):
+    def __init__(self, depth=3, root:Optional[Node]=None):
         super().__init__()
-        self.root = Node.create_of_depth(depth)
+        if root:
+            self.root = root
+        else:
+            self.root = Node.create_of_depth(depth)
         self.nodes_by_depth = self._get_nodes_by_depth()
         self.depth = depth
 
@@ -105,9 +108,12 @@ class AlternatingTree(torch.nn.Module):
 
 
 class AlternatingForest(torch.nn.Module):
-    def __init__(self, depth=3, num_trees=10):
+    def __init__(self, depth=3, num_trees=10, trees: Optional[list[AlternatingTree]] = None):
         super().__init__()
-        self.trees = torch.nn.ModuleList([AlternatingTree(depth) for _ in range(num_trees)])
+        if trees:
+            self.trees = torch.nn.ModuleList(trees)
+        else:
+            self.trees = torch.nn.ModuleList([AlternatingTree(depth) for _ in range(num_trees)])
         self.depth = depth
 
     def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):

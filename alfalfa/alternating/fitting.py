@@ -98,9 +98,7 @@ def fit_gp(x: torch.Tensor, y:torch.Tensor, model: AlfalfaGP,
         # Calc loss and backprop gradients
         loss = -mll(output, y)
         loss.backward()
-        # print(f"Iter {i+1}/{training_iter} - Loss: {loss.item():.3f}"
-        #       f"  \tnoise: {model.likelihood.noise.item():.3f}"
-        # )
+
         pbar.set_description(f"Loss: {loss.item():.3f}, noise: {model.likelihood.noise.item():.3f}")
         optimizer.step()
 
