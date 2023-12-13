@@ -14,3 +14,11 @@ y = torch.where(x_1 < 50, 0.0, 10.0)
 tree = AlfalfaTree(depth=3)
 tree.initialise_tree([0, 2])
 print(tree.root(X))
+
+
+def test_categorical_tree():
+    tree = AlfalfaTree(depth=3)
+    tree.initialise_tree(var_is_cat=[0, 5])
+    print(tree)
+
+test_categorical_tree()

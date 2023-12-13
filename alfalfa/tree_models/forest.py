@@ -1,6 +1,6 @@
 import torch
 from torch.distributions import Normal, Categorical
-from typing import Optional
+from typing import Optional, Sequence
 from operator import attrgetter
 
 
@@ -65,7 +65,6 @@ class Node(torch.nn.Module):
             (self.left.child_leaves, self.right.child_leaves)
         )
 
-        self.var_is_cat = []
 
     def initialise_tree(self, var_is_cat, var_dists: list[torch.distributions.Distribution], randomise: bool):
         self.var_is_cat = var_is_cat
@@ -73,8 +72,8 @@ class Node(torch.nn.Module):
             self.var_idx = torch.randint(len(var_is_cat), ())
             self.threshold = var_dists[self.var_idx].sample()
 
-        self.left.initialise_tree(var_is_cat, var_dists)
-        self.right.initialise_tree(var_is_cat, var_dists)
+        self.left.initialise_tree(var_is_cat, var_dists, randomise)
+        self.right.initialise_tree(var_is_cat, var_dists, randomise)
 
     def forward(self, x):
         var = x[:, self.var_idx]
@@ -155,6 +154,7 @@ class AlfalfaTree(torch.nn.Module):
         dists = [
             Categorical(probs=torch.ones(var)) if var else Normal(X_mean[i], X_std[i]) for i, var in enumerate(var_is_cat)
         ]
+        self.var_is_cat = var_is_cat
         self.root.initialise_tree(var_is_cat, dists, randomise)
 
 
@@ -199,6 +199,7 @@ class AlfalfaForest(torch.nn.Module):
         self, depth=None, num_trees=None, trees: Optional[list[AlfalfaTree]] = None
     ):
         super().__init__()
+        self.trees: Sequence[AlfalfaTree]
         if trees:
             self.trees = torch.nn.ModuleList(trees)
             self.depth = max(tree.depth for tree in trees)
