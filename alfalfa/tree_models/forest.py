@@ -1,4 +1,5 @@
 import torch
+from torch.distributions import Normal, Categorical
 from typing import Optional
 from operator import attrgetter
 
@@ -33,6 +34,9 @@ class Leaf(torch.nn.Module):
         self.leaf_id = next(_leaf_id)
         self.child_leaves = torch.tensor([self.leaf_id])
 
+    def initialise_tree(self, *args):
+        pass
+
     def forward(self, _x):
         return torch.tensor(self.leaf_id)
 
@@ -46,14 +50,14 @@ class Leaf(torch.nn.Module):
 class Node(torch.nn.Module):
     def __init__(
         self,
-        var_idx=0,
+        var_idx=None,
         threshold=None,
         left: Optional["Node"] = None,
         right: Optional["Node"] = None,
     ):
         super().__init__()
-        self.threshold = torch.randn(()) - 0.5 if threshold is None else threshold
         self.var_idx = var_idx
+        self.threshold = threshold
         self.left = Leaf() if left is None else left
         self.right = Leaf() if right is None else right
 
@@ -61,13 +65,34 @@ class Node(torch.nn.Module):
             (self.left.child_leaves, self.right.child_leaves)
         )
 
+        self.var_is_cat = []
+
+    def initialise_tree(self, var_is_cat, var_dists: list[torch.distributions.Distribution], randomise: bool):
+        self.var_is_cat = var_is_cat
+        if randomise:
+            self.var_idx = torch.randint(len(var_is_cat), ())
+            self.threshold = var_dists[self.var_idx].sample()
+
+        self.left.initialise_tree(var_is_cat, var_dists)
+        self.right.initialise_tree(var_is_cat, var_dists)
+
     def forward(self, x):
-        var = torch.select(x, index=self.var_idx, dim=1)
-        return torch.where(
-            var < self.threshold,
-            self.left(x),
-            self.right(x),
-        )
+        var = x[:, self.var_idx]
+
+        if self.var_is_cat[self.var_idx]:
+            # categorical - check if value is in subset
+            return torch.where(
+                torch.isin(var, self.threshold),
+                self.left(x),
+                self.right(x)
+            )
+        else:
+            # continuous - check if value is less than threshold
+            return torch.where(
+                var < self.threshold,
+                self.left(x),
+                self.right(x),
+            )
 
     @classmethod
     def create_of_depth(cls, d):
@@ -86,6 +111,8 @@ class Node(torch.nn.Module):
         return 1 + max(self.left.get_tree_height(), self.right.get_tree_height())
 
     def extra_repr(self):
+        if self.var_idx is None or self.threshold is None:
+            return "(not initialised)"
         return f"(x_{self.var_idx}<{self.threshold:.3f})"
 
     def get_extra_state(self):
@@ -117,6 +144,19 @@ class AlfalfaTree(torch.nn.Module):
             self.depth = depth
 
         self.nodes_by_depth = self._get_nodes_by_depth()
+
+    def initialise_tree(self, var_is_cat: list[bool], train_X: Optional[torch.Tensor] = None, randomise: bool = True):
+        # TODO: is there a better random initialisation?
+        if train_X is None:
+            X_std, X_mean = torch.ones(len(var_is_cat)), torch.zeros(len(var_is_cat))
+        else:
+            X_std, X_mean = torch.std_mean(train_X, dim=0)
+
+        dists = [
+            Categorical(probs=torch.ones(var)) if var else Normal(X_mean[i], X_std[i]) for i, var in enumerate(var_is_cat)
+        ]
+        self.root.initialise_tree(var_is_cat, dists, randomise)
+
 
     def _get_nodes_by_depth(self):
         nodes = [self.root]
@@ -167,6 +207,10 @@ class AlfalfaForest(torch.nn.Module):
                 [AlfalfaTree(depth) for _ in range(num_trees)]
             )
             self.depth = depth
+
+    def initialise_forest(self, var_is_cat: list[bool], train_X: Optional[torch.Tensor] = None, randomise: bool = True):
+        for tree in self.trees:
+            tree.initialise_tree(var_is_cat, train_X, randomise)
 
     def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
         x1_leaves = torch.stack([tree.root(x1) for tree in self.trees], dim=1)

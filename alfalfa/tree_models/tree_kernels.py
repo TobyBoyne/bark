@@ -43,7 +43,6 @@ class ATGP(AlfalfaGP):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
 
-        # self.tree = tree_model
         tree_kernel = AlfalfaTreeKernel(tree_model)
         self.covar_module = gpy.kernels.ScaleKernel(tree_kernel)
 
@@ -59,7 +58,6 @@ class AFGP(AlfalfaGP):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
 
-        # self.forest = forest_model
         forest_kernel = AlfalfaForestKernel(forest_model)
         self.covar_module = gpy.kernels.ScaleKernel(forest_kernel)
 

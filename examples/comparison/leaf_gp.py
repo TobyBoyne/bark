@@ -59,7 +59,7 @@ if __name__ == "__main__":
     gp = AFGP(x, y, likelihood, forest)
     fit_gp(x, y, gp, likelihood)
     gp.eval()
-    torch.save(gp.state_dict(), "models/branin_leaf_gp.pt")
+    # torch.save(gp.state_dict(), "models/branin_leaf_gp.pt")
 
     test_x = torch.meshgrid(torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij")
     plot_gp_2d(gp, likelihood, x, y, test_x, target=rescaled_branin)
