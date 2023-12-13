@@ -38,7 +38,8 @@ if __name__ == "__main__":
     x = torch.rand((N_train, 2))
     f = rescaled_branin(x)
 
-    y = f + torch.randn_like(f) * 0.2**0.5
+    noise_var = 0.2
+    y = f + torch.randn_like(f) * noise_var ** 0.5
 
     likelihood = gpy.likelihoods.GaussianLikelihood()
     gp = RBFGP(x, y, likelihood)

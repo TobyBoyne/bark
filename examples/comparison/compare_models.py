@@ -15,11 +15,11 @@ def _get_rbf_gp(path, x, y):
     gp.load_state_dict(torch.load(path))
     return gp
 
-def _get_af_gp(path, x, y):
+def _get_forest_gp(path, x, y):
     state = torch.load(path)
-    depth = state["forest.trees.0._extra_state"]["depth"]
+    forest_state = state["forest._extra_state"]
     likelihood = gpy.likelihoods.GaussianLikelihood()
-    forest = AlfalfaForest(depth=depth, num_trees=10)
+    forest = AlfalfaForest(depth=forest_state["depth"], num_trees=forest_state["num_trees"])
     gp = AFGP(x, y, likelihood, forest)
     gp.load_state_dict(torch.load(path))
     return gp
@@ -28,12 +28,13 @@ torch.manual_seed(42)
 N_train = 50
 x = torch.rand((N_train, 2))
 f = rescaled_branin(x)
-sigma_noise = 0.2
-y = f + torch.randn_like(f) * sigma_noise
+noise_var = 0.2
+y = f + torch.randn_like(f) * noise_var ** 0.5
 
 models = (
     ("RBF", "models/branin_rbf_gp.pt", _get_rbf_gp),
-    ("AF", "models/branin_alternating_forest.pt", _get_af_gp),
+    ("Leaf-GP", "models/branin_leaf_gp.pt", _get_forest_gp),
+    ("AF", "models/branin_alternating_forest.pt", _get_forest_gp),
 )
 
 for name, path, model_fn in models:

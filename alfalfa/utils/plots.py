@@ -43,6 +43,7 @@ def plot_gp_2d(model: gpy.kernels.Kernel, likelihood: gpy.likelihoods.Likelihood
         k = 1.0
         ys = (observed_pred.mean, observed_pred.variance, observed_pred.mean + k*observed_pred.variance)
         for ax, y in zip(axs, ys):
+            ax: plt.Axes
             # Plot training data as black stars
             ax.plot(train_x.numpy()[:, 0], train_x.numpy()[:, 1], 'k*')
             # Filled contours of GP predictions
