@@ -3,7 +3,7 @@ import gpytorch as gpy
 import matplotlib.pyplot as plt
 
 from alfalfa.tree_models.tree_kernels import ATGP, AFGP
-from alfalfa.tree_models.forest import AlfalfaForest
+from alfalfa.tree_models.forest import AlfalfaForest, prune_tree_hook
 from alfalfa.tree_models.alternating_fitting import fit_tree_gp
 from alfalfa.gps import RBFGP
 from alfalfa.utils.plots import plot_gp_2d
@@ -17,10 +17,11 @@ def _get_rbf_gp(path, x, y):
 
 def _get_forest_gp(path, x, y):
     state = torch.load(path)
-    forest_state = state["forest._extra_state"]
+    forest_state = state["covar_module.base_kernel.forest._extra_state"]
     likelihood = gpy.likelihoods.GaussianLikelihood()
     forest = AlfalfaForest(depth=forest_state["depth"], num_trees=forest_state["num_trees"])
     gp = AFGP(x, y, likelihood, forest)
+    gp.register_load_state_dict_post_hook(prune_tree_hook)
     gp.load_state_dict(torch.load(path))
     return gp
 

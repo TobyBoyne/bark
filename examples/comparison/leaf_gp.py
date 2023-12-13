@@ -48,9 +48,9 @@ if __name__ == "__main__":
     y = f + torch.randn_like(f) * noise_var ** 0.5
 
     tree_model = lgb.train(
-                {"max_depth": 3, "min_data_in_leaf": 1},
+                {"max_depth": 2, "min_data_in_leaf": 1},
                 lgb.Dataset(x.numpy(), y.numpy()),
-                num_boost_round=50
+                num_boost_round=100
             )
 
     forest = lgbm_to_alfalfa_forest(tree_model)

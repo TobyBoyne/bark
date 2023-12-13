@@ -37,20 +37,32 @@ class AlfalfaGP(gpy.models.ExactGP):
 
 
 class ATGP(AlfalfaGP):
-    def __init__(self, train_inputs, train_targets, likelihood, tree_model: AlfalfaTree):
+    def __init__(
+        self, train_inputs, train_targets, likelihood, tree_model: AlfalfaTree
+    ):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
 
-        self.tree = tree_model
+        # self.tree = tree_model
         tree_kernel = AlfalfaTreeKernel(tree_model)
         self.covar_module = gpy.kernels.ScaleKernel(tree_kernel)
 
+    @property
+    def tree(self):
+        return self.covar_module.base_kernel.tree
+
 
 class AFGP(AlfalfaGP):
-    def __init__(self, train_inputs, train_targets, likelihood, forest_model: AlfalfaForest):
+    def __init__(
+        self, train_inputs, train_targets, likelihood, forest_model: AlfalfaForest
+    ):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
 
-        self.forest = forest_model
+        # self.forest = forest_model
         forest_kernel = AlfalfaForestKernel(forest_model)
         self.covar_module = gpy.kernels.ScaleKernel(forest_kernel)
+
+    @property
+    def forest(self):
+        return self.covar_module.base_kernel.forest
