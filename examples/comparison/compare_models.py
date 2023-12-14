@@ -20,6 +20,7 @@ def _get_forest_gp(path, x, y):
     forest_state = state["covar_module.base_kernel.forest._extra_state"]
     likelihood = gpy.likelihoods.GaussianLikelihood()
     forest = AlfalfaForest(depth=forest_state["depth"], num_trees=forest_state["num_trees"])
+    forest.initialise_forest([0, 0], randomise=False)
     gp = AFGP(x, y, likelihood, forest)
     gp.register_load_state_dict_post_hook(prune_tree_hook)
     gp.load_state_dict(torch.load(path))
@@ -31,6 +32,12 @@ x = torch.rand((N_train, 2))
 f = rescaled_branin(x)
 noise_var = 0.2
 y = f + torch.randn_like(f) * noise_var ** 0.5
+
+test_x = torch.meshgrid(torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij")
+
+test_X1, test_X2 = test_x
+test_y = rescaled_branin(torch.stack((test_X1.flatten(), test_X2.flatten()), dim=1))
+
 
 models = (
     ("RBF", "models/branin_rbf_gp.pt", _get_rbf_gp),
@@ -44,3 +51,23 @@ for name, path, model_fn in models:
     output = model(x)
     loss = -mll(output, y)
     print(f"{name} loss={loss:.3f}")
+
+    model.eval()
+    fig, ax = plot_gp_2d(model, model.likelihood, x, y, test_x, target=rescaled_branin)
+    fig.suptitle(f"{name} Model")
+
+    test_X1, test_X2 = test_x
+    test_x_stacked = torch.stack((test_X1.flatten(), test_X2.flatten()), dim=1)
+    test_y = rescaled_branin(test_x_stacked)
+    pred_dist = model.likelihood(model(test_x_stacked))
+
+    print(f"""Model {name}:
+    MLL= {loss:.3f}
+    NLPD={gpy.metrics.negative_log_predictive_density(pred_dist, test_y):.4f}"""
+    )
+
+fig, ax = plt.subplots()
+
+ax.contourf(test_X1, test_X2, test_y.reshape(test_X1.shape))
+
+plt.show()

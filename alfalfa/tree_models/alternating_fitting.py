@@ -1,16 +1,20 @@
 import torch
 import gpytorch as gpy
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from typing import Optional
 
 from .forest import Node, AlfalfaTree
 from .tree_kernels import ATGP, AFGP, AlfalfaGP
-from ..utils.logger import Timer
+from ..utils.logger import Timer, Logger
+from ..utils.plots import plot_loss_logs
 
-N_ITERS = 10
+N_ITERS = 3
 N_TREE_PER_ITER = 3
 N_GP_PER_ITER = 10
 
 timer = Timer()
+logger = Logger()
 
 def all_cat_combinations(n):
     # only need to go up to n // 2
@@ -32,7 +36,7 @@ def _fit_decision_node(
     # reduced_x = x[,:]
     min_loss_var_idx = node.var_idx
     min_loss_t = node.threshold
-    min_loss = torch.inf
+    min_loss = torch.tensor(torch.inf)
     for var_idx, num_cats in enumerate(tree.var_is_cat):
         node.var_idx = var_idx
         if num_cats:
@@ -63,6 +67,8 @@ def _fit_decision_node(
                     min_loss_var_idx = var_idx
     node.threshold = min_loss_t
     node.var_idx = min_loss_var_idx
+    
+    logger.log(min_loss=min_loss.item(), train_step="tree")
 
 
 def fit_tree(
@@ -115,8 +121,7 @@ def fit_gp(
         model.parameters(), lr=0.1
     )  # Includes GaussianLikelihood parameters
 
-    training_iter = 10
-    for i in (pbar := tqdm(range(training_iter))):
+    for i in (pbar := tqdm(range(N_GP_PER_ITER))):
         # Zero gradients from previous iteration
         optimizer.zero_grad()
         # Output from model
@@ -130,12 +135,17 @@ def fit_gp(
         )
         optimizer.step()
 
+        logger.log(min_loss=loss.item(), train_step="gp")
+
 
 def fit_tree_gp(
     x: torch.Tensor,
     y: torch.Tensor,
     model: AlfalfaGP,
     mll: gpy.mlls.MarginalLogLikelihood,
+    test_x: Optional[torch.Tensor] = None,
+    test_y: Optional[torch.Tensor] = None,
+
 ):
     """Fit a Tree GP.
 
@@ -144,8 +154,22 @@ def fit_tree_gp(
     model.train()
     model.likelihood.train()
 
-    for i in range(10):
-        fit_forest(x, y, model, mll)
-        fit_gp(x, y, model, mll)
+    logging = not (test_x is None or test_y is None)
+    def log_test_loss():
+        if logging:
+            model.eval()
+            pred_dist = model.likelihood(model(test_x))
+            logger.log(test_loss=gpy.metrics.negative_log_predictive_density(pred_dist, test_y).item())
+            model.train()
 
-        print(timer)
+    log_test_loss()
+
+    for i in range(N_ITERS):
+        fit_gp(x, y, model, mll)
+        log_test_loss()
+
+        fit_forest(x, y, model, mll)
+        log_test_loss()
+
+    fig, ax = plot_loss_logs(logger, "min_loss", "train_step", "test_loss")
+    fig.savefig("figs/alternating_training.png")

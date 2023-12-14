@@ -9,7 +9,7 @@ from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.benchmarks import rescaled_branin
 
 torch.manual_seed(42)
-N_train = 50
+N_train = 10
 x = torch.rand((N_train, 2)) 
 f = rescaled_branin(x)
 
@@ -18,9 +18,9 @@ y = f + torch.randn_like(f) * 0.2**0.5
 
 likelihood = gpy.likelihoods.GaussianLikelihood()
 forest = AlfalfaForest(depth=2, num_trees=10)
+forest.initialise_forest([0, 0])
 gp = AFGP(x, y, likelihood, forest)
 
-# mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, gp)
 mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, gp)
 
 output = gp(x)
@@ -28,13 +28,18 @@ output = gp(x)
 loss = -mll(output, y)
 print(f"Initial loss={loss}")
 
-fit_tree_gp(x, y, gp, mll)
+
+test_x = torch.rand((50, 2)) 
+test_f = rescaled_branin(test_x)
+test_y = test_f + torch.randn_like(test_f) * 0.2**0.5
+
+fit_tree_gp(x, y, gp, mll, test_x, test_y)
 
 output = gp(x)
 loss = -mll(output, y)
 print(f"Final loss={loss}")
 gp.eval()
-torch.save(gp.state_dict(), "models/branin_alternating_forest_new.pt")
+torch.save(gp.state_dict(), "models/branin_alternating_forest_.pt")
 test_x = torch.meshgrid(torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij")
 plot_gp_2d(gp, likelihood, x, y, test_x, target=rescaled_branin)
 plt.show()
