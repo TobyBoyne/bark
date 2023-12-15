@@ -9,7 +9,7 @@ from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.benchmarks import rescaled_branin
 
 torch.manual_seed(42)
-N_train = 10
+N_train = 50
 x = torch.rand((N_train, 2)) 
 f = rescaled_branin(x)
 
@@ -17,7 +17,7 @@ y = f + torch.randn_like(f) * 0.2**0.5
 
 
 likelihood = gpy.likelihoods.GaussianLikelihood()
-forest = AlfalfaForest(depth=2, num_trees=10)
+forest = AlfalfaForest(depth=3, num_trees=10)
 forest.initialise_forest([0, 0])
 gp = AFGP(x, y, likelihood, forest)
 

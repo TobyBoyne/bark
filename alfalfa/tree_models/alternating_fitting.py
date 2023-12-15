@@ -9,9 +9,9 @@ from .tree_kernels import ATGP, AFGP, AlfalfaGP
 from ..utils.logger import Timer, Logger
 from ..utils.plots import plot_loss_logs
 
-N_ITERS = 3
+N_ITERS = 2
 N_TREE_PER_ITER = 3
-N_GP_PER_ITER = 10
+N_GP_PER_ITER = 20
 
 timer = Timer()
 logger = Logger()
@@ -55,7 +55,12 @@ def _fit_decision_node(
         else:
             # var = torch.sort(var).values
             var = x[in_node, var_idx]
-            for t in var[::2]:
+            # check the pairwise mean values
+            thresholds = (var[:-1] + var[1:]) / 2
+            thresholds = torch.concatenate((
+                torch.tensor([-torch.inf]), thresholds
+            ))
+            for t in thresholds[::2]:
                 node.threshold = t
                 output = model(x)
 

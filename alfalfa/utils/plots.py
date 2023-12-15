@@ -6,32 +6,32 @@ from typing import Callable
 
 from .logger import Logger
 
-def plot_gp_1d(model: gpy.kernels.Kernel, likelihood: gpy.likelihoods.Likelihood, 
-            train_x, train_y):
+def plot_gp_1d(model: gpy.models.ExactGP, likelihood: gpy.likelihoods.Likelihood, 
+            train_x, train_y, test_x, target: Callable):
     with torch.no_grad():
 
         # predictions
-        test_x = torch.linspace(0, 1, 500)
         observed_pred = likelihood(model(test_x))
 
         # Initialize plot
-        fig, ax = plt.subplots(1, 1, figsize=(4, 3))
+        fig, ax = plt.subplots()
 
         # Get upper and lower confidence bounds
         lower, upper = observed_pred.confidence_region()
         # Plot training data as black stars
-        ax.plot(train_x.numpy(), train_y.numpy(), 'k*')
+        ax.plot(train_x.numpy(), train_y.numpy(), 'k*', label="test points")
         # Plot predictive means as blue line
-        ax.plot(test_x.numpy(), observed_pred.mean.numpy(), 'b')
+        ax.plot(test_x.flatten().numpy(), observed_pred.mean.numpy(), 'b', label="predictive mean")
         # Shade between the lower and upper confidence bounds
-        ax.fill_between(test_x.numpy(), lower.numpy(), upper.numpy(), alpha=0.5)
-        ax.set_ylim([-3, 3])
-        ax.legend(['Observed Data', 'Mean', 'Confidence'])
+        ax.fill_between(test_x.flatten().numpy(), lower.numpy(), upper.numpy(), alpha=0.5)
 
-    return ax
+        ax.plot(test_x.flatten().numpy(), target(test_x), label="target function")
+    ax.legend()
+
+    return fig, ax
 
 
-def plot_gp_2d(model: gpy.kernels.Kernel, likelihood: gpy.likelihoods.Likelihood, 
+def plot_gp_2d(model: gpy.models.ExactGP, likelihood: gpy.likelihoods.Likelihood, 
             train_x, train_y, test_X, target: Callable):
     """Plot a GP with two input dimensions."""
     fig, axs = plt.subplots(ncols=3, figsize=(8, 3))    
@@ -59,6 +59,15 @@ def plot_gp_2d(model: gpy.kernels.Kernel, likelihood: gpy.likelihoods.Likelihood
         axs[1].set_title("Variance")
         axs[2].set_title(f"UCB ($\kappa={k}$)")
     return fig, axs
+
+def plot_covar_matrix(model: gpy.models.ExactGP, test_x):
+    with torch.no_grad():
+        fig, ax = plt.subplots()
+
+        cov = model.covar_module(test_x).evaluate().numpy()
+        ax.imshow(cov, interpolation="nearest")
+    return fig, ax
+
 
 def plot_loss_logs(logger: Logger, loss_key: str, step_key: str, test_loss_key: str):
     loss = np.array(logger[loss_key])

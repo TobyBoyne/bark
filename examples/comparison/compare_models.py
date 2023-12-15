@@ -33,7 +33,7 @@ f = rescaled_branin(x)
 noise_var = 0.2
 y = f + torch.randn_like(f) * noise_var ** 0.5
 
-test_x = torch.meshgrid(torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij")
+test_x = torch.meshgrid(torch.linspace(0, 1, 25), torch.linspace(0, 1, 25), indexing="ij")
 
 test_X1, test_X2 = test_x
 test_y = rescaled_branin(torch.stack((test_X1.flatten(), test_X2.flatten()), dim=1))
@@ -42,7 +42,7 @@ test_y = rescaled_branin(torch.stack((test_X1.flatten(), test_X2.flatten()), dim
 models = (
     ("RBF", "models/branin_rbf_gp.pt", _get_rbf_gp),
     ("Leaf-GP", "models/branin_leaf_gp.pt", _get_forest_gp),
-    ("AF", "models/branin_alternating_forest.pt", _get_forest_gp),
+    ("AF", "models/branin_alternating_forest_.pt", _get_forest_gp),
 )
 
 for name, path, model_fn in models:
@@ -50,7 +50,6 @@ for name, path, model_fn in models:
     mll = gpy.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
     output = model(x)
     loss = -mll(output, y)
-    print(f"{name} loss={loss:.3f}")
 
     model.eval()
     fig, ax = plot_gp_2d(model, model.likelihood, x, y, test_x, target=rescaled_branin)
