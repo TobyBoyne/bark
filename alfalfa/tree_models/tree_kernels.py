@@ -59,7 +59,8 @@ class AFGP(AlfalfaGP):
         self.mean_module = gpy.means.ZeroMean()
 
         forest_kernel = AlfalfaForestKernel(forest_model)
-        self.covar_module = gpy.kernels.ScaleKernel(forest_kernel)
+        self.covar_module = gpy.kernels.ScaleKernel(forest_kernel,
+            outputscale_constraint=gpy.constraints.Interval(0.2, 2.0))
 
     @property
     def forest(self):

@@ -17,14 +17,13 @@ y = f + torch.randn_like(f) * 0.2**0.5
 
 
 likelihood = gpy.likelihoods.GaussianLikelihood()
-forest = AlfalfaForest(depth=3, num_trees=10)
+forest = AlfalfaForest(depth=2, num_trees=20)
 forest.initialise_forest([0, 0])
 gp = AFGP(x, y, likelihood, forest)
 
 mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, gp)
 
 output = gp(x)
-# Calc loss and backprop gradients
 loss = -mll(output, y)
 print(f"Initial loss={loss}")
 
@@ -33,7 +32,7 @@ test_x = torch.rand((50, 2))
 test_f = rescaled_branin(test_x)
 test_y = test_f + torch.randn_like(test_f) * 0.2**0.5
 
-fit_tree_gp(x, y, gp, mll, test_x, test_y)
+fit_tree_gp(x, y, gp, mll, test_x=test_x, test_y=test_y)
 
 output = gp(x)
 loss = -mll(output, y)
