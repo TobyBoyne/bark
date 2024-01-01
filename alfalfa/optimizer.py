@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from .leaf_gp.optimizer_utils import \
     get_opt_core, add_gbm_to_opt_model, get_opt_core_copy, label_leaf_index
-from .leaf_gp.model_utils import Space
+from .leaf_gp.space import Space
 from .leaf_gp.gbm_model import GbmModel
 from .tree_models.tree_kernels import AlfalfaGP
 

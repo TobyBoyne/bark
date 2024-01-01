@@ -1,13 +1,14 @@
 import numpy as np
 import torch
 import gpytorch as gpy
+import lightgbm as lgb
 
-from alfalfa.leaf_gp.helper import set_rnd_states
 from alfalfa.leaf_gp.bb_func_utils import get_func
 from alfalfa import AlfalfaForest
 from alfalfa.tree_models.tree_kernels import AFGP
 from alfalfa.optimizer import get_global_sol, build_opt_model
 from alfalfa.leaf_gp.gbm_model import GbmModel
+from alfalfa.tree_models.lgbm_tree import lgbm_to_alfalfa_forest
 
 
 from argparse import ArgumentParser
@@ -21,7 +22,8 @@ parser.add_argument("-has-larger-model", action='store_true')
 args = parser.parse_args()
 
 # set random seeds for reproducibility
-set_rnd_states(args)
+np.random.seed(args.rnd_seed)
+torch.manual_seed((args.rnd_seed))
 
 # load black-box function to evaluate
 bb_func = get_func(args.bb_func)
@@ -35,8 +37,7 @@ init_data = bb_func.get_init_data(args.num_init, args.rnd_seed)
 X, y = init_data['X'], init_data['y']
 
 print(f"* * * initial data targets:")
-for yi in y:
-    print(f"  val: {round(yi, 4)}")
+print("\n".join(f"  val: {yi:.4f}" for yi in y))
 
 # add model_core with constraints if problem has constraints
 if bb_func.has_constr():
@@ -57,25 +58,22 @@ else:
 # main bo loop
 print(f"\n* * * start bo loop...")
 for itr in range(args.num_itr):
-
-    # prepare and train model
-    # model = LeafGP(bb_func.get_space(),
-    #                kappa=1.96,
-    #                model_core=model_core,
-    #                random_state=args.rnd_seed,
-    #                tree_params=tree_params,
-    #                solver_type=args.solver_type)
-
     X_train, y_train = np.asarray(X), np.asarray(y)
 
-    tree_model = AlfalfaForest(depth=2, num_trees=2)
-    tree_model.initialise_forest([0]*6)
+    
+    tree_model = lgb.train(
+        {"max_depth": 3, "min_data_in_leaf": 1, "verbose": -1},
+        lgb.Dataset(X_train, y_train, params={'verbose': -1}),
+        num_boost_round=50
+    )
+    forest = lgbm_to_alfalfa_forest(tree_model)
+    forest.initialise_forest([0]*6, randomise=False)
 
     likelihood = gpy.likelihoods.GaussianLikelihood()
-    tree_gp = AFGP(torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, tree_model)
+    tree_gp = AFGP(torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest)
 
     # get new proposal and evaluate bb_func
-    gbm_model = GbmModel(tree_model)
+    gbm_model = GbmModel(forest)
     opt_model = build_opt_model(bb_func.get_space(), gbm_model, tree_gp, 1.96)
     var_bnds, next_x, curr_mean, curr_var = get_global_sol(
         bb_func.get_space(), opt_model, gbm_model

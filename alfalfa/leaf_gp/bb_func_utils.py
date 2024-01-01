@@ -72,7 +72,7 @@ class SynFunc:
                 x[idx] = round(x[idx])
 
     def get_space(self):
-        from .model_utils import Space
+        from .space import Space
         return Space(self.get_bounds(), int_idx=self.int_idx)
 
     def get_skopt_space(self):
