@@ -2,8 +2,9 @@
 
 import collections as coll
 import numpy as np
-import sys
-import functools
+import torch
+
+from ..tree_models.forest import AlfalfaForest, AlfalfaTree, Node, Leaf
 
 class GbmModel:
     """Define a gbm model.
@@ -24,65 +25,26 @@ class GbmModel:
     -
 
     """
-    def __init__(self, tree_list):
-        self.load_ordered_tree_dict(tree_list)
+    def __init__(self, forest: AlfalfaForest):
+        self.load_forest(forest)
 
-    def _build_tree(self, tree):
-        """Define `GbmNode` based on single tree.
-
-        Parameters
-        ----------
-        trees : list of dicts,
-            Specifies list of node dicts
-        n_trees : number of trees in `tree_list`
-
-        Returns
-        -------
-        gbm_node : GbmNode
-        """
-        node = tree.pop(0)
-        split_var = node['split_var']
-        split_code_pred = node['split_code_pred']
+    def _build_tree(self, tree: AlfalfaTree) -> "GbmNode":
+        node = tree.root
+        split_var = node.var_idx
+        split_code_pred = node.threshold
 
         return GbmNode(
             split_var=split_var,
             split_code_pred=split_code_pred,
-            tree=tree
+            node=node
         )
 
-    def load_ordered_tree_dict(self, tree_list):
-        """Define attributes used in `GbmModel`.
+    def load_forest(self, forest: AlfalfaForest):
+        self.n_trees = len(forest.trees)
 
-        Parameters
-        ----------
-        tree_list : list of trees,
-            Specifies list of trees which contain list of node dicts
-
-        Returns
-        -------
-        -
-        """
-        self.n_trees = 0
-
-        # assign leaf ids
-        leaf_id = 0
-        for tree_id, tree in enumerate(tree_list):
-            for node in tree:
-                if node['split_var'] == -1:
-                    node['leaf_id'] = leaf_id
-                    leaf_id += 1
-
-        self.n_leaves = leaf_id
-
-        # build trees
-        self.trees = []
-
-        for tree in tree_list:
-            if tree[0]['split_var'] == -1:
-                continue
-            else:
-                self.n_trees += 1
-                self.trees.append(self._build_tree(tree))
+        self.trees = [
+            self._build_tree(tree) for tree in forest.trees
+        ]
 
     def get_leaf_encodings(self, tree):
         yield from self.trees[tree].get_leaf_encodings()
@@ -226,6 +188,26 @@ class GbmModel:
                 return all_active_splits, hyper_vol
             else:
                 return all_active_splits
+            
+    def get_active_leaf_vars(self, X, model, gbm_label):
+        # get active leaves for X
+        act_leaves_x = np.asarray(
+            [self.get_active_leaves(x) for x in X]
+        )
+
+        # generate active_leave_vars
+        act_leaf_vars = []
+        for data_id, data_enc in enumerate(act_leaves_x):
+            temp_lhs = 0
+            for tree_id, leaf_enc in enumerate(data_enc):
+                temp_lhs += model._z_l[gbm_label, tree_id, leaf_enc]
+
+            temp_lhs *= 1 / len(data_enc)
+
+            act_leaf_vars.append(temp_lhs)
+
+        act_leaf_vars = np.asarray(act_leaf_vars)
+        return act_leaf_vars
 
 
 class GbmType:
@@ -327,56 +309,50 @@ class GbmNode(GbmType):
     """
     def __init__(
         self,
-        split_var,
-        split_code_pred,
-        tree
+        split_var: torch.Tensor,
+        split_code_pred: torch.Tensor,
+        node: Node
     ):
-        self.split_var = split_var
-        self.split_code_pred = split_code_pred
+        self.split_var = split_var.item()
+        # TODO: handle cat vars!
+        self.split_code_pred = split_code_pred.item()
 
         # check if tree is empty
-        if not tree:
-            print("EmptyTreeModelError: LightGBM was not able to train a "
-            "tree model based on your parameter specifications. This can "
-            "usually be fixed by increasing the number of `n_initial_points` or "
-            "reducing `min_child_samples` via `base_estimator_kwargs` (default "
-            "is 2). Alternatively, change `acq_optimizer='sampling'`.")
-            import sys
-            sys.exit(1)
+        # if not tree:
+        #     print("EmptyTreeModelError: LightGBM was not able to train a "
+        #     "tree model based on your parameter specifications. This can "
+        #     "usually be fixed by increasing the number of `n_initial_points` or "
+        #     "reducing `min_child_samples` via `base_estimator_kwargs` (default "
+        #     "is 2). Alternatively, change `acq_optimizer='sampling'`.")
+        #     import sys
+        #     sys.exit(1)
 
-        # read left node
-        node = tree.pop(0)
-        split_var = node['split_var']
-        split_code_pred = node['split_code_pred']
-
-        # split_var value of -1 refers to leaf node
-        if split_var == -1:
+        #TODO: check whether split_code_pred has any impact
+        child = node.left
+        if isinstance(child, Leaf):
             self.left = LeafNode(
-                split_code_pred = split_code_pred,
-                leaf_id = node['leaf_id']
+                split_code_pred = 0.0,
+                leaf_id = child.leaf_id
             )
         else:
             self.left = GbmNode(
-                split_var = split_var,
-                split_code_pred = split_code_pred,
-                tree = tree
+                split_var = child.var_idx,
+                split_code_pred = child.threshold,
+                node = child
             )
 
         # read right node
-        node = tree.pop(0)
-        split_var = node['split_var']
-        split_code_pred = node['split_code_pred']
-
-        if split_var == -1:
+        child = node.right
+        if isinstance(child, Leaf):
             self.right = LeafNode(
-                split_code_pred=split_code_pred,
-                leaf_id=node['leaf_id']
+                split_code_pred = 0.0,
+                leaf_id = child.leaf_id
             )
         else:
             self.right = GbmNode(
-                split_var=split_var,
-                split_code_pred=split_code_pred,
-                tree=tree
+                split_var = child.var_idx,
+                split_code_pred = child.threshold,
+                node = child
             )
 
     def __repr__(self):
