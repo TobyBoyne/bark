@@ -37,7 +37,8 @@ def all_threshold_values(var: torch.Tensor):
     # if not var.numel():
     #     return []
     midpoints = (var[:-1] + var[1:]) / 2
-    thresholds = midpoints
+    # thresholds = midpoints
+    thresholds = var
     # thresholds = torch.linspace(var.min(), var.max(), var.shape[0])
     # thresholds = torch.concatenate((
     #     torch.tensor([-torch.inf]), thresholds

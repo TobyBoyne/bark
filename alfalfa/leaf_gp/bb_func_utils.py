@@ -230,7 +230,7 @@ class Himmelblau1D(SynFunc):
         f = (x[0]**2 - 0.5) ** 2
         # output should be N(f_bar; 0, 1)
         f_bar = (f - 7/60) * np.sqrt(525/4)
-        return f_bar
+        return f_bar * np.sin(28.0 * x[0])
     
     def get_bounds(self):
         return [[0.0, 1.0]]

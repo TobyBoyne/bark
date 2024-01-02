@@ -1,6 +1,9 @@
 """Logging helpers for analysing bottlenecks - not a part of public API."""
 from time import perf_counter
 from collections import defaultdict
+import numpy as np
+from matplotlib.axes import Axes
+from typing import Callable
 
 class Timer:
     """Context manager for timing function calls."""
@@ -39,3 +42,38 @@ class Logger:
 
     def __getitem__(self, key):
         return self.logs[key]
+    
+
+class BOLogger(Logger):
+    """Logger for recording Bayesian Optimisation performance"""
+    def __init__(self, initial_train_x, initial_train_y, target: Callable):
+        self.num_initial = len(initial_train_x)
+        self.target = target
+        super().__init__()
+        for x, y in zip(initial_train_x, initial_train_y):
+            self.log(xs=x, ys=y)
+
+    def log_bo_step(self, *, gp_mean, gp_confidence, new_train_x, new_train_y):
+        super().log(gp_mean=gp_mean, gp_confidence=gp_confidence, xs=new_train_x, ys=new_train_y)
+
+    @property
+    def num_bo_steps(self):
+        return len(self["gp_mean"])
+    
+    @property
+    def running_best_eval(self):
+        return np.minimum.accumulate(self["ys"])
+    
+    def plot_bo_step(self, ax: Axes, step_idx: int, test_x: np.ndarray):
+        ylim = ax.get_ylim()
+        ax.clear()
+        i = step_idx + self.num_initial
+        lower, upper = self["gp_confidence"][step_idx]
+
+        scat = ax.scatter(self["xs"][:i], self["ys"][:i], marker="x", color="black")
+        l, = ax.plot(test_x, self["gp_mean"][step_idx], color="b", label="GP Prediction")
+        fill = ax.fill_between(test_x, lower, upper, alpha=0.5, color="C0")
+        l_target, = ax.plot(test_x, self.target(test_x), color="C1", label="Target")
+        ax.set_ylim(ylim)
+        ax.legend()
+        return [scat, l, fill, l_target]
