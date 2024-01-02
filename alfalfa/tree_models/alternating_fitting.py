@@ -39,9 +39,9 @@ def all_threshold_values(var: torch.Tensor):
     midpoints = (var[:-1] + var[1:]) / 2
     thresholds = midpoints
     # thresholds = torch.linspace(var.min(), var.max(), var.shape[0])
-    thresholds = torch.concatenate((
-        torch.tensor([-torch.inf]), thresholds
-    ))
+    # thresholds = torch.concatenate((
+    #     torch.tensor([-torch.inf]), thresholds
+    # ))
     return thresholds[::2]
 
 
@@ -204,5 +204,5 @@ def fit_tree_gp(
         fit_forest(x, y, model, mll, train_params)
         log_test_loss()
 
-    fig, ax = plot_loss_logs(logger, "min_loss", "train_step", "test_loss")
-    fig.savefig("figs/alternating_training.png")
+    # fig, ax = plot_loss_logs(logger, "min_loss", "train_step", "test_loss")
+    # fig.savefig("figs/alternating_training.png")

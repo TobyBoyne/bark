@@ -69,7 +69,7 @@ class Node(torch.nn.Module):
     def initialise_tree(self, var_is_cat, var_dists: list[torch.distributions.Distribution], randomise: bool):
         self.var_is_cat = var_is_cat
         if randomise:
-            self.var_idx = torch.randint(len(var_is_cat), ())
+            self.var_idx = torch.randint(len(var_is_cat), ()).item()
             self.threshold = var_dists[self.var_idx].sample()
 
         self.left.initialise_tree(var_is_cat, var_dists, randomise)

@@ -3,8 +3,18 @@ from .optimizer_utils import conv2list
 
 def get_func(bb_name):
     # local vs. global acquisition optimization
+    # syn_func = {
+    #     "hartmann6d": Hartmann6D,
+    # }.get(bb_name)
+
+    # if syn_func is None:
+    #     raise KeyError(f"'{bb_name}' is not a valid 'bb_name'!")
+    
+    # return syn_func()
     if bb_name == 'hartmann6d':
         return Hartmann6D()
+    elif bb_name == "himmelblau1d":
+        return Himmelblau1D()
     elif bb_name == 'rastrigin':
         return Rastrigin()
     elif bb_name == 'styblinski_tang':
@@ -104,7 +114,7 @@ class SynFunc:
         else:
             # define model core
             space = self.get_space()
-            from leaf_gp.optimizer_utils import get_opt_core
+            from .optimizer_utils import get_opt_core
             model_core = get_opt_core(space)
 
             # add equality constraints to model core
@@ -215,6 +225,15 @@ class SynFunc:
 
             return proj_x_vals
 
+class Himmelblau1D(SynFunc):
+    def __call__(self, x, **kwargs):
+        f = (x[0]**2 - 0.5) ** 2
+        # output should be N(f_bar; 0, 1)
+        f_bar = (f - 7/60) * np.sqrt(525/4)
+        return f_bar
+    
+    def get_bounds(self):
+        return [[0.0, 1.0]]
 
 class Hartmann6D(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/non_cons.py

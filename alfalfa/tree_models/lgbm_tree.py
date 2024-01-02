@@ -12,7 +12,7 @@ def lgbm_to_alfalfa_forest(tree_model: lgb.Booster):
         if "leaf_index" in node_dict:
             return Leaf()
         else:
-            var_idx = torch.tensor(node_dict["split_feature"])
+            var_idx = node_dict["split_feature"]
             threshold = torch.tensor(node_dict["threshold"])
             return Node(
                 var_idx=var_idx,

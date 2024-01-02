@@ -309,11 +309,11 @@ class GbmNode(GbmType):
     """
     def __init__(
         self,
-        split_var: torch.Tensor,
+        split_var: int,
         split_code_pred: torch.Tensor,
         node: Node
     ):
-        self.split_var = split_var.item()
+        self.split_var = split_var
         # TODO: handle cat vars!
         self.split_code_pred = split_code_pred.item()
 
