@@ -1,5 +1,6 @@
-from alfalfa import AlfalfaTree
-from alfalfa.tree_models.tree_kernels import ATGP
+from alfalfa import AlfalfaTree, AlfalfaForest
+from alfalfa.tree_models.tree_kernels import ATGP, AFGP
+from alfalfa.tree_models.forest import Node
 
 import math
 import torch
@@ -11,6 +12,7 @@ from matplotlib import pyplot as plt
 
 # Training data is 11 points in [0,1] inclusive regularly spaced
 train_x = torch.linspace(0, 1, 4)
+train_x = torch.tensor([0.0, 0.1, 0.3, 0.9])
 # True function is sin(2*pi*x) with Gaussian noise
 torch.manual_seed(42)
 train_y = torch.sin(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.2
@@ -37,15 +39,22 @@ warmup_steps = 3 if smoke_test else 96
 from gpytorch.priors import LogNormalPrior, NormalPrior, UniformPrior
 # Use a positive constraint instead of usual GreaterThan(1e-4) so that LogNormal has support over full range.
 likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=gpytorch.constraints.Positive())
-tree = AlfalfaTree(depth=2)
-tree.initialise_tree([0])
-model = ATGP(train_x, train_y, likelihood, tree)
-# tree.register_prior("lengthscale_prior", UniformPrior(0.01, 0.5), "lengthscale")
-tree.root.register_prior("root_prior", UniformPrior(0.0, 1.0), "threshold")
-model.covar_module.register_prior("outputscale_prior", UniformPrior(1, 2), "outputscale")
-likelihood.register_prior("noise_prior", UniformPrior(0.01, 0.5), "noise")
+# tree = AlfalfaTree(depth=2)
+# tree.initialise_tree([0])
+# model = ATGP(train_x, train_y, likelihood, tree)
+forest = AlfalfaForest(depth=2, num_trees=2)
+forest.initialise_forest([0])
+model = AFGP(train_x, train_y, likelihood, forest)
+for tree in forest.trees:
+    for node in tree.root.modules():
+        node: Node
+        if not node.is_leaf:
+            node.register_prior("threshold_prior", UniformPrior(0.0, 1.0), "threshold")
 
-mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+model.covar_module.register_prior("outputscale_prior", UniformPrior(1, 2), "outputscale")
+likelihood.register_prior("noise_prior", UniformPrior(0.01, 2.0), "noise")
+
+# mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
 def pyro_model(x, y):
     with gpytorch.settings.fast_computations(False, False, False):
@@ -60,7 +69,6 @@ mcmc_run.run(train_x, train_y)
 
 
 # --
-
 model.pyro_load_from_samples(mcmc_run.get_samples())
 
 model.eval()

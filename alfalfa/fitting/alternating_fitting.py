@@ -6,8 +6,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from typing import Optional
 
-from .forest import Node, AlfalfaTree
-from .tree_kernels import ATGP, AFGP, AlfalfaGP
+from ..tree_models.forest import Node, AlfalfaTree
+from ..tree_models.tree_kernels import ATGP, AFGP, AlfalfaGP
 from ..utils.logger import Timer, Logger
 from ..utils.plots import plot_loss_logs
 
@@ -168,7 +168,7 @@ def fit_gp(
         logger.log(min_loss=loss.item(), train_step="gp")
 
 
-def fit_tree_gp(
+def alternating_fit(
     x: torch.Tensor,
     y: torch.Tensor,
     model: AlfalfaGP,

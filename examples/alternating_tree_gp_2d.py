@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from alfalfa.tree_models.tree_kernels import ATGP, AFGP
 from alfalfa.tree_models.forest import AlfalfaForest
-from alfalfa.tree_models.alternating_fitting import fit_tree_gp
+from alfalfa.fitting import alternating_fit
 from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.benchmarks import rescaled_branin
 
@@ -32,7 +32,7 @@ test_x = torch.rand((50, 2))
 test_f = rescaled_branin(test_x)
 test_y = test_f + torch.randn_like(test_f) * 0.2**0.5
 
-fit_tree_gp(x, y, gp, mll, test_x=test_x, test_y=test_y)
+alternating_fit(x, y, gp, mll, test_x=test_x, test_y=test_y)
 
 output = gp(x)
 loss = -mll(output, y)

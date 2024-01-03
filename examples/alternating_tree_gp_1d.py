@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from alfalfa.tree_models.forest import AlfalfaForest
 from alfalfa.tree_models.tree_kernels import AFGP
-from alfalfa.tree_models.alternating_fitting import fit_tree_gp
+from alfalfa.fitting import alternating_fit
 from alfalfa.utils.plots import plot_gp_1d, plot_covar_matrix
 
 
@@ -36,7 +36,7 @@ output = gp(x)
 # Calc loss and backprop gradients
 loss = -mll(output, y)
 
-fit_tree_gp(x, y, gp, mll, test_x, test_y)
+alternating_fit(x, y, gp, mll, test_x, test_y)
 
 # randomise the forest again
 # forest.initialise_forest([0])

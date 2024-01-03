@@ -95,7 +95,6 @@ class Node(gpy.Module):
             )
         else:
             # continuous - check if value is less than threshold
-            #TODO: work out how to properly handle batching
             return torch.where(
                 var < self.threshold.unsqueeze(-1),
                 self.left(x),
@@ -245,11 +244,11 @@ class AlfalfaForest(gpy.Module):
             tree.initialise_tree(var_is_cat, train_X, randomise)
 
     def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
-        x1_leaves = torch.stack([tree.root(x1) for tree in self.trees], dim=1)
-        x2_leaves = torch.stack([tree.root(x2) for tree in self.trees], dim=1)
+        x1_leaves = torch.stack([tree.root(x1) for tree in self.trees], dim=-1)
+        x2_leaves = torch.stack([tree.root(x2) for tree in self.trees], dim=-1)
 
-        sim_mat = torch.eq(x1_leaves[:, None, :], x2_leaves[None, :, :])
-        sim_mat = 1 / len(self.trees) * torch.sum(sim_mat, dim=2)
+        sim_mat = torch.eq(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
+        sim_mat = 1 / len(self.trees) * torch.sum(sim_mat, dim=-1)
         return sim_mat
 
     def get_extra_state(self):
