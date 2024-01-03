@@ -1,4 +1,5 @@
 import torch
+import gpytorch as gpy
 from torch.distributions import Normal, Categorical
 from typing import Optional, Sequence
 from operator import attrgetter
@@ -19,7 +20,6 @@ def prune_tree_hook(module, incompatible_keys):
     This transforms any nodes that are missing data to leaves, effectively
     'pruning' branches of the tree. This function is to be used as a pre-hook
     for torch.load_state_dict, must be registered before loading the data."""
-    print("Yaha!", incompatible_keys.missing_keys)
     while incompatible_keys.missing_keys:
         key = incompatible_keys.missing_keys.pop()
         *parent_key, child, _ = key.split(".")
@@ -48,7 +48,7 @@ def Leaf():
     #     return isinstance(other, Leaf)
 
 
-class Node(torch.nn.Module):
+class Node(gpy.Module):
     def __init__(
         self,
         var_idx: Optional[int] = None,
@@ -82,9 +82,9 @@ class Node(torch.nn.Module):
 
     def forward(self, x):
         if self.is_leaf:
-            return self.node_id
+            return torch.tensor(self.node_id)
         
-        var = x[:, self.var_idx]
+        var = x[..., :, self.var_idx]
 
         if self.var_is_cat[self.var_idx]:
             # categorical - check if value is in subset
@@ -95,8 +95,9 @@ class Node(torch.nn.Module):
             )
         else:
             # continuous - check if value is less than threshold
+            #TODO: work out how to properly handle batching
             return torch.where(
-                var < self.threshold,
+                var < self.threshold.unsqueeze(-1),
                 self.left(x),
                 self.right(x),
             )
@@ -142,7 +143,6 @@ class Node(torch.nn.Module):
         return {"threshold": self.threshold, "var_idx": self.var_idx}
 
     def set_extra_state(self, state):
-        print(state)
         if not state:
             self.is_leaf = True
             return
@@ -163,7 +163,7 @@ class Node(torch.nn.Module):
         return False
 
 
-class AlfalfaTree(torch.nn.Module):
+class AlfalfaTree(gpy.Module):
     def __init__(self, depth=3, root: Optional[Node] = None):
         super().__init__()
         if root:
@@ -211,7 +211,7 @@ class AlfalfaTree(torch.nn.Module):
         x1_leaves = self.root(x1)
         x2_leaves = self.root(x2)
 
-        sim_mat = torch.eq(x1_leaves[:, None], x2_leaves[None, :]).float()
+        sim_mat = torch.eq(x1_leaves[..., :, None], x2_leaves[..., None, :]).float()
         return sim_mat
 
     def get_extra_state(self):
@@ -225,7 +225,7 @@ class AlfalfaTree(torch.nn.Module):
         return self.root.structure_eq(other.root)
 
 
-class AlfalfaForest(torch.nn.Module):
+class AlfalfaForest(gpy.Module):
     def __init__(
         self, depth=None, num_trees=None, trees: Optional[list[AlfalfaTree]] = None
     ):
