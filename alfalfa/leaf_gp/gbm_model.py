@@ -329,10 +329,10 @@ class GbmNode(GbmType):
 
         #TODO: check whether split_code_pred has any impact
         child = node.left
-        if child.is_leaf:
+        if isinstance(child, Leaf):
             self.left = LeafNode(
                 split_code_pred = 0.0,
-                leaf_id = child.node_id
+                leaf_id = child.leaf_id
             )
         else:
             self.left = GbmNode(
@@ -343,10 +343,10 @@ class GbmNode(GbmType):
 
         # read right node
         child = node.right
-        if child.is_leaf:
+        if isinstance(child, Leaf):
             self.right = LeafNode(
                 split_code_pred = 0.0,
-                leaf_id = child.node_id
+                leaf_id = child.leaf_id
             )
         else:
             self.right = GbmNode(

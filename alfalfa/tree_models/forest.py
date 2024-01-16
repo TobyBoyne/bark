@@ -5,13 +5,14 @@ from typing import Optional, Sequence
 from operator import attrgetter
 
 
-def _node_id_iter():
+def _leaf_id_iter():
     i = 0
     while True:
         yield i
         i += 1
 
-_node_id = _node_id_iter()
+
+_leaf_id = _leaf_id_iter()
 
 
 def prune_tree_hook(module, incompatible_keys):
@@ -20,58 +21,53 @@ def prune_tree_hook(module, incompatible_keys):
     This transforms any nodes that are missing data to leaves, effectively
     'pruning' branches of the tree. This function is to be used as a pre-hook
     for torch.load_state_dict, must be registered before loading the data."""
+
     while incompatible_keys.missing_keys:
         key = incompatible_keys.missing_keys.pop()
         *parent_key, child, _ = key.split(".")
         parent_node = attrgetter(".".join(parent_key))(module)
         setattr(parent_node, child, Leaf())
 
-def Leaf():
-    return Node()
 
-# class Leaf(torch.nn.Module):
-    # def __init__(self):
-    #     super().__init__()
-    #     self.leaf_id = next(_leaf_id)
-    #     self.child_leaves = torch.tensor([self.leaf_id])
+class Leaf(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.leaf_id = next(_leaf_id)
+        self.child_leaves = torch.tensor([self.leaf_id])
 
-    # def initialise_tree(self, *args):
-    #     pass
+    def initialise_tree(self, *args):
+        pass
 
-    # def forward(self, _x):
-    #     return torch.tensor(self.leaf_id)
+    def forward(self, _x):
+        return torch.tensor(self.leaf_id)
 
-    # def get_tree_height(self):
-    #     return 0
+    def get_tree_height(self):
+        return 0
 
-    # def structure_eq(self, other):
-    #     return isinstance(other, Leaf)
+    def structure_eq(self, other):
+        return isinstance(other, Leaf)
 
 
 class Node(gpy.Module):
     def __init__(
         self,
-        var_idx: Optional[int] = None,
-        threshold: Optional[torch.Tensor] = None,
+        var_idx=None,
+        threshold=None,
         left: Optional["Node"] = None,
         right: Optional["Node"] = None,
     ):
         super().__init__()
-        self.node_id = next(_node_id)
         self.var_idx = var_idx
         self.threshold = threshold
-        self.left = left
-        self.right = right
+        self.left = Leaf() if left is None else left
+        self.right = Leaf() if right is None else right
 
-        if (left is None) != (right is None):
-            raise ValueError("Either none or both children must be leaves.")
-        
-        self.is_leaf = torch.tensor(left is None, dtype=float)
+        self.child_leaves = torch.concat(
+            (self.left.child_leaves, self.right.child_leaves)
+        )
 
 
     def initialise_tree(self, var_is_cat, var_dists: list[torch.distributions.Distribution], randomise: bool):
-        if self.is_leaf:
-            return
         self.var_is_cat = var_is_cat
         if randomise:
             self.var_idx = torch.randint(len(var_is_cat), ()).item()
@@ -81,10 +77,7 @@ class Node(gpy.Module):
         self.right.initialise_tree(var_is_cat, var_dists, randomise)
 
     def forward(self, x):
-        if self.is_leaf:
-            return torch.tensor(self.node_id)
-        
-        var = x[..., :, self.var_idx]
+        var = x[:, self.var_idx]
 
         if self.var_is_cat[self.var_idx]:
             # categorical - check if value is in subset
@@ -111,50 +104,28 @@ class Node(gpy.Module):
             right = cls.create_of_depth(d - 1)
             return Node(left=left, right=right)
 
-    @property
-    def child_leaves(self):
-        if self.is_leaf:
-            return torch.tensor([self.node_id])
-        
-        return torch.concat(
-            (self.left.child_leaves, self.right.child_leaves)
-        )
-
-
     def contains_leaves(self, leaves: torch.tensor):
         return torch.isin(leaves, self.child_leaves)
 
     def get_tree_height(self):
-        if self.is_leaf:
-            return 0
         return 1 + max(self.left.get_tree_height(), self.right.get_tree_height())
 
     def extra_repr(self):
-        if self.is_leaf:
-            return ""
         if self.var_idx is None or self.threshold is None:
             return "(not initialised)"
         return f"(x_{self.var_idx}<{self.threshold:.3f})"
 
     def get_extra_state(self):
-        if self.is_leaf:
-            return {}
         return {"threshold": self.threshold, "var_idx": self.var_idx}
 
     def set_extra_state(self, state):
-        if not state:
-            self.is_leaf = True
-            return
         self.threshold = state["threshold"]
         self.var_idx = state["var_idx"]
 
     def structure_eq(self, other):
         if isinstance(other, Node):
-            if self.is_leaf and other.is_leaf:
-                return True
             return (
-                not self.is_leaf and not other.is_leaf
-                and self.threshold == other.threshold
+                self.threshold == other.threshold
                 and self.var_idx == other.var_idx
                 and self.left.structure_eq(other.left)
                 and self.right.structure_eq(other.right)
@@ -196,7 +167,7 @@ class AlfalfaTree(gpy.Module):
             nodes_by_depth[depth] = [*nodes]
             new_nodes = []
             for node in nodes:
-                if not node.is_leaf:
+                if not isinstance(node, Leaf):
                     new_nodes += [node.left, node.right]
             nodes = new_nodes
             depth += 1
