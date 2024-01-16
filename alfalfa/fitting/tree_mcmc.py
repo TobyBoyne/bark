@@ -10,8 +10,25 @@ from pyro.infer.mcmc import NUTS, MCMC, HMC
 from matplotlib import pyplot as plt
 from typing import Union, Optional
 
-from gpytorch.priors import LogNormalPrior, NormalPrior, UniformPrior
+from torch.nn import Module as TModule
+from torch.distributions import Bernoulli
+from gpytorch.priors import UniformPrior, Prior
 
+class BernoulliPrior(Prior, Bernoulli):
+    """Bernoulli prior.
+    """
+
+    def __init__(self, probs, validate_args=False, transform=None):
+        TModule.__init__(self)
+        Bernoulli.__init__(self, probs=probs, validate_args=validate_args)
+        self._transform = transform
+
+    def expand(self, batch_shape):
+        batch_shape = torch.Size(batch_shape)
+        return BernoulliPrior(self.probs.expand(batch_shape))
+
+    def __call__(self, *args, **kwargs):
+        return super(Bernoulli, self).__call__(*args, **kwargs)
 
 @dataclass
 class MCMCTrainParams:
@@ -20,7 +37,6 @@ class MCMCTrainParams:
 
 
 # Use a positive constraint instead of usual GreaterThan(1e-4) so that LogNormal has support over full range.
-# likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=gpytorch.constraints.Positive())
 
 def _apply_priors_to_tree_model(tree_model: Union[AlfalfaTree, AlfalfaForest]):
     if isinstance(tree_model, AlfalfaForest):
@@ -28,8 +44,15 @@ def _apply_priors_to_tree_model(tree_model: Union[AlfalfaTree, AlfalfaForest]):
             _apply_priors_to_tree_model(tree)
             return
 
-    for node in tree_model.root.modules():
-        if isinstance(node, Node) and not node.is_leaf:
+    # for node in tree_model.root.modules():
+    #     if isinstance(node, Node) and not node.is_leaf:
+    #         node.register_prior("is_leaf_prior", BernoulliPrior(0.1), "is_leaf")
+    #         node.register_prior("threshold_prior", UniformPrior(0.0, 1.0), "threshold")
+
+    # don't include the last layer, as this represents the maximum depth
+    for d in range(tree_model.depth):
+        for node in tree_model.nodes_by_depth[d]:
+            node.register_prior("is_leaf_prior", BernoulliPrior(0.1), "is_leaf")
             node.register_prior("threshold_prior", UniformPrior(0.0, 1.0), "threshold")
 
 def _apply_priors(model: AlfalfaGP):
@@ -69,28 +92,3 @@ def mcmc_fit(
 
     model.pyro_load_from_samples(mcmc_run.get_samples())
     return mcmc_run
-
-# model.eval()
-# test_x = torch.linspace(0, 1, 101).unsqueeze(-1)
-# test_y = torch.sin(test_x * (2 * math.pi))
-# expanded_test_x = test_x.unsqueeze(0).repeat(num_samples, 1, 1)
-# output = model(expanded_test_x)
-
-
-# with torch.no_grad():
-#     # Initialize plot
-#     f, ax = plt.subplots(1, 1, figsize=(4, 3))
-
-#     # Plot training data as black stars
-#     ax.plot(train_x.numpy(), train_y.numpy(), 'k*', zorder=10)
-
-#     for i in range(min(num_samples, 25)):
-#         # Plot predictive means as blue line
-#         ax.plot(test_x.numpy(), output.mean[i].detach().numpy(), 'b', linewidth=0.3)
-
-#     # Shade between the lower and upper confidence bounds
-#     # ax.fill_between(test_x.numpy(), lower.numpy(), upper.numpy(), alpha=0.5)
-#     ax.set_ylim([-3, 3])
-#     ax.legend(['Observed Data', 'Sampled Means'])
-
-# plt.show()

@@ -25,14 +25,14 @@ forest = AlfalfaForest(depth=2, num_trees=2)
 forest.initialise_forest([0])
 model = AFGP(train_x, train_y, likelihood, forest)
 
-num_samples = 100
+num_samples = 5
 mcmc_fit(train_x, train_y, model, 
-         train_params=MCMCTrainParams(num_samples=num_samples))
+         train_params=MCMCTrainParams(warmup_steps=num_samples, num_samples=num_samples))
 
 model.eval()
 test_x = torch.linspace(0, 1, 101).unsqueeze(-1)
 test_y = torch.sin(test_x * (2 * math.pi))
-expanded_test_x = test_x.unsqueeze(0).repeat(100, 1, 1)
+expanded_test_x = test_x.unsqueeze(0).repeat(num_samples, 1, 1)
 output = model(expanded_test_x)
 
 

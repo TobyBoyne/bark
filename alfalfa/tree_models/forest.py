@@ -66,7 +66,7 @@ class Node(gpy.Module):
         if (left is None) != (right is None):
             raise ValueError("Either none or both children must be leaves.")
         
-        self.is_leaf = left is None
+        self.is_leaf = torch.tensor(left is None, dtype=float)
 
 
     def initialise_tree(self, var_is_cat, var_dists: list[torch.distributions.Distribution], randomise: bool):
@@ -188,7 +188,7 @@ class AlfalfaTree(gpy.Module):
         self.root.initialise_tree(var_is_cat, dists, randomise)
 
 
-    def _get_nodes_by_depth(self):
+    def _get_nodes_by_depth(self) -> dict[int, list[Node]]:
         nodes = [self.root]
         nodes_by_depth = {}
         depth = 0

@@ -50,6 +50,7 @@ for tree in forest.trees:
         node: Node
         if not node.is_leaf:
             node.register_prior("threshold_prior", UniformPrior(0.0, 1.0), "threshold")
+            node.register_prior("threshold_prior", UniformPrior(0.0, 1.0), "threshold")
 
 model.covar_module.register_prior("outputscale_prior", UniformPrior(1, 2), "outputscale")
 likelihood.register_prior("noise_prior", UniformPrior(0.01, 2.0), "noise")
