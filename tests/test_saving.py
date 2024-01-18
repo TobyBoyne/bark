@@ -34,7 +34,7 @@ def test_saving_and_loading_afgp():
 
 def test_partial_tree():
     root = Node(
-        left=Node(), right=Node(left=Node(), right=Node())
+        right=Node()
     )
     tree = AlfalfaTree(root=root)
     print(tree)

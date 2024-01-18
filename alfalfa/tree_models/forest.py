@@ -70,16 +70,16 @@ class Node(gpy.Module):
     def initialise_tree(self, var_is_cat, var_dists: list[torch.distributions.Distribution], randomise: bool):
         self.var_is_cat = var_is_cat
         if randomise:
-            self.var_idx = torch.randint(len(var_is_cat), ()).item()
+            self.var_idx = torch.randint(len(var_is_cat), ())#.item()
             self.threshold = var_dists[self.var_idx].sample()
 
         self.left.initialise_tree(var_is_cat, var_dists, randomise)
         self.right.initialise_tree(var_is_cat, var_dists, randomise)
 
     def forward(self, x):
-        var = x[:, self.var_idx]
+        var = x[:, self.var_idx.item()]
 
-        if self.var_is_cat[self.var_idx]:
+        if self.var_is_cat[self.var_idx.item()]:
             # categorical - check if value is in subset
             return torch.where(
                 torch.isin(var, self.threshold),

@@ -53,7 +53,7 @@ def pyro_model(x, y):
         pyro.sample("obs", output, obs=y)
     return y
 
-nuts_kernel = NUTS(pyro_model)
+nuts_kernel = HMC(pyro_model)
 mcmc_run = MCMC(nuts_kernel, num_samples=num_samples, warmup_steps=warmup_steps, disable_progbar=smoke_test)
 mcmc_run.run(train_x, train_y)
 
