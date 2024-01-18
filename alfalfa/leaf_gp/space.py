@@ -43,3 +43,6 @@ class Space:
 
     def __str__(self):
         return str([str(d) for d in self.dims])
+    
+    def __len__(self):
+        return len(self.dims)

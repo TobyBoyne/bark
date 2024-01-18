@@ -1,18 +1,28 @@
 """Processes for mutating trees"""
 from alfalfa.tree_models.forest import Node, AlfalfaTree, Leaf
+from .tree_traversal import terminal_nodes, singly_internal_nodes
+from .data import Data
+from .params import BARTTrainParams
 import abc
 from typing import Literal
 import torch
 
-def propose_transition(tree: AlfalfaTree, probs: list[float]=None):
-    # return GrowTransition(tree, tree.root, "left")
-    return ChangeTransition(tree, tree.root, torch.tensor(0), torch.tensor(0.5))
+class TransitionSampler:
+    """Samples from possible transition steps"""
+    def __init__(self, tree: AlfalfaTree, params: BARTTrainParams):
+        self.tree = tree
+        self.params = params
+
+    def propose_transition(self, data: Data):
+        return ChangeTransition(self.tree, self.tree.root, torch.tensor(0), torch.tensor(0.5))
+
+
 
 class Transition(abc.ABC):
     """Context manager for proposed tree transition"""
     def __init__(self, tree: AlfalfaTree):
         self._apply_transition = False
-        self._tree = tree
+        self.tree = tree
 
     @abc.abstractmethod
     def _mutate(self):
@@ -45,28 +55,69 @@ class Transition(abc.ABC):
 
 
 class GrowTransition(Transition):
-    def __init__(self, tree: AlfalfaTree, parent_of_leaf: Node, child_direction: Literal["left", "right"]):
+    def __init__(self, tree: AlfalfaTree,
+                 data: Data,
+                 parent_of_leaf: Node, 
+                 child_direction: Literal["left", "right"],
+                 var_idx: torch.IntTensor, 
+                 threshold: torch.Tensor
+                 ):
         self.parent_of_leaf = parent_of_leaf
         self.child_direction = child_direction
         if child_direction not in ("left", "right"):
             raise ValueError("Child direction must be in ('left', 'right')")
-        super().__init__(tree)
+
+        self.new_var_idx = var_idx
+        self.new_threshold = threshold
+
+        super().__init__(tree, data)
 
     def _mutate(self):
-        new_node = Node()
-        setattr(self.parent_of_leaf, self.child_direction, new_node)
+        new_node = Node(var_idx=self.new_var_idx, threshold=self.new_threshold)
+        self.node = new_node
 
     def _mutate_inverse(self):
-        setattr(self.parent_of_leaf, self.child_direction, Leaf())
+        self.node = Leaf()
 
-    def q(self):
-        return 
+    @property
+    def node(self):
+        return getattr(self.parent_of_leaf, self.child_direction)
     
-    def q_inverse(self):
-        return
+    @node.setter
+    def node(self, value):
+        return setattr(self.parent_of_leaf, self.child_direction, value)
+
+    def log_q_ratio(self, data: Data):
+        b = len(terminal_nodes(self.tree))
+        x_index = data.get_x_index(self.tree, self.node)
+        
+        p_adj = len(data.valid_split_features(x_index))
+        n_adj = len(data.unique_split_values(x_index, self.new_var_idx))
+        with self:
+            w_star = len(singly_internal_nodes(self.tree))
+        
+        return torch.log(torch.tensor(b * p_adj * n_adj / w_star))
+    
+    def log_prior_ratio(self, alpha, beta, data: Data):
+        depth = self.node.depth
+
+        leaf: Leaf = getattr(self.parent_of_leaf, self.child_direction)
+        x_index = data.get_x_index(self.tree, leaf)
+
+        p_adj = len(data.valid_split_features(x_index))
+        n_adj = len(data.unique_split_values(x_index, self.new_var_idx))
+
+
+        return torch.log(alpha) + \
+            2 * torch.log(1 - alpha / torch.pow(2 + depth, beta)) + \
+            - torch.log(torch.pow(1 + depth) - alpha) + \
+            - torch.log(p_adj * n_adj)
+
+        
+
     
 class ChangeTransition(Transition):
-    def __init__(self, tree: AlfalfaTree, node: Node, var_idx: torch.Tensor[int], threshold: torch.Tensor[int]):
+    def __init__(self, tree: AlfalfaTree, node: Node, var_idx: torch.IntTensor, threshold: torch.IntTensor):
         self.node = node
         self.prev_var_idx = node.var_idx
         self.prev_threshold = node.threshold
