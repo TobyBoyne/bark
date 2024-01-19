@@ -40,8 +40,9 @@ def singly_internal_nodes(tree: AlfalfaTree):
 def assign_node_depth(tree: AlfalfaTree):
     def node_depth(node: Node, depth):
         node.depth = depth
-        node_depth(node.left, depth+1)
-        node_depth(node.right, depth+1)
+        if isinstance(node, Node):
+            node_depth(node.left, depth+1)
+            node_depth(node.right, depth+1)
 
     node_depth(tree.root, 0)
     

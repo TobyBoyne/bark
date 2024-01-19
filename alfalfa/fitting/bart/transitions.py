@@ -1,20 +1,20 @@
 """Processes for mutating trees"""
 from alfalfa.tree_models.forest import Node, AlfalfaTree, Leaf
+from ...tree_models.tree_kernels import AlfalfaGP
 from .tree_traversal import terminal_nodes, singly_internal_nodes
 from .data import Data
 from .params import BARTTrainParams
 import abc
 from typing import Literal
 import torch
+import gpytorch as gpy
 
-class TransitionSampler:
-    """Samples from possible transition steps"""
-    def __init__(self, tree: AlfalfaTree, params: BARTTrainParams):
-        self.tree = tree
-        self.params = params
 
-    def propose_transition(self, data: Data):
-        return ChangeTransition(self.tree, self.tree.root, torch.tensor(0), torch.tensor(0.5))
+def propose_transition(data: Data, tree: AlfalfaTree, params: BARTTrainParams) -> "Transition":
+    parent_of_leaf = tree.root.right
+    child_direction = "left"
+    return GrowTransition(tree, parent_of_leaf, child_direction, torch.tensor(0), torch.tensor(0.2))
+    return ChangeTransition(tree, tree.root, torch.tensor(0), torch.tensor(0.5))
 
 
 
@@ -32,15 +32,25 @@ class Transition(abc.ABC):
     def _mutate_inverse(self):
         pass
 
+    @abc.abstractmethod
     def log_q_ratio(self):
-        return self.log_q_inverse() - self.log_q()
+        pass
+    
+    def log_likelihood_ratio(self, model: AlfalfaGP):
+        mll = gpy.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
+        with self:
+            output = model(model.train_inputs[0])
+            likelihood_star = -mll(output, model.train_targets)
 
-    def log_q(self):
-        """The transition probability log q(T, T*)"""
-        raise NotImplementedError
+        output = model(model.train_inputs[0])
+        likelihood = -mll(output, model.train_targets)
 
-    def log_q_inverse(self):
-        raise NotImplementedError
+        return likelihood_star - likelihood
+
+
+    @abc.abstractmethod
+    def log_prior_ratio(self):
+        pass
 
     def __enter__(self):
         self._mutate()    
@@ -56,7 +66,6 @@ class Transition(abc.ABC):
 
 class GrowTransition(Transition):
     def __init__(self, tree: AlfalfaTree,
-                 data: Data,
                  parent_of_leaf: Node, 
                  child_direction: Literal["left", "right"],
                  var_idx: torch.IntTensor, 
@@ -70,7 +79,7 @@ class GrowTransition(Transition):
         self.new_var_idx = var_idx
         self.new_threshold = threshold
 
-        super().__init__(tree, data)
+        super().__init__(tree)
 
     def _mutate(self):
         new_node = Node(var_idx=self.new_var_idx, threshold=self.new_threshold)
@@ -98,7 +107,7 @@ class GrowTransition(Transition):
         
         return torch.log(torch.tensor(b * p_adj * n_adj / w_star))
     
-    def log_prior_ratio(self, alpha, beta, data: Data):
+    def log_prior_ratio(self, data: Data, alpha, beta):
         depth = self.node.depth
 
         leaf: Leaf = getattr(self.parent_of_leaf, self.child_direction)
