@@ -9,7 +9,7 @@ from alfalfa.tree_models.tree_kernels import AFGP
 from alfalfa.optimizer import get_global_sol, build_opt_model
 from alfalfa.leaf_gp.gbm_model import GbmModel
 from alfalfa.tree_models.lgbm_tree import lgbm_to_alfalfa_forest
-
+from alfalfa.leaf_gp.space import Space
 
 from argparse import ArgumentParser
 parser = ArgumentParser()
@@ -67,7 +67,7 @@ for itr in range(args.num_itr):
         num_boost_round=50
     )
     forest = lgbm_to_alfalfa_forest(tree_model)
-    forest.initialise_forest([0]*6, randomise=False)
+    forest.initialise(bb_func.get_space(), randomise=False)
     likelihood = gpy.likelihoods.GaussianLikelihood()
     tree_gp = AFGP(torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest)
 

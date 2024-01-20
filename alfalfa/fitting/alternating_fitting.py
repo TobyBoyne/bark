@@ -6,7 +6,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from typing import Optional
 
-from ..tree_models.forest import Node, AlfalfaTree
+from ..tree_models.forest import DecisionNode, AlfalfaTree
 from ..tree_models.tree_kernels import ATGP, AFGP, AlfalfaGP
 from ..utils.logger import Timer, Logger
 from ..utils.plots import plot_loss_logs
@@ -47,7 +47,7 @@ def all_threshold_values(var: torch.Tensor):
 
 
 def _fit_decision_node(
-    node: Node,
+    node: DecisionNode,
     tree: AlfalfaTree,
     x: torch.Tensor,
     y: torch.Tensor,

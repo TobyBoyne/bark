@@ -35,17 +35,13 @@ class AlfalfaNode(torch.nn.Module, abc.ABC):
     
     """
     def __init__(self):
+        super().__init__()
         self.depth: int = 0
         self.parent: Optional[AlfalfaNode] = None
-        self.tree: Optional[AlfalfaTree] = None
+        self.space: Optional[Space] = None
 
     def contains_leaves(self, leaves: torch.tensor):
         return torch.isin(leaves, self.child_leaves)
-    
-    @property
-    @abc.abstractmethod
-    def child_leaves(self):
-        pass
 
     @abc.abstractmethod
     def structure_eq(self, other):
@@ -53,6 +49,9 @@ class AlfalfaNode(torch.nn.Module, abc.ABC):
 
     def initialise(self):
         pass
+
+    def get_tree_height(self):
+        return 0
 
 class LeafNode(AlfalfaNode):
     def __init__(self):
@@ -76,34 +75,13 @@ class DecisionNode(AlfalfaNode):
         right: Optional["AlfalfaNode"] = None,
     ):
         super().__init__()
-        self.var_idx = var_idx
-        self.threshold = threshold
+        self.var_idx = None if var_idx is None else torch.as_tensor(var_idx)
+        self.threshold = None if threshold is None else torch.as_tensor(threshold)
         self.left = LeafNode() if left is None else left
         self.right = LeafNode() if right is None else right
 
+
     # Structural methods
-    @property
-    def left(self):
-        return self._left
-    
-    @left.setter
-    def left(self, node: AlfalfaNode):
-        node.depth = self.depth + 1
-        node.parent = self
-        node.tree = self.tree
-        self._left = node
-
-    @property
-    def right(self):
-        return self._right
-    
-    @right.setter
-    def right(self, node: AlfalfaNode):
-        node.depth = self.depth + 1
-        node.parent = self
-        node.tree = self.tree
-        self._right = node
-
     @property
     def child_leaves(self):
         return torch.concat(
@@ -112,20 +90,21 @@ class DecisionNode(AlfalfaNode):
 
     
     # Model methods
-    def initialise(self):
+    def initialise(self, space: Space, randomise, depth=0):
         """Sample from the decision node prior.
         
         TODO: This isn't quite the prior!"""
-        space = self.tree.space
-        self.var_idx = torch.randint(len(space))
+        space = self.space
+        self.depth = depth
+        self.var_idx = torch.randint(len(space), size=())
         self.threshold = torch.rand(())
-        self.left.initialise()
-        self.right.initialise()
+        self.left.initialise(space, randomise, depth+1)
+        self.right.initialise(space, randomise, depth+1)
 
     def forward(self, x):
         var = x[:, self.var_idx.item()]
 
-        if self.var_idx.item() in self.tree.space.cat_idx:
+        if self.var_idx.item() in self.space.cat_idx:
             # categorical - check if value is in subset
             return torch.where(
                 torch.isin(var, self.threshold),
@@ -185,16 +164,14 @@ class AlfalfaTree(gpy.Module):
         else:
             self.root = DecisionNode.create_of_height(height)
 
-        self.height = self.register_buffer("height", torch.tensor(height))
-
+        self.register_buffer("height", torch.tensor(height))
 
         self.nodes_by_depth = self._get_nodes_by_depth()
         self.space: Optional[Space] = None
 
     def initialise(self, space: Space, randomise=True):
-        self.space = Space
-        if randomise:
-            self.root.initialise()
+        self.space = space
+        self.root.initialise(space, randomise)
 
 
     def _get_nodes_by_depth(self) -> dict[int, list[AlfalfaNode]]:
@@ -224,22 +201,22 @@ class AlfalfaTree(gpy.Module):
 
 class AlfalfaForest(gpy.Module):
     def __init__(
-        self, depth=None, num_trees=None, trees: Optional[list[AlfalfaTree]] = None
+        self, height=None, num_trees=None, trees: Optional[list[AlfalfaTree]] = None
     ):
         super().__init__()
         self.trees: Sequence[AlfalfaTree]
         if trees:
             self.trees = torch.nn.ModuleList(trees)
-            self.depth = max(tree.depth for tree in trees)
+            self.height = height
         else:
             self.trees = torch.nn.ModuleList(
-                [AlfalfaTree(depth) for _ in range(num_trees)]
+                [AlfalfaTree(height) for _ in range(num_trees)]
             )
-            self.depth = depth
+            self.height = height
 
-    def initialise_forest(self, var_is_cat: list[bool], train_X: Optional[torch.Tensor] = None, randomise: bool = True):
+    def initialise(self, space: Space, randomise: bool = True):
         for tree in self.trees:
-            tree.initialise_tree(var_is_cat, train_X, randomise)
+            tree.initialise(space, randomise)
 
     def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
         x1_leaves = torch.stack([tree.root(x1) for tree in self.trees], dim=-1)

@@ -1,6 +1,6 @@
 from alfalfa import AlfalfaTree, AlfalfaForest
 from alfalfa.tree_models.tree_kernels import ATGP, AFGP, AlfalfaGP
-from alfalfa.tree_models.forest import Node
+from alfalfa.tree_models.forest import DecisionNode
 from dataclasses import dataclass
 import math
 import torch

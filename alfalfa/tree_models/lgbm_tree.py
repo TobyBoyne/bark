@@ -2,7 +2,7 @@
 import lightgbm as lgb
 import torch
 
-from .forest import Node, AlfalfaTree, Leaf, AlfalfaForest
+from .forest import DecisionNode, AlfalfaTree, LeafNode, AlfalfaForest
 
 
 def lgbm_to_alfalfa_forest(tree_model: lgb.Booster):
@@ -10,11 +10,11 @@ def lgbm_to_alfalfa_forest(tree_model: lgb.Booster):
 
     def get_subtree(node_dict):
         if "leaf_index" in node_dict:
-            return Leaf()
+            return LeafNode()
         else:
             var_idx = node_dict["split_feature"]
             threshold = torch.tensor(node_dict["threshold"])
-            return Node(
+            return DecisionNode(
                 var_idx=var_idx,
                 threshold=threshold,
                 left=get_subtree(node_dict["left_child"]),

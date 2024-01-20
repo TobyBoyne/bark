@@ -4,7 +4,8 @@ import collections as coll
 import numpy as np
 import torch
 
-from ..tree_models.forest import AlfalfaForest, AlfalfaTree, Node, Leaf
+from ..tree_models.forest import AlfalfaForest, AlfalfaTree, DecisionNode
+from ..tree_models.forest import LeafNode as AlfalfaLeafNode
 
 class GbmModel:
     """Define a gbm model.
@@ -311,9 +312,9 @@ class GbmNode(GbmType):
         self,
         split_var: int,
         split_code_pred: torch.Tensor,
-        node: Node
+        node: DecisionNode
     ):
-        self.split_var = split_var
+        self.split_var = split_var.item()
         # TODO: handle cat vars!
         self.split_code_pred = split_code_pred.item()
 
@@ -329,7 +330,7 @@ class GbmNode(GbmType):
 
         #TODO: check whether split_code_pred has any impact
         child = node.left
-        if isinstance(child, Leaf):
+        if isinstance(child, AlfalfaLeafNode):
             self.left = LeafNode(
                 split_code_pred = 0.0,
                 leaf_id = child.leaf_id
@@ -343,7 +344,7 @@ class GbmNode(GbmType):
 
         # read right node
         child = node.right
-        if isinstance(child, Leaf):
+        if isinstance(child, AlfalfaLeafNode):
             self.right = LeafNode(
                 split_code_pred = 0.0,
                 leaf_id = child.leaf_id
@@ -486,7 +487,7 @@ class LeafNode(GbmType):
         return ', '.join([
             str(x)
             for x in [
-                'Leaf',
+                'LeafNode',
                 self.split_code_pred]
         ])
 

@@ -1,5 +1,5 @@
 """Processes for mutating trees"""
-from alfalfa.tree_models.forest import Node, AlfalfaTree, Leaf
+from alfalfa.tree_models.forest import DecisionNode, AlfalfaTree, LeafNode
 from ...tree_models.tree_kernels import AlfalfaGP
 from .tree_traversal import terminal_nodes, singly_internal_nodes
 from .data import Data
@@ -66,7 +66,7 @@ class Transition(abc.ABC):
 
 class GrowTransition(Transition):
     def __init__(self, tree: AlfalfaTree,
-                 parent_of_leaf: Node, 
+                 parent_of_leaf: DecisionNode, 
                  child_direction: Literal["left", "right"],
                  var_idx: torch.IntTensor, 
                  threshold: torch.Tensor
@@ -82,11 +82,11 @@ class GrowTransition(Transition):
         super().__init__(tree)
 
     def _mutate(self):
-        new_node = Node(var_idx=self.new_var_idx, threshold=self.new_threshold)
+        new_node = DecisionNode(var_idx=self.new_var_idx, threshold=self.new_threshold)
         self.node = new_node
 
     def _mutate_inverse(self):
-        self.node = Leaf()
+        self.node = LeafNode()
 
     @property
     def node(self):
@@ -110,7 +110,7 @@ class GrowTransition(Transition):
     def log_prior_ratio(self, data: Data, alpha, beta):
         depth = self.node.depth
 
-        leaf: Leaf = getattr(self.parent_of_leaf, self.child_direction)
+        leaf: LeafNode = getattr(self.parent_of_leaf, self.child_direction)
         x_index = data.get_x_index(self.tree, leaf)
 
         p_adj = len(data.valid_split_features(x_index))
@@ -126,7 +126,7 @@ class GrowTransition(Transition):
 
     
 class ChangeTransition(Transition):
-    def __init__(self, tree: AlfalfaTree, node: Node, var_idx: torch.IntTensor, threshold: torch.IntTensor):
+    def __init__(self, tree: AlfalfaTree, node: DecisionNode, var_idx: torch.IntTensor, threshold: torch.IntTensor):
         self.node = node
         self.prev_var_idx = node.var_idx
         self.prev_threshold = node.threshold

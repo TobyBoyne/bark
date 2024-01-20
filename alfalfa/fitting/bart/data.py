@@ -1,7 +1,7 @@
 """Wrapper for data"""
 import torch
 from ...leaf_gp.space import Space
-from ...tree_models.forest import AlfalfaTree, Node
+from ...tree_models.forest import AlfalfaTree, DecisionNode
 
 
 
@@ -10,7 +10,7 @@ class Data:
         self.space = space
         self.X = X # (N, D)
 
-    def get_x_index(self, tree: AlfalfaTree, node: Node):
+    def get_x_index(self, tree: AlfalfaTree, node: DecisionNode):
         """Get the index of datapoints that pass through the given node"""
         active_leaves = tree.root(self.X)
         return torch.eq(active_leaves, node.child_leaves)
