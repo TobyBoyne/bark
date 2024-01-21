@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import gpytorch as gpy
 from torch.distributions import Normal, Categorical
 from typing import Optional, Sequence
@@ -17,20 +18,20 @@ def _leaf_id_iter():
 _leaf_id = _leaf_id_iter()
 
 
-def prune_tree_hook(module, incompatible_keys):
-    """Post hook for load_state_dict to handle missing nodes.
+# def prune_tree_hook(module, incompatible_keys):
+#     """Post hook for load_state_dict to handle missing nodes.
 
-    This transforms any nodes that are missing data to leaves, effectively
-    'pruning' branches of the tree. This function is to be used as a pre-hook
-    for torch.load_state_dict, must be registered before loading the data."""
+#     This transforms any nodes that are missing data to leaves, effectively
+#     'pruning' branches of the tree. This function is to be used as a pre-hook
+#     for torch.load_state_dict, must be registered before loading the data."""
 
-    while incompatible_keys.missing_keys:
-        key = incompatible_keys.missing_keys.pop()
-        *parent_key, child, _ = key.split(".")
-        parent_node = attrgetter(".".join(parent_key))(module)
-        setattr(parent_node, child, LeafNode())
+#     while incompatible_keys.missing_keys:
+#         key = incompatible_keys.missing_keys.pop()
+#         *parent_key, child, _ = key.split(".")
+#         parent_node = attrgetter(".".join(parent_key))(module)
+#         setattr(parent_node, child, LeafNode())
 
-class AlfalfaNode(torch.nn.Module, abc.ABC):
+class AlfalfaNode:
     """
     
     """
@@ -40,14 +41,19 @@ class AlfalfaNode(torch.nn.Module, abc.ABC):
         self.parent: Optional[AlfalfaNode] = None
         self.space: Optional[Space] = None
 
-    def contains_leaves(self, leaves: torch.tensor):
-        return torch.isin(leaves, self.child_leaves)
+    def contains_leaves(self, leaves: np.ndarray):
+        return np.isin(leaves, self.child_leaves)
 
     @abc.abstractmethod
     def structure_eq(self, other):
         pass
 
-    def initialise(self):
+    @property
+    @abc.abstractmethod
+    def child_leaves(self):
+        return []
+
+    def initialise(self, *args):
         pass
 
     def get_tree_height(self):
@@ -57,10 +63,13 @@ class LeafNode(AlfalfaNode):
     def __init__(self):
         super().__init__()
         self.leaf_id = next(_leaf_id)
-        self.child_leaves = torch.tensor([self.leaf_id])
 
-    def forward(self, _x):
-        return torch.tensor(self.leaf_id)
+    @property
+    def child_leaves(self):
+        return [self.leaf_id]
+
+    def __call__(self, _x):
+        return self.leaf_id
 
     def structure_eq(self, other):
         return isinstance(other, LeafNode)
@@ -84,9 +93,7 @@ class DecisionNode(AlfalfaNode):
     # Structural methods
     @property
     def child_leaves(self):
-        return torch.concat(
-            (self.left.child_leaves, self.right.child_leaves)
-        )
+        return self.left.child_leaves + self.right.child_leaves
 
     
     # Model methods
@@ -94,27 +101,27 @@ class DecisionNode(AlfalfaNode):
         """Sample from the decision node prior.
         
         TODO: This isn't quite the prior!"""
-        space = self.space
+        self.space = space
         self.depth = depth
-        self.var_idx = torch.randint(len(space), size=())
-        self.threshold = torch.rand(())
+        self.var_idx = np.random.randint(len(self.space))
+        self.threshold = np.random.rand()
         self.left.initialise(space, randomise, depth+1)
         self.right.initialise(space, randomise, depth+1)
 
-    def forward(self, x):
-        var = x[:, self.var_idx.item()]
+    def __call__(self, x):
+        var = x[:, self.var_idx]
 
-        if self.var_idx.item() in self.space.cat_idx:
+        if self.var_idx in self.space.cat_idx:
             # categorical - check if value is in subset
-            return torch.where(
-                torch.isin(var, self.threshold),
+            return np.where(
+                np.isin(var, self.threshold),
                 self.left(x),
                 self.right(x)
             )
         else:
             # continuous - check if value is less than threshold
-            return torch.where(
-                var < self.threshold.unsqueeze(-1),
+            return np.where(
+                var < self.threshold,
                 self.left(x),
                 self.right(x),
             )
@@ -132,17 +139,11 @@ class DecisionNode(AlfalfaNode):
     def get_tree_height(self):
         return 1 + max(self.left.get_tree_height(), self.right.get_tree_height())
 
-    def extra_repr(self):
-        if self.var_idx is None or self.threshold is None:
-            return "(not initialised)"
-        return f"(x_{self.var_idx}<{self.threshold:.3f})"
+    # def extra_repr(self):
+    #     if self.var_idx is None or self.threshold is None:
+    #         return "(not initialised)"
+    #     return f"(x_{self.var_idx}<{self.threshold:.3f})"
 
-    def get_extra_state(self):
-        return {"threshold": self.threshold, "var_idx": self.var_idx}
-
-    def set_extra_state(self, state):
-        self.threshold = state["threshold"]
-        self.var_idx = state["var_idx"]
 
     def structure_eq(self, other):
         if isinstance(other, DecisionNode):
@@ -155,16 +156,13 @@ class DecisionNode(AlfalfaNode):
         return False
 
 
-class AlfalfaTree(gpy.Module):
+class AlfalfaTree:
     def __init__(self, height=3, root: Optional[AlfalfaNode] = None):
-        super().__init__()
         if root is not None:
             self.root = root
-            height = root.get_tree_height()
+            # height = root.get_tree_height()
         else:
             self.root = DecisionNode.create_of_height(height)
-
-        self.register_buffer("height", torch.tensor(height))
 
         self.nodes_by_depth = self._get_nodes_by_depth()
         self.space: Optional[Space] = None
@@ -188,53 +186,48 @@ class AlfalfaTree(gpy.Module):
             depth += 1
         return nodes_by_depth
 
-    def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
+    def gram_matrix(self, x1: np.ndarray, x2: np.ndarray):
         x1_leaves = self.root(x1)
         x2_leaves = self.root(x2)
 
-        sim_mat = torch.eq(x1_leaves[..., :, None], x2_leaves[..., None, :]).float()
+        sim_mat = np.equal(x1_leaves[..., :, None], x2_leaves[..., None, :]).astype(float)
         return sim_mat
 
     def structure_eq(self, other: "AlfalfaTree"):
         return self.root.structure_eq(other.root)
 
 
-class AlfalfaForest(gpy.Module):
+class AlfalfaForest:
     def __init__(
         self, height=None, num_trees=None, trees: Optional[list[AlfalfaTree]] = None
     ):
-        super().__init__()
         self.trees: Sequence[AlfalfaTree]
         if trees:
-            self.trees = torch.nn.ModuleList(trees)
-            self.height = height
+            self.trees = trees
         else:
-            self.trees = torch.nn.ModuleList(
-                [AlfalfaTree(height) for _ in range(num_trees)]
-            )
-            self.height = height
+            self.trees = [AlfalfaTree(height) for _ in range(num_trees)]
 
     def initialise(self, space: Space, randomise: bool = True):
         for tree in self.trees:
             tree.initialise(space, randomise)
 
     def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
-        x1_leaves = torch.stack([tree.root(x1) for tree in self.trees], dim=-1)
-        x2_leaves = torch.stack([tree.root(x2) for tree in self.trees], dim=-1)
+        x1_leaves = np.stack([tree.root(x1) for tree in self.trees], axis=-1)
+        x2_leaves = np.stack([tree.root(x2) for tree in self.trees], axis=-1)
 
-        sim_mat = torch.eq(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
-        sim_mat = 1 / len(self.trees) * torch.sum(sim_mat, dim=-1)
+        sim_mat = np.equal(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
+        sim_mat = 1 / len(self.trees) * np.sum(sim_mat, axis=-1)
         return sim_mat
 
-    def get_extra_state(self):
-        return {"depth": self.depth, "num_trees": len(self.trees)}
+    # def get_extra_state(self):
+    #     return {"depth": self.depth, "num_trees": len(self.trees)}
 
-    def set_extra_state(self, state):
-        if self.depth != state["depth"]:
-            raise ValueError(f"Saved model has depth {state['depth']}.")
+    # def set_extra_state(self, state):
+    #     if self.depth != state["depth"]:
+    #         raise ValueError(f"Saved model has depth {state['depth']}.")
 
-        if len(self.trees) != state["num_trees"]:
-            raise ValueError(f"Saved model has {state['num_trees']} trees.")
+    #     if len(self.trees) != state["num_trees"]:
+    #         raise ValueError(f"Saved model has {state['num_trees']} trees.")
 
     def structure_eq(self, other: "AlfalfaForest"):
         return all(

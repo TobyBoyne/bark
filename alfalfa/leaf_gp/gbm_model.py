@@ -314,9 +314,9 @@ class GbmNode(GbmType):
         split_code_pred: torch.Tensor,
         node: DecisionNode
     ):
-        self.split_var = split_var.item()
+        self.split_var = split_var
         # TODO: handle cat vars!
-        self.split_code_pred = split_code_pred.item()
+        self.split_code_pred = split_code_pred
 
         # check if tree is empty
         # if not tree:

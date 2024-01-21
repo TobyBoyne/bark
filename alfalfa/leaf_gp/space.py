@@ -26,7 +26,7 @@ class Space:
                          if idx not in self.cat_idx and idx not in self.int_idx]
 
         # define dimensions
-        self.dims = []
+        self.dims: list[Dimension] = []
         for idx,b in enumerate(bnds):
             if idx in self.cont_idx:
                 self.dims.append(Dimension(b, 'conti'))

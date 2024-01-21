@@ -5,7 +5,7 @@ import lightgbm as lgb
 
 from alfalfa.leaf_gp.bb_func_utils import get_func
 from alfalfa import AlfalfaForest
-from alfalfa.tree_models.tree_kernels import AFGP
+from alfalfa.tree_models.tree_kernels import AlfalfaGP
 from alfalfa.optimizer import get_global_sol, build_opt_model
 from alfalfa.leaf_gp.gbm_model import GbmModel
 from alfalfa.tree_models.lgbm_tree import lgbm_to_alfalfa_forest
@@ -69,7 +69,7 @@ for itr in range(args.num_itr):
     forest = lgbm_to_alfalfa_forest(tree_model)
     forest.initialise(bb_func.get_space(), randomise=False)
     likelihood = gpy.likelihoods.GaussianLikelihood()
-    tree_gp = AFGP(torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest)
+    tree_gp = AlfalfaGP(torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest)
 
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)

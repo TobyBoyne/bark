@@ -6,8 +6,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from typing import Optional
 
-from ..tree_models.forest import DecisionNode, AlfalfaTree
-from ..tree_models.tree_kernels import ATGP, AFGP, AlfalfaGP
+from ..tree_models.forest import DecisionNode, AlfalfaTree, AlfalfaForest
+from ..tree_models.tree_kernels import AlfalfaGP
 from ..utils.logger import Timer, Logger
 from ..utils.plots import plot_loss_logs
 
@@ -61,11 +61,11 @@ def _fit_decision_node(
     min_loss_var_idx = node.var_idx
     min_loss_t = node.threshold
     min_loss = torch.tensor(torch.inf)
-    for var_idx, num_cats in enumerate(tree.var_is_cat):
+    for var_idx in range(len(tree.space)):
         node.var_idx = var_idx
-        if num_cats:
+        if var_idx in tree.space.cat_idx:
             # fit categorical variables
-            for comb in all_cat_combinations(num_cats):
+            for comb in all_cat_combinations(tree.space.dims[var_idx].bnds):
                 node.threshold = comb
                 output = model(x)
 
@@ -115,7 +115,7 @@ def fit_tree(
         # starting from the deepest decision nodes, iterate through every
         # layer of the tree, ending at the root
         for i in range(train_params.num_tree_per_iter):
-            for d in range(tree.depth - 1, -1, -1):
+            for d in range(max(tree.nodes_by_depth) - 1, -1, -1):
                 nodes = tree.nodes_by_depth[d]
                 for node in nodes:
                     _fit_decision_node(node, tree, x, y, model, mll, train_params)
@@ -129,11 +129,11 @@ def fit_forest(
     train_params: AlternatingTrainParams,
 ):
     """Fit a forest of decision trees using a GP marginal likelihood loss."""
-    if isinstance(model, ATGP):
-        tree = model.tree
+    if isinstance(model.tree_model, AlfalfaTree):
+        tree = model.tree_model
         fit_tree(tree, x, y, model, mll, train_params)
-    elif isinstance(model, AFGP):
-        for tree in model.forest.trees:
+    elif isinstance(model.tree_model, AlfalfaForest):
+        for tree in model.tree_model.trees:
             fit_tree(tree, x, y, model, mll, train_params)
 
 
