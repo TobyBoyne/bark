@@ -4,9 +4,6 @@ from alfalfa.tree_models.forest import DecisionNode
 from dataclasses import dataclass
 import math
 import torch
-import gpytorch
-import pyro
-from pyro.infer.mcmc import NUTS, MCMC, HMC
 from matplotlib import pyplot as plt
 from typing import Union, Optional
 
@@ -34,7 +31,7 @@ def mcmc_fit(
     if train_params is None:
         train_params = MCMCTrainParams()
 
-    mcmc_run.run(train_x, train_y)
+    # mcmc_run.run(train_x, train_y)
 
-    model.pyro_load_from_samples(mcmc_run.get_samples())
-    return mcmc_run
+    # model.pyro_load_from_samples(mcmc_run.get_samples())
+    # return mcmc_run

@@ -7,29 +7,34 @@ from .params import BARTTrainParams
 import abc
 from typing import Literal
 import torch
+import numpy as np
 import gpytorch as gpy
 
 
 def propose_transition(data: Data, tree: AlfalfaTree, params: BARTTrainParams) -> "Transition":
     parent_of_leaf = tree.root.right
     child_direction = "left"
-    return GrowTransition(tree, parent_of_leaf, child_direction, torch.tensor(0), torch.tensor(0.2))
+    return GrowTransition(tree, parent_of_leaf, child_direction, 0, 0.2)
     return ChangeTransition(tree, tree.root, torch.tensor(0), torch.tensor(0.5))
 
 
 
 class Transition(abc.ABC):
-    """Context manager for proposed tree transition"""
+    """Proposed tree transition"""
     def __init__(self, tree: AlfalfaTree):
-        self._apply_transition = False
         self.tree = tree
 
     @abc.abstractmethod
-    def _mutate(self):
+    def apply(self):
         pass
 
     @abc.abstractmethod
-    def _mutate_inverse(self):
+    def apply_inverse(self):
+        self.inverse.apply()
+
+    @property
+    @abc.abstractmethod
+    def inverse(self):
         pass
 
     @abc.abstractmethod
@@ -45,47 +50,36 @@ class Transition(abc.ABC):
         output = model(model.train_inputs[0])
         likelihood = -mll(output, model.train_targets)
 
-        return likelihood_star - likelihood
+        return (likelihood_star - likelihood).item()
 
 
     @abc.abstractmethod
     def log_prior_ratio(self):
         pass
 
-    def __enter__(self):
-        self._mutate()    
-    
-    def __exit__(self, *args):
-        if not self._apply_transition:
-            # revert change on exit if not accepted
-            self._mutate_inverse()
-
-    def accept(self):
-        self._apply_transition = True
-
 
 class GrowTransition(Transition):
     def __init__(self, tree: AlfalfaTree,
-                 parent_of_leaf: DecisionNode, 
-                 child_direction: Literal["left", "right"],
-                 var_idx: torch.IntTensor, 
-                 threshold: torch.Tensor
+                #  parent_of_leaf: DecisionNode, 
+                #  child_direction: Literal["left", "right"],
+                 node: LeafNode,
+                 var_idx: int, 
+                 threshold: float
                  ):
-        self.parent_of_leaf = parent_of_leaf
-        self.child_direction = child_direction
-        if child_direction not in ("left", "right"):
-            raise ValueError("Child direction must be in ('left', 'right')")
+        self.node = node
 
         self.new_var_idx = var_idx
         self.new_threshold = threshold
 
         super().__init__(tree)
 
-    def _mutate(self):
+    def apply(self):
         new_node = DecisionNode(var_idx=self.new_var_idx, threshold=self.new_threshold)
-        self.node = new_node
+        self.node.parent.replace_child(self.node)
+        # TODO: define some node.parent.replace_child()
 
-    def _mutate_inverse(self):
+    @property
+    def inverse(self):
         self.node = LeafNode()
 
     @property
@@ -105,7 +99,7 @@ class GrowTransition(Transition):
         with self:
             w_star = len(singly_internal_nodes(self.tree))
         
-        return torch.log(torch.tensor(b * p_adj * n_adj / w_star))
+        return np.log(b * p_adj * n_adj / w_star)
     
     def log_prior_ratio(self, data: Data, alpha, beta):
         depth = self.node.depth
@@ -117,13 +111,15 @@ class GrowTransition(Transition):
         n_adj = len(data.unique_split_values(x_index, self.new_var_idx))
 
 
-        return torch.log(alpha) + \
-            2 * torch.log(1 - alpha / torch.pow(2 + depth, beta)) + \
-            - torch.log(torch.pow(1 + depth) - alpha) + \
-            - torch.log(p_adj * n_adj)
+        return np.log(alpha) + \
+            2 * np.log(1 - alpha / (2 + depth)**beta) + \
+            - np.log((1 + depth)**beta - alpha) + \
+            - np.log(p_adj * n_adj)
 
         
-
+class PruneTransition(Transition):
+    def __init__(self, tree, *args):
+        super().__init__(tree)
     
 class ChangeTransition(Transition):
     def __init__(self, tree: AlfalfaTree, node: DecisionNode, var_idx: torch.IntTensor, threshold: torch.IntTensor):

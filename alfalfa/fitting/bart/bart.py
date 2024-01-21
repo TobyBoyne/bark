@@ -16,7 +16,7 @@ class BART:
             self.step()
 
     def step(self):
-        tree = self.model.tree
+        tree = self.model.tree_model
         # these two methods should probably be a part of the BART class
         transition = propose_transition(self.data, tree, self.params)
         alpha = acceptance_probability(self.data, self.model, transition, self.params)

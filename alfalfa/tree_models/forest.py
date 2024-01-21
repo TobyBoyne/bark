@@ -39,7 +39,7 @@ class AlfalfaNode:
         super().__init__()
         self.depth: int = 0
         self.parent: Optional[AlfalfaNode] = None
-        self.space: Optional[Space] = None
+        self.tree: Optional[AlfalfaTree] = None
 
     def contains_leaves(self, leaves: np.ndarray):
         return np.isin(leaves, self.child_leaves)
@@ -52,6 +52,10 @@ class AlfalfaNode:
     @abc.abstractmethod
     def child_leaves(self):
         return []
+    
+    @property
+    def space(self):
+        return self.tree.space
 
     def initialise(self, *args):
         pass
@@ -86,6 +90,10 @@ class DecisionNode(AlfalfaNode):
         super().__init__()
         self.var_idx = None if var_idx is None else torch.as_tensor(var_idx)
         self.threshold = None if threshold is None else torch.as_tensor(threshold)
+        
+        self._left: AlfalfaNode = None
+        self._right: AlfalfaNode = None
+        
         self.left = LeafNode() if left is None else left
         self.right = LeafNode() if right is None else right
 
@@ -94,19 +102,47 @@ class DecisionNode(AlfalfaNode):
     @property
     def child_leaves(self):
         return self.left.child_leaves + self.right.child_leaves
+    
+    def _set_child_data(self, child: AlfalfaNode, recurse=True):
+        """Set the metadata (depth, parent, etc) for a child node"""
+        child.parent = self
+        child.tree = self.tree
+        child.depth = self.depth + 1
+        if recurse and isinstance(child, DecisionNode):
+            child._set_child_data(child.left, recurse=True)
+            child._set_child_data(child.right, recurse=True)
 
+    @property
+    def left(self):
+        return self._left
+    
+    @left.setter
+    def left(self, node: AlfalfaNode):
+        self._left = node
+        self._set_child_data(node, recurse=True)
+
+    @property
+    def right(self):
+        return self._right
+    
+    @right.setter
+    def right(self, node: AlfalfaNode):
+        self._right = node
+        self._set_child_data(node, recurse=True)
+
+    def replace_child(self, child: AlfalfaNode):
+        raise NotImplemented
     
     # Model methods
-    def initialise(self, space: Space, randomise, depth=0):
+    def initialise(self, randomise, depth=0):
         """Sample from the decision node prior.
         
         TODO: This isn't quite the prior!"""
-        self.space = space
         self.depth = depth
         self.var_idx = np.random.randint(len(self.space))
         self.threshold = np.random.rand()
-        self.left.initialise(space, randomise, depth+1)
-        self.right.initialise(space, randomise, depth+1)
+        self.left.initialise(randomise, depth+1)
+        self.right.initialise(randomise, depth+1)
 
     def __call__(self, x):
         var = x[:, self.var_idx]
@@ -160,16 +196,20 @@ class AlfalfaTree:
     def __init__(self, height=3, root: Optional[AlfalfaNode] = None):
         if root is not None:
             self.root = root
-            # height = root.get_tree_height()
         else:
             self.root = DecisionNode.create_of_height(height)
 
         self.nodes_by_depth = self._get_nodes_by_depth()
+        self.root.tree = self
+        # propagate self.tree throughout tree
+        self.root._set_child_data(self.root.left)
+        self.root._set_child_data(self.root.right)
+
         self.space: Optional[Space] = None
 
     def initialise(self, space: Space, randomise=True):
         self.space = space
-        self.root.initialise(space, randomise)
+        self.root.initialise(randomise)
 
 
     def _get_nodes_by_depth(self) -> dict[int, list[AlfalfaNode]]:
