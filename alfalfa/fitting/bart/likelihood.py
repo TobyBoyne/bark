@@ -5,7 +5,8 @@ from .params import BARTTrainParams
 import numpy as np
 
 def acceptance_probability(data: Data, model: AlfalfaGP, transition: Transition, params: BARTTrainParams):
-    # TODO: P(INVERSE_METHOD) / P(METHOD) * ...
+    # P(INVERSE_METHOD) / P(METHOD)
+    # Not necessary as long as P(GROW) == P(PRUNE)
     q_ratio = transition.log_q_ratio(data)
     if np.isneginf(q_ratio):
         # no valid ways to perform the operation

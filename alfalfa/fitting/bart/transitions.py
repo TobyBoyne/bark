@@ -12,7 +12,7 @@ import gpytorch as gpy
 
 
 def propose_transition(data: Data, tree: AlfalfaTree, params: BARTTrainParams) -> "Transition":
-    step_idx = np.random.choice(2, p=params.step_weights)
+    step_idx = np.random.choice(len(params.step_weights), p=params.step_weights)
 
     if step_idx == TransitionEnum.GROW.value:
         leaf_nodes = terminal_nodes(tree)
@@ -34,6 +34,17 @@ def propose_transition(data: Data, tree: AlfalfaTree, params: BARTTrainParams) -
         cur_node = np.random.choice(internal_nodes)
 
         return PruneTransition(tree, cur_node)
+
+    elif step_idx == TransitionEnum.CHANGE.value:
+        internal_nodes = singly_internal_nodes(tree)
+        if not internal_nodes:
+            return
+        cur_node = np.random.choice(internal_nodes)
+        new_node_data = data.sample_splitting_rule(tree, cur_node)
+        if new_node_data is None:
+            return
+        
+        return ChangeTransition(tree, cur_node, *new_node_data)
 
     else:
         raise ValueError("Unrecognised transition step")
@@ -88,16 +99,11 @@ class Transition(abc.ABC):
 
 class GrowTransition(Transition):
     def __init__(self, tree: AlfalfaTree,
-                #  parent_of_leaf: DecisionNode, 
-                #  child_direction: Literal["left", "right"],
                  cur_node: LeafNode,
                  new_node: DecisionNode
                  ):
         self.cur_node = cur_node
         self.new_node = new_node
-
-        # self.new_var_idx = var_idx
-        # self.new_threshold = threshold
 
         super().__init__(tree)
 
@@ -167,23 +173,37 @@ class PruneTransition(Transition):
             grow_prior_ratio = self.inverse.log_prior_ratio(data, alpha, beta)
         return -grow_prior_ratio
     
-# class ChangeTransition(Transition):
-#     def __init__(self, tree: AlfalfaTree, node: DecisionNode, var_idx: torch.IntTensor, threshold: torch.IntTensor):
-#         self.node = node
-#         self.prev_var_idx = node.var_idx
-#         self.prev_threshold = node.threshold
+class ChangeTransition(Transition):
+    def __init__(self, tree: AlfalfaTree, node: DecisionNode, 
+                new_var_idx: int, new_threshold: float,
+                cur_var_idx: Optional[int] = None, cur_threshold: Optional[float] = None,
+):
+        self.node = node
+        self.cur_var_idx = cur_var_idx if cur_var_idx is not None else node.var_idx
+        self.cur_threshold = cur_threshold if cur_threshold is not None else node.threshold
 
-#         self.new_var_idx = var_idx
-#         self.new_threshold = threshold
-#         super().__init__(tree)
+        self.new_var_idx = new_var_idx
+        self.new_threshold = new_threshold
+        super().__init__(tree)
 
-#     def _mutate(self):
-#         self.node.var_idx = self.new_var_idx
-#         self.node.threshold = self.new_threshold
+    def apply(self):
+        self.node.var_idx = self.new_var_idx
+        self.node.threshold = self.new_threshold
 
-#     def _mutate_inverse(self):
-#         self.node.var_idx = self.new_var_idx
-#         self.node.threshold = self.new_threshold
+    @property
+    def inverse(self):
+        return ChangeTransition(self.tree, self.node, self.cur_var_idx, 
+                                self.cur_threshold, self.new_var_idx, 
+                                self.new_threshold)
 
-#     def log_q_ratio(self):
-#         return 0
+    def log_q_ratio(self, data: Data):
+        return 0
+        # x_index = data.get_x_index(self.tree, self.node)
+
+        # with self:
+        #     n_adj_star = len(data.unique_split_values(x_index, self.new_var_idx))
+        # n_adj = len(data.unique_split_values(x_index, self.cur_var_idk))
+        # return np.log(n_adj_star) - np.log(n_adj)
+
+    def log_prior_ratio(self, *args):
+        return 0
