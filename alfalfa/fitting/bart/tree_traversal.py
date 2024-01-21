@@ -18,14 +18,14 @@ def in_order_conditional(
     if isinstance(node, DecisionNode):
         yield from in_order_conditional(tree, condition, node.right)
 
-def terminal_nodes(tree: AlfalfaTree):
+def terminal_nodes(tree: AlfalfaTree) -> list[LeafNode]:
     """Find all leaves"""
     def cond(node):
         return isinstance(node, LeafNode)
     
     return list(in_order_conditional(tree, cond))
 
-def singly_internal_nodes(tree: AlfalfaTree):
+def singly_internal_nodes(tree: AlfalfaTree) -> list[DecisionNode]:
     """Find all decision nodes where both children are leaves"""
     def cond(node):
         return (
@@ -35,14 +35,3 @@ def singly_internal_nodes(tree: AlfalfaTree):
         )
     
     return list(in_order_conditional(tree, cond))
-
-
-def assign_node_depth(tree: AlfalfaTree):
-    def node_depth(node: DecisionNode, depth):
-        node.depth = depth
-        if isinstance(node, DecisionNode):
-            node_depth(node.left, depth+1)
-            node_depth(node.right, depth+1)
-
-    node_depth(tree.root, 0)
-    

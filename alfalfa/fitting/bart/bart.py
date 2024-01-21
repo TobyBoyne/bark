@@ -4,6 +4,7 @@ from .likelihood import acceptance_probability
 from ...tree_models.tree_kernels import AlfalfaGP
 from .data import Data
 import torch
+import numpy as np
 
 class BART:
     def __init__(self, model: AlfalfaGP, data: Data, params: BARTTrainParams):
@@ -13,17 +14,22 @@ class BART:
 
     def run(self):
         with torch.no_grad():
-            self.step()
+            for _ in range(100):
+                self.step()
 
     def step(self):
         tree = self.model.tree_model
         # these two methods should probably be a part of the BART class
         transition = propose_transition(self.data, tree, self.params)
+        if transition is None:
+            # not a valid transition
+            return
+        
         alpha = acceptance_probability(self.data, self.model, transition, self.params)
-        u = torch.log(torch.rand(()))
+        u = np.log(np.random.rand())
         if u <= alpha:
             # accept transition
-            with transition:
-                transition.accept()
+            transition.apply()
 
+        print(tree.root)
                
