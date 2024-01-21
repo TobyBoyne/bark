@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 
 from alfalfa.tree_models.tree_kernels import ATGP, AFGP
 from alfalfa.tree_models.forest import AlfalfaForest, prune_tree_hook
-from alfalfa.tree_models.alternating_fitting import fit_tree_gp
 from alfalfa.gps import RBFGP
 from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.benchmarks import rescaled_branin

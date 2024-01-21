@@ -10,7 +10,7 @@ from alfalfa.tree_models.tree_kernels import AFGP
 from alfalfa.optimizer import get_global_sol, build_opt_model
 from alfalfa.leaf_gp.gbm_model import GbmModel
 from alfalfa.tree_models.lgbm_tree import lgbm_to_alfalfa_forest
-from alfalfa.tree_models.alternating_fitting import fit_tree_gp, AlternatingTrainParams
+from alfalfa.fitting import alternating_fit, AlternatingTrainParams
 from alfalfa.utils.plots import plot_gp_1d
 from alfalfa.utils.logger import BOLogger
 
@@ -69,7 +69,7 @@ for itr in range(args.num_itr):
         num_gp_per_iter=10, 
         threshold_jitter=0.1
     )
-    fit_tree_gp(torch.from_numpy(X_train), torch.from_numpy(y_train),
+    alternating_fit(torch.from_numpy(X_train), torch.from_numpy(y_train),
                 tree_gp, mll, train_params)
 
     # get new proposal and evaluate bb_func

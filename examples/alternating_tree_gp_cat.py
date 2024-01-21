@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from alfalfa.tree_models.tree_kernels import ATGP, AFGP
 from alfalfa.tree_models.forest import AlfalfaForest
-from alfalfa.tree_models.alternating_fitting import fit_tree_gp
+from alfalfa.fitting import alternating_fit
 from alfalfa.utils.plots import plot_gp_2d
 
 torch.manual_seed(42)
@@ -29,7 +29,7 @@ output = gp(x)
 loss = -mll(output, y)
 print(f"Initial loss={loss}")
 
-fit_tree_gp(x, y, gp, mll)
+alternating_fit(x, y, gp, mll)
 
 output = gp(x)
 loss = -mll(output, y)
