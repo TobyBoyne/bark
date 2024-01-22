@@ -15,12 +15,12 @@ def propose_noise_transition(model: AlfalfaGP):
     # take a proposal in the unconstrained space
 
     cur_raw_noise = model.likelihood.raw_noise.item()
-    new_raw_noise = cur_raw_noise + np.random.randn()
+    new_raw_noise = cur_raw_noise + np.random.randn() * 0.1
     new_noise = softplus(new_raw_noise)
     return new_noise
 
 def noise_acceptance_probability(model: AlfalfaGP, new_noise: float, prior: stats.rv_continuous):
-    cur_noise = model.likelihood.noise
+    cur_noise = model.likelihood.noise.item()
     # q / q = 1
     mll = gpy.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
 

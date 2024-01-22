@@ -1,19 +1,23 @@
 from .params import BARTTrainParams
 from .tree_transitions import propose_transition, tree_acceptance_probability
-from .noise_scale_transitions import propose_noise_transition, noise_acceptance_probability
+from .noise_scale_transitions import propose_noise_transition, noise_acceptance_probability, propose_scale_transition, scale_acceptance_probability
 from ...tree_models.forest import AlfalfaTree
 from ...tree_models.tree_kernels import AlfalfaGP
 from .data import Data
+from alfalfa.utils.logger import Logger
 import torch
 import numpy as np
 from tqdm import tqdm
 import scipy.stats as stats
+
 
 class BART:
     def __init__(self, model: AlfalfaGP, data: Data, params: BARTTrainParams):
         self.model = model
         self.data = data
         self.params = params
+
+        self.logger = Logger()
 
     def run(self):
         with torch.no_grad():
@@ -22,6 +26,8 @@ class BART:
 
             for _ in tqdm(range(self.params.n_steps)):
                 self.step()
+
+        return self.logger
 
     def step(self):
         if isinstance(self.model.tree_model, AlfalfaTree):
@@ -32,6 +38,8 @@ class BART:
 
         self._transition_noise()
         self._transition_scale()
+        self.logger.log(noise=self.model.likelihood.noise)
+        self.logger.log(scale=self.model.covar_module.outputscale)
 
     def _accept_transition(self, log_alpha):
         return np.log(np.random.rand()) <= log_alpha
@@ -49,7 +57,8 @@ class BART:
 
             
     def _transition_noise(self):
-        prior = stats.halfnorm(scale=1.0)
+        # prior = stats.halfnorm(scale=0.1)
+        prior = stats.gamma(a=5.0)
         new_noise = propose_noise_transition(self.model)
         log_alpha = noise_acceptance_probability(self.model, new_noise, prior)
         if self._accept_transition(log_alpha):
@@ -57,7 +66,8 @@ class BART:
 
     def _transition_scale(self):
         prior = stats.halfnorm(scale=1.0)
-        new_noise = propose_noise_transition(self.model)
-        log_alpha = noise_acceptance_probability(self.model, new_noise, prior)
+        # prior = stats.gamma(a=1.0)
+        new_scale = propose_scale_transition(self.model)
+        log_alpha = scale_acceptance_probability(self.model, new_scale, prior)
         if self._accept_transition(log_alpha):
-            self.model.likelihood.noise = new_noise
+            self.model.covar_module.outputscale = new_scale
