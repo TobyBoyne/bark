@@ -55,7 +55,7 @@ def _fit_decision_node(
     mll: gpy.mlls.MarginalLogLikelihood,
     train_params: AlternatingTrainParams,
 ):
-    leaves = tree.root(x)
+    leaves = tree(x)
     in_node = node.contains_leaves(leaves)
     # reduced_x = x[,:]
     min_loss_var_idx = node.var_idx

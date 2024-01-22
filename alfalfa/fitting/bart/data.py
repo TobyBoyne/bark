@@ -30,11 +30,8 @@ class Data:
         return var_idx, threshold
 
     def get_x_index(self, tree: AlfalfaTree, node: AlfalfaNode):
-        """Get the index of datapoints that pass through the given node"""
-        if isinstance(tree.root, LeafNode):
-            return np.ones((self.X.shape[0],), dtype=bool)
-        
-        active_leaves = tree.root(self.X)
+        """Get the index of datapoints that pass through the given node"""        
+        active_leaves = tree(self.X)
         return node.contains_leaves(active_leaves)
 
     def valid_split_features(self, x_index: np.ndarray):

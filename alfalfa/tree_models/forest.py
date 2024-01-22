@@ -261,11 +261,18 @@ class AlfalfaTree:
     def gram_matrix(self, x1: np.ndarray, x2: np.ndarray):
         if isinstance(self.root, LeafNode):
             return np.ones((x1.shape[-2], x2.shape[-2]), dtype=float)
-        x1_leaves = self.root(x1)
-        x2_leaves = self.root(x2)
+        x1_leaves = self(x1)
+        x2_leaves = self(x2)
 
         sim_mat = np.equal(x1_leaves[..., :, None], x2_leaves[..., None, :]).astype(float)
         return sim_mat
+    
+    def __call__(self, x):
+        if isinstance(self.root, DecisionNode):
+            return self.root(x)
+        else:
+            return np.ones((x.shape[0],), dtype=bool)
+
 
     def structure_eq(self, other: "AlfalfaTree"):
         return self.root.structure_eq(other.root)
@@ -286,8 +293,8 @@ class AlfalfaForest:
             tree.initialise(space, init_func)
 
     def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
-        x1_leaves = np.stack([tree.root(x1) for tree in self.trees], axis=-1)
-        x2_leaves = np.stack([tree.root(x2) for tree in self.trees], axis=-1)
+        x1_leaves = np.stack([tree(x1) for tree in self.trees], axis=-1)
+        x2_leaves = np.stack([tree(x2) for tree in self.trees], axis=-1)
 
         sim_mat = np.equal(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
         sim_mat = 1 / len(self.trees) * np.sum(sim_mat, axis=-1)

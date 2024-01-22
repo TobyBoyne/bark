@@ -23,7 +23,7 @@ torch.manual_seed(42)
 np.random.seed(42)
 train_y = (torch.sin(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.2).flatten()
 
-tree = AlfalfaTree(height=1)
+tree = AlfalfaForest(height=1, num_trees=5)
 data = Data(space, train_x)
 tree.initialise(space, data.get_rule_prior())
 likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=gpytorch.constraints.Positive())
