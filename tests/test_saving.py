@@ -1,45 +1,32 @@
-# import pytest
-# import gpytorch as gpy
+from alfalfa.tree_models import DecisionNode, AlfalfaTree, AlfalfaForest
 
-# from alfalfa.tree_models.forest import AlfalfaTree, AlfalfaForest, DecisionNode
-# from alfalfa.tree_models.tree_kernels import AFGP
+def test_saving_node():
+    node = DecisionNode(var_idx=2, threshold=0.5)
+    d = node.as_dict()
+    assert d == {"var_idx": 2, "threshold": 0.5, "left": {}, "right": {}}
+    new_node = DecisionNode.from_dict(d)
+    assert node.structure_eq(new_node)
 
-# def test_saving_and_loading_alternating_tree():
-#     tree = AlfalfaTree(height=2)
-#     state = tree.state_dict()
+def test_saving_forest():
+    trees = [
+        AlfalfaTree(root=DecisionNode(
+            var_idx=2, threshold=0.5
+        )),
+        AlfalfaTree(root=DecisionNode(
+            var_idx=4, threshold=0.25, left=DecisionNode(var_idx=1, threshold=1.0)
+        ))
+    ]
 
-#     model = AlfalfaTree(height=2)
-#     assert not model.structure_eq(tree)
-#     model.load_state_dict(state)
-#     assert model.structure_eq(tree)
+    forest = AlfalfaForest(trees=trees)
+    d = forest.as_dict()
+    assert d == {"trees": [
+        {"root": {"var_idx": 2, "threshold": 0.5, "left": {}, "right": {}}},
+        {"root": {
+            "var_idx": 4, "threshold": 0.25,
+            "left": {"var_idx": 1, "threshold": 1.0, "left": {}, "right": {}},
+            "right": {}
+        }}
+    ]}
 
-# def test_saving_and_loading_alternating_forest():
-#     forest = AlfalfaForest(height=2, num_trees=5)
-#     state = forest.state_dict()
-
-#     model = AlfalfaForest(height=2, num_trees=5)
-#     assert not model.structure_eq(forest)
-#     model.load_state_dict(state)
-#     assert model.structure_eq(forest)
-
-# def test_saving_and_loading_afgp():
-#     forest = AlfalfaForest(height=2, num_trees=5)
-#     gp = AFGP(None, None, gpy.likelihoods.GaussianLikelihood(), forest)
-#     state = gp.state_dict()
-
-#     forest = AlfalfaForest(height=2, num_trees=5)
-#     gp = AFGP(None, None, gpy.likelihoods.GaussianLikelihood(), forest)
-#     gp.load_state_dict(state)
-
-
-# def test_partial_tree():
-#     root = DecisionNode(
-#         right=DecisionNode()
-#     )
-#     tree = AlfalfaTree(root=root)
-#     print(tree)
-#     state = tree.state_dict()
-
-#     print(state)
-#     model = AlfalfaTree(height=state["height"])
-#     model.load_state_dict(state)
+    new_forest = AlfalfaForest.from_dict(d)
+    assert forest.structure_eq(new_forest)

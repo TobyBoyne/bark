@@ -58,8 +58,8 @@ class AlfalfaNode:
     def space(self):
         return self.tree.space
 
-    def initialise(self, *args):
-        pass
+    def initialise(self, depth, *args):
+        self.depth = depth
 
     def get_tree_height(self):
         return 0
@@ -85,6 +85,13 @@ class AlfalfaNode:
         self.depth = 0
         self.parent = None
         self.tree = None
+
+    def as_dict(self):
+        return {}
+    
+    @classmethod
+    def from_dict(cls, d):
+        return LeafNode()
 
 class LeafNode(AlfalfaNode):
     def __init__(self):
@@ -159,15 +166,15 @@ class DecisionNode(AlfalfaNode):
 
     
     # Model methods
-    def initialise(self, init_func: InitFuncType, depth: int=0):
+    def initialise(self, depth, init_func: InitFuncType):
         """Sample from the decision node prior.
         
         TODO: This isn't quite the prior!"""
-        self.depth = depth
+        super().initialise(depth)
         if init_func is not None:
             init_func(self)
-        self.left.initialise(init_func, depth+1)
-        self.right.initialise(init_func, depth+1)
+        self.left.initialise(depth+1, init_func)
+        self.right.initialise(depth+1, init_func)
 
     def __call__(self, x: np.ndarray, allow_not_initialised=False):
         if self.threshold is None and allow_not_initialised:
@@ -207,12 +214,6 @@ class DecisionNode(AlfalfaNode):
     def get_tree_height(self):
         return 1 + max(self.left.get_tree_height(), self.right.get_tree_height())
 
-    # def extra_repr(self):
-    #     if self.var_idx is None or self.threshold is None:
-    #         return "(not initialised)"
-    #     return f"(x_{self.var_idx}<{self.threshold:.3f})"
-
-
     def structure_eq(self, other):
         if isinstance(other, DecisionNode):
             return (
@@ -222,6 +223,25 @@ class DecisionNode(AlfalfaNode):
                 and self.right.structure_eq(other.right)
             )
         return False
+
+    def as_dict(self):
+        return {
+            "var_idx": self.var_idx,
+            "threshold": self.threshold,
+            "left": self.left.as_dict(),
+            "right": self.right.as_dict()
+        }
+    
+    @classmethod
+    def from_dict(cls, d):
+        if not d:
+            return super().from_dict(d)
+        return cls(
+            var_idx=d["var_idx"],
+            threshold=d["threshold"],
+            left=DecisionNode.from_dict(d["left"]),
+            right=DecisionNode.from_dict(d["right"]),
+        )
 
 
 class AlfalfaTree:
@@ -242,7 +262,7 @@ class AlfalfaTree:
 
     def initialise(self, space: Space, init_func: InitFuncType = None):
         self.space = space
-        self.root.initialise(init_func)
+        self.root.initialise(0, init_func)
 
 
     def _get_nodes_by_depth(self) -> dict[int, list[AlfalfaNode]]:
@@ -277,6 +297,17 @@ class AlfalfaTree:
 
     def structure_eq(self, other: "AlfalfaTree"):
         return self.root.structure_eq(other.root)
+    
+
+    def as_dict(self):
+        return {
+            "root": self.root.as_dict()
+        }
+    
+    @classmethod
+    def from_dict(cls, d):
+        root = DecisionNode.from_dict(d["root"])
+        return cls(root=root)
 
 
 class AlfalfaForest:
@@ -306,3 +337,13 @@ class AlfalfaForest:
             tree.structure_eq(other_tree)
             for tree, other_tree in zip(self.trees, other.trees)
         )
+
+    def as_dict(self):
+        return {
+            "trees": [tree.as_dict() for tree in self.trees]
+        }
+    
+    @classmethod
+    def from_dict(cls, d):
+        trees = [AlfalfaTree.from_dict(d_tree) for d_tree in d["trees"]]
+        return cls(trees=trees)
