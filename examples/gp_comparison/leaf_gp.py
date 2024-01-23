@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 
 from alfalfa.utils.benchmarks import rescaled_branin, branin
 from alfalfa.tree_models.lgbm_tree import lgbm_to_alfalfa_forest
-from alfalfa.tree_models.tree_kernels import AFGP
+from alfalfa.tree_models.tree_kernels import AlfalfaGP
 from alfalfa.utils.plots import plot_gp_2d
+from alfalfa.leaf_gp.space import Space
 
 def fit_gp(x, y, model, likelihood):
     model.train()
@@ -54,16 +55,16 @@ if __name__ == "__main__":
             )
 
     forest = lgbm_to_alfalfa_forest(tree_model)
-    forest.initialise_forest([0, 0], randomise=False)
+    forest.initialise(Space([[0.0, 1.0], [0.0, 1.0]]))
     likelihood = gpy.likelihoods.GaussianLikelihood()
 
-    gp = AFGP(x, y, likelihood, forest)
+    gp = AlfalfaGP(x, y, likelihood, forest)
     fit_gp(x, y, gp, likelihood)
     gp.eval()
     torch.save(gp.state_dict(), "models/branin_leaf_gp.pt")
 
     test_x = torch.meshgrid(torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij")
-    plot_gp_2d(gp, likelihood, x, y, test_x, target=rescaled_branin)
+    plot_gp_2d(gp, test_x, target=rescaled_branin)
     plt.show()
 
     # test_x = torch.meshgrid(torch.linspace(-5, 10, 100), torch.linspace(0, 15, 100), indexing="ij")

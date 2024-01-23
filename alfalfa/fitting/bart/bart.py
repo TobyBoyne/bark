@@ -10,14 +10,22 @@ import numpy as np
 from tqdm import tqdm
 import scipy.stats as stats
 
+def default_noise_prior():
+    return stats.gamma(a=1.0)
+
+def default_scale_prior():
+    return stats.halfnorm(scale=1.0)
 
 class BART:
-    def __init__(self, model: AlfalfaGP, data: Data, params: BARTTrainParams):
+    def __init__(self, model: AlfalfaGP, data: Data, params: BARTTrainParams,
+                 noise_prior = None, scale_prior = None):
         self.model = model
         self.data = data
         self.params = params
 
         self.logger = Logger()
+        self.noise_prior = default_noise_prior() if noise_prior is None else noise_prior
+        self.scale_prior = default_scale_prior() if scale_prior is None else scale_prior
 
     def run(self):
         with torch.no_grad():
@@ -57,17 +65,13 @@ class BART:
 
             
     def _transition_noise(self):
-        # prior = stats.halfnorm(scale=0.1)
-        prior = stats.gamma(a=5.0)
         new_noise = propose_noise_transition(self.model)
-        log_alpha = noise_acceptance_probability(self.model, new_noise, prior)
+        log_alpha = noise_acceptance_probability(self.model, new_noise, self.noise_prior)
         if self._accept_transition(log_alpha):
             self.model.likelihood.noise = new_noise
 
     def _transition_scale(self):
-        prior = stats.halfnorm(scale=1.0)
-        # prior = stats.gamma(a=1.0)
         new_scale = propose_scale_transition(self.model)
-        log_alpha = scale_acceptance_probability(self.model, new_scale, prior)
+        log_alpha = scale_acceptance_probability(self.model, new_scale, self.scale_prior)
         if self._accept_transition(log_alpha):
             self.model.covar_module.outputscale = new_scale

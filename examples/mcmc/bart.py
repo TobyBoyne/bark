@@ -12,11 +12,10 @@ import torch
 import numpy as np
 import gpytorch
 from matplotlib import pyplot as plt
-
+import scipy.stats as stats
 
 # Training data is 11 points in [0,1] inclusive regularly spaced
-train_x = torch.linspace(0, 1, 20).reshape(-1, 1)
-# train_x = torch.tensor([0.0, 0.1, 0.3, 0.9]).reshape(-1, 1)
+train_x = torch.linspace(0, 1, 10).reshape(-1, 1)
 space = Space([[0.0, 1.0]])
 
 # True function is sin(2*pi*x) with Gaussian noise
@@ -25,19 +24,21 @@ np.random.seed(42)
 f = lambda x: torch.sin(x * (2 * math.pi))
 train_y = (f(train_x) + torch.randn(train_x.size()) * 0.2).flatten()
 
-tree = AlfalfaForest(height=1, num_trees=5)
+tree = AlfalfaForest(height=0, num_trees=10)
 data = Data(space, train_x)
 tree.initialise(space, data.get_init_prior())
 likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=gpytorch.constraints.Positive())
 model = AlfalfaGP(train_x, train_y, likelihood, tree)
 
-params = BARTTrainParams()
-bart = BART(model, data, params)
+params = BARTTrainParams(warmup_steps=500)
+bart = BART(model, data, params, scale_prior=stats.halfnorm(scale=5.0))
 logger = bart.run()
 
 model.eval()
+# torch.save(model.state_dict(), "models/1d_bart.pt")
+
 test_x = torch.linspace(0, 1, 100).reshape(-1, 1)
-fig, ax = plot_gp_1d(model, model.likelihood, train_x, train_y, test_x, f)
+fig, ax = plot_gp_1d(model, test_x, f)
 fig, axs = plt.subplots(ncols=3)
 axs[0].plot(logger["noise"])
 axs[1].plot(logger["scale"])

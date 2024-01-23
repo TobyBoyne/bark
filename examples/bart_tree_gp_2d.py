@@ -2,6 +2,7 @@ import torch
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.stats as stats
 
 from alfalfa.tree_models.tree_kernels import AlfalfaGP
 from alfalfa.tree_models.forest import AlfalfaForest
@@ -20,10 +21,11 @@ y = f + torch.randn_like(f) * 0.2**0.5
 
 
 likelihood = gpy.likelihoods.GaussianLikelihood(noise_constraint=gpy.constraints.Positive())
-forest = AlfalfaForest(height=0, num_trees=5)
+forest = AlfalfaForest(height=0, num_trees=10)
 space = Space([[0.0, 1.0], [0.0, 1.0]])
 forest.initialise(space)
 gp = AlfalfaGP(x, y, likelihood, forest)
+
 
 mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, gp)
 
@@ -37,8 +39,8 @@ test_y = test_f + torch.randn_like(test_f) * 0.2**0.5
 
 data = BARTData(space, np.asarray(x))
 params = BARTTrainParams(warmup_steps=500)
-bart = BART(gp, data, params)
-bart.run()
+bart = BART(gp, data, params, scale_prior=stats.halfnorm(scale=5.0))
+logger = bart.run()
 
 output = gp(x)
 loss = -mll(output, y)
@@ -46,5 +48,8 @@ print(f"Final loss={loss}")
 gp.eval()
 torch.save(gp.state_dict(), "models/branin_bart.pt")
 test_x = torch.meshgrid(torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij")
-plot_gp_2d(gp, likelihood, x, y, test_x, target=rescaled_branin)
+plot_gp_2d(gp, test_x, target=rescaled_branin)
+fig, axs = plt.subplots(nrows=2)
+axs[0].plot(logger["noise"])
+axs[1].plot(logger["scale"])
 plt.show()

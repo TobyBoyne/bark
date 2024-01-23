@@ -6,16 +6,17 @@ from typing import Callable
 
 from .logger import Logger
 
-def plot_gp_1d(model: gpy.models.ExactGP, likelihood: gpy.likelihoods.Likelihood, 
-            train_x, train_y, test_x, target: Callable):
+def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable):
     with torch.no_grad():
-
+        likelihood = model.likelihood
+        train_x = model.train_inputs[0]
+        train_y = model.train_targets
         # predictions
         observed_pred = likelihood(model(test_x))
 
         # Initialize plot
-        fig, ax = plt.subplots()
-
+        fig, axs = plt.subplots(nrows=2)
+        ax = axs[0]
         # Get upper and lower confidence bounds
         lower, upper = observed_pred.confidence_region()
         # Plot training data as black stars
@@ -26,16 +27,22 @@ def plot_gp_1d(model: gpy.models.ExactGP, likelihood: gpy.likelihoods.Likelihood
         ax.fill_between(test_x.flatten().numpy(), lower.numpy(), upper.numpy(), alpha=0.5)
 
         ax.plot(test_x.flatten().numpy(), target(test_x), label="target function")
-    ax.legend()
+        ax.legend()
+
+        ax = axs[1]
+        # plot *just* the variance
+        ax.plot(test_x.flatten().numpy(), (upper - observed_pred.mean).numpy())
 
     return fig, ax
 
 
-def plot_gp_2d(model: gpy.models.ExactGP, likelihood: gpy.likelihoods.Likelihood, 
-            train_x, train_y, test_X, target: Callable):
+def plot_gp_2d(model: gpy.models.ExactGP, test_X, target: Callable):
     """Plot a GP with two input dimensions."""
     fig, axs = plt.subplots(ncols=3, figsize=(8, 3))    
 
+    likelihood = model.likelihood
+    train_x = model.train_inputs[0]
+    train_y = model.train_targets
     with torch.no_grad():
         # predictions
         test_X1, test_X2 = test_X
