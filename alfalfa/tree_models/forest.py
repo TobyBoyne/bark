@@ -169,8 +169,8 @@ class DecisionNode(AlfalfaNode):
         self.left.initialise(init_func, depth+1)
         self.right.initialise(init_func, depth+1)
 
-    def __call__(self, x: np.ndarray):
-        if self.threshold is None:
+    def __call__(self, x: np.ndarray, allow_not_initialised=False):
+        if self.threshold is None and allow_not_initialised:
             # raise ValueError("This node is not initialised.")
             return np.full((x.shape[0],), self.left(x))
 
@@ -192,7 +192,7 @@ class DecisionNode(AlfalfaNode):
             )
         
     def __repr__(self):
-        return f"N({self.left}), ({self.right})"
+        return f"N{self.var_idx}({self.left}), ({self.right})"
 
     @classmethod
     def create_of_height(cls, d):
@@ -234,8 +234,9 @@ class AlfalfaTree:
         self.nodes_by_depth = self._get_nodes_by_depth()
         self.root.tree = self
         # propagate self.tree throughout tree
-        self.root._set_child_data(self.root.left)
-        self.root._set_child_data(self.root.right)
+        if isinstance(self.root, DecisionNode):
+            self.root._set_child_data(self.root.left)
+            self.root._set_child_data(self.root.right)
 
         self.space: Optional[Space] = None
 
@@ -271,7 +272,7 @@ class AlfalfaTree:
         if isinstance(self.root, DecisionNode):
             return self.root(x)
         else:
-            return np.ones((x.shape[0],), dtype=bool)
+            return np.full((x.shape[0],), fill_value=self.root.leaf_id)
 
 
     def structure_eq(self, other: "AlfalfaTree"):

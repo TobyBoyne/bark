@@ -9,7 +9,7 @@ class Data:
         self.space = space
         self.X = np.asarray(X) # (N, D)
 
-    def get_rule_prior(self):
+    def get_init_prior(self):
         def _prior(node: DecisionNode):
             var_idx, threshold = self.sample_splitting_rule(node.tree, node)
             node.var_idx = var_idx
@@ -35,11 +35,11 @@ class Data:
         return node.contains_leaves(active_leaves)
 
     def valid_split_features(self, x_index: np.ndarray):
-        valid = [i for i in range(len(self.space)) if len(self.unique_split_values(x_index, i)) >= 2 ]
+        valid = [i for i in range(len(self.space)) if len(self.unique_split_values(x_index, i)) >= 1 ]
         return np.array(valid)
 
     def unique_split_values(self, x_index: np.ndarray, var_idx: int):
         """
         x_index is shape (N,), where it is true if the x value reaches a leaf"""
         x = self.X[x_index, var_idx]
-        return np.unique(x)
+        return np.unique(x)[1:]

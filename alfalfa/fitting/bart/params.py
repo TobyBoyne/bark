@@ -9,8 +9,8 @@ class TransitionEnum(Enum):
 
 @dataclass
 class BARTTrainParams:
-    warmup_steps: int = 500
-    n_steps: int = 500
+    warmup_steps: int = 50
+    n_steps: int = 50
     alpha: float = 0.95
     beta: float = 0.5
 
