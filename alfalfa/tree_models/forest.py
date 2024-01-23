@@ -301,6 +301,7 @@ class AlfalfaTree:
 
     def as_dict(self):
         return {
+            "tree_model_type": "tree",
             "root": self.root.as_dict()
         }
     
@@ -340,6 +341,7 @@ class AlfalfaForest:
 
     def as_dict(self):
         return {
+            "tree_model_type": "forest",
             "trees": [tree.as_dict() for tree in self.trees]
         }
     

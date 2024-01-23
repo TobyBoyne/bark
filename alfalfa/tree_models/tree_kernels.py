@@ -1,7 +1,7 @@
 import torch
 import gpytorch as gpy
 from .forest import AlfalfaTree, AlfalfaForest
-from typing import Union
+from typing import Any, Union
 
 
 class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
@@ -15,6 +15,16 @@ class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
         if diag:
             return torch.ones(x1.shape[0])
         return torch.as_tensor(self.tree_model.gram_matrix(x1, x2)).float()
+
+    def get_extra_state(self):
+        return {"tree_model": self.tree_model.as_dict()}
+    
+    def set_extra_state(self, state):
+        d = state["tree_model"]
+        if d["tree_model_type"] == "tree":
+            self.tree_model = AlfalfaTree.from_dict(d)
+        elif d["tree_model_type"] == "forest":
+            self.tree_model = AlfalfaForest.from_dict(d)
 
 
 class AlfalfaGP(gpy.models.ExactGP):

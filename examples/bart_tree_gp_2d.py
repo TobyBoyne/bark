@@ -19,7 +19,7 @@ f = rescaled_branin(x)
 y = f + torch.randn_like(f) * 0.2**0.5
 
 
-likelihood = gpy.likelihoods.GaussianLikelihood()
+likelihood = gpy.likelihoods.GaussianLikelihood(noise_constraint=gpy.constraints.Positive())
 forest = AlfalfaForest(height=0, num_trees=5)
 space = Space([[0.0, 1.0], [0.0, 1.0]])
 forest.initialise(space)
