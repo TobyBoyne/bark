@@ -322,6 +322,7 @@ class AlfalfaForest:
             self.trees = [AlfalfaTree(height) for _ in range(num_trees)]
 
     def initialise(self, space: Space, init_func: InitFuncType = None):
+        self.space = space
         for tree in self.trees:
             tree.initialise(space, init_func)
 

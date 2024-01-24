@@ -4,7 +4,7 @@ from .noise_scale_transitions import propose_noise_transition, noise_acceptance_
 from ...tree_models.forest import AlfalfaTree
 from ...tree_models.tree_kernels import AlfalfaGP
 from .data import Data
-from alfalfa.utils.logger import Logger
+from alfalfa.utils.logger import MCMCLogger
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -23,7 +23,7 @@ class BART:
         self.data = data
         self.params = params
 
-        self.logger = Logger()
+        self.logger = MCMCLogger()
         self.noise_prior = default_noise_prior() if noise_prior is None else noise_prior
         self.scale_prior = default_scale_prior() if scale_prior is None else scale_prior
 
@@ -32,14 +32,16 @@ class BART:
             for _ in tqdm(range(self.params.warmup_steps)):
                 self.step()
 
-            for _ in tqdm(range(self.params.n_steps)):
+            for i in tqdm(range(self.params.n_steps)):
                 self.step()
+                if i % self.params.lag == 0:
+                    self.logger.checkpoint(self.model)
 
         return self.logger
 
     def step(self):
         if isinstance(self.model.tree_model, AlfalfaTree):
-            self._transition_tree(tree)
+            self._transition_tree(self.model.tree_model)
         else:
             for tree in self.model.tree_model.trees:
                 self._transition_tree(tree)

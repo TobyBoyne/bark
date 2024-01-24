@@ -2,7 +2,7 @@ import torch
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 
-from alfalfa.gps import RBFGP
+from alfalfa.baselines import RBFGP
 from alfalfa.utils.benchmarks import rescaled_branin
 from alfalfa.utils.plots import plot_gp_2d
     

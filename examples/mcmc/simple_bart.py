@@ -24,13 +24,13 @@ np.random.seed(42)
 f = lambda x: torch.sin(x * (2 * math.pi))
 train_y = (f(train_x) + torch.randn(train_x.size()) * 0.2).flatten()
 
-tree = AlfalfaForest(height=0, num_trees=10)
+tree = AlfalfaForest(height=0, num_trees=3)
 data = Data(space, train_x)
 tree.initialise(space, data.get_init_prior())
 likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=gpytorch.constraints.Positive())
 model = AlfalfaGP(train_x, train_y, likelihood, tree)
 
-params = BARTTrainParams(warmup_steps=500)
+params = BARTTrainParams(warmup_steps=500, lag=5)
 bart = BART(model, data, params, scale_prior=stats.halfnorm(scale=5.0))
 logger = bart.run()
 

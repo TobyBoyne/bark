@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from alfalfa.tree_models.tree_kernels import AlfalfaGP
 from alfalfa.tree_models.forest import AlfalfaForest
-from alfalfa.gps import RBFGP
+from alfalfa.baselines import RBFGP
 from alfalfa.leaf_gp.space import Space
 from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.benchmarks import rescaled_branin
@@ -39,9 +39,10 @@ test_y = rescaled_branin(torch.stack((test_X1.flatten(), test_X2.flatten()), dim
 
 
 models = (
-    ("RBF", "models/branin_rbf_gp.pt", _get_rbf_gp),
-    ("Leaf-GP", "models/branin_leaf_gp.pt", _get_forest_gp),
-    ("BART", "models/branin_bart.pt", _get_forest_gp),
+    # ("RBF", "models/branin_rbf_gp.pt", _get_rbf_gp),
+    # ("Leaf-GP", "models/branin_leaf_gp.pt", _get_forest_gp),
+    # ("BART", "models/branin_bart.pt", _get_forest_gp),
+    ("BART_sampled", "models/branin_sampled_bart_.pt", _get_forest_gp),
 )
 
 for name, path, model_fn in models:

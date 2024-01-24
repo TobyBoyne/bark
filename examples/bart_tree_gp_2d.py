@@ -21,7 +21,7 @@ y = f + torch.randn_like(f) * 0.2**0.5
 
 
 likelihood = gpy.likelihoods.GaussianLikelihood(noise_constraint=gpy.constraints.Positive())
-forest = AlfalfaForest(height=0, num_trees=10)
+forest = AlfalfaForest(height=0, num_trees=30)
 space = Space([[0.0, 1.0], [0.0, 1.0]])
 forest.initialise(space)
 gp = AlfalfaGP(x, y, likelihood, forest)
@@ -38,17 +38,28 @@ test_f = rescaled_branin(test_x)
 test_y = test_f + torch.randn_like(test_f) * 0.2**0.5
 
 data = BARTData(space, np.asarray(x))
-params = BARTTrainParams(warmup_steps=500)
-bart = BART(gp, data, params, scale_prior=stats.halfnorm(scale=5.0))
+params = BARTTrainParams(
+    warmup_steps=500,
+    n_steps=500,
+    lag=500 // 5, # want 5 samples
+)
+bart = BART(gp, data, params, 
+            scale_prior=stats.gamma(3.0, scale=1.94/3.0),
+            noise_prior=stats.gamma(3.0, scale=0.057/3.0))
 logger = bart.run()
 
 output = gp(x)
 loss = -mll(output, y)
 print(f"Final loss={loss}")
 gp.eval()
-torch.save(gp.state_dict(), "models/branin_bart.pt")
+
+sampled_model = AlfalfaGP.from_mcmc_samples(gp, logger["samples"])
+sampled_model.eval()
+
+
+torch.save(sampled_model.state_dict(), "models/branin_sampled_bart_.pt")
 test_x = torch.meshgrid(torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij")
-plot_gp_2d(gp, test_x, target=rescaled_branin)
+plot_gp_2d(sampled_model, test_x, target=rescaled_branin)
 fig, axs = plt.subplots(nrows=2)
 axs[0].plot(logger["noise"])
 axs[1].plot(logger["scale"])

@@ -61,7 +61,7 @@ for itr in range(args.num_itr):
     X_train, y_train = np.asarray(X), np.asarray(y)
 
     
-    forest = AlfalfaForest(height=1, num_trees=20)
+    forest = AlfalfaForest(height=0, num_trees=3)
     forest.initialise(bb_func.get_space())
 
     likelihood = gpy.likelihoods.GaussianLikelihood()

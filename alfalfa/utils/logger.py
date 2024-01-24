@@ -4,6 +4,7 @@ from collections import defaultdict
 import numpy as np
 from matplotlib.axes import Axes
 from typing import Callable
+from alfalfa.tree_models import AlfalfaGP
 
 class Timer:
     """Context manager for timing function calls."""
@@ -77,3 +78,8 @@ class BOLogger(Logger):
         ax.set_ylim(ylim)
         ax.legend()
         return [scat, l, fill, l_target]
+    
+
+class MCMCLogger(Logger):
+    def checkpoint(self, model: AlfalfaGP):
+        self.log(samples=model.state_dict())

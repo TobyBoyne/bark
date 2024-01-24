@@ -9,11 +9,16 @@ class TransitionEnum(Enum):
 
 @dataclass
 class BARTTrainParams:
+    # MCMC run parameters
     warmup_steps: int = 50
     n_steps: int = 50
+    lag: int = 5
+
+    # node depth prior
     alpha: float = 0.95
     beta: float = 0.5
 
+    # transition type probabilities
     grow_prune_weight: float = 0.5
     change_weight: float = 1.0
 
