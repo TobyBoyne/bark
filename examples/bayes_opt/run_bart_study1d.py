@@ -3,12 +3,11 @@ import torch
 import gpytorch as gpy
 import lightgbm as lgb
 import matplotlib.pyplot as plt
-from botorch import standardize
 
 from alfalfa.leaf_gp.bb_func_utils import get_func
 from alfalfa import AlfalfaForest
 from alfalfa.tree_models.tree_kernels import AlfalfaGP
-from alfalfa.optimizer import get_global_sol, build_opt_model
+from alfalfa.optimizer import propose, build_opt_model
 from alfalfa.leaf_gp.gbm_model import GbmModel
 from alfalfa.fitting import BART, BARTTrainParams, BARTData
 
@@ -21,8 +20,8 @@ torch.set_default_dtype(torch.float64)
 from argparse import ArgumentParser
 parser = ArgumentParser()
 parser.add_argument("-bb-func", type=str, default="himmelblau1d")
-parser.add_argument("-num-init", type=int, default=5)
-parser.add_argument("-num-itr", type=int, default=5)
+parser.add_argument("-num-init", type=int, default=2)
+parser.add_argument("-num-itr", type=int, default=10)
 parser.add_argument("-rnd-seed", type=int, default=101)
 parser.add_argument("-solver-type", type=str, default="global") # can also be 'sampling'
 parser.add_argument("-has-larger-model", action='store_true')
@@ -56,6 +55,12 @@ test_x = torch.linspace(0, 1, 50)
 logger = BOLogger(X, y, 
                   target=lambda x: bb_func(x.reshape(1, -1)))
 
+train_params = BARTTrainParams(
+    warmup_steps=100,
+    n_steps=50
+)
+
+
 # main bo loop
 print(f"\n* * * start bo loop...")
 for itr in range(args.num_itr):
@@ -69,17 +74,13 @@ for itr in range(args.num_itr):
     tree_gp = AlfalfaGP(torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest)
 
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
-    train_params = BARTTrainParams(
-        warmup_steps=100,
-        n_steps=50
-    )
     data = BARTData(bb_func.get_space(), X_train)
     bart = BART(tree_gp, data, train_params)
     bart.run()
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)
     opt_model = build_opt_model(bb_func.get_space(), gbm_model, tree_gp, 1.96)
-    var_bnds, next_x, curr_mean, curr_var = get_global_sol(
+    next_x = propose(
         bb_func.get_space(), opt_model, gbm_model
     )
     next_y = bb_func(next_x)

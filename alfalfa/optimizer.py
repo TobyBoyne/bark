@@ -115,6 +115,60 @@ def build_opt_model(space: Space, gbm_model: GbmModel, tree_gp: AlfalfaGP, kappa
 
     return opt_model
 
+def propose(space: Space, opt_model: gurobipy.Model, gbm_model: GbmModel):
+    next_x_area, next_val, curr_mean, curr_var = get_global_sol(space, opt_model, gbm_model)
+
+    # add epsilon if input constr. exist
+    # i.e. tree splits are rounded to the 5th decimal when adding them to the model,
+    # and this may make optimization problems infeasible if the feasible region is very small
+    # if self.model_core:
+    #     self._add_epsilon_to_bnds(next_x_area)
+
+    #     while True:
+    #         try:
+    #             next_center = self._get_leaf_min_center_dist(next_x_area)
+    #             break
+    #         except RuntimeError:
+    #             self._add_epsilon_to_bnds(next_x_area)
+    # else:
+    next_center = _get_leaf_center(space, next_x_area)
+
+    return next_center
+
+def _get_leaf_center(space: Space, x_area):
+    """returns the center of x_area"""
+    next_x = []
+    for idx in range(len(x_area)):
+        if idx in space.cat_idx:
+            # for cat vars
+            xi = int(np.random.choice(list(x_area[idx]), size=1)[0])
+        else:
+            lb, ub = x_area[idx]
+
+            if space.dims[idx].is_bin:
+                # for bin vars
+                if lb == 0 and ub == 1:
+                    xi = int(np.random.randint(0, 2))
+                elif lb <= 0.1:
+                    xi = 0
+                elif ub >= 0.9:
+                    xi = 1
+                else:
+                    raise ValueError("problem with binary split, go to 'get_leaf_center'")
+
+            elif idx in space.int_idx:
+                # for int vars
+                lb, ub = round(lb), round(ub)
+                m = lb + (ub - lb) / 2
+                xi = int(np.random.choice([int(m), round(m)], size=1)[0])
+
+            else:
+                # for conti vars
+                xi = float(lb + (ub - lb) / 2)
+
+        next_x.append(xi)
+    return next_x
+
 
 def get_global_sol(space: Space, opt_model: gurobipy.Model, gbm_model: GbmModel):
     # provides global solution to the optimization problem
