@@ -3,6 +3,7 @@ import torch
 import gpytorch as gpy
 import lightgbm as lgb
 import matplotlib.pyplot as plt
+from botorch import standardize
 
 from alfalfa.leaf_gp.bb_func_utils import get_func
 from alfalfa import AlfalfaForest
@@ -61,7 +62,7 @@ for itr in range(args.num_itr):
     X_train, y_train = np.asarray(X), np.asarray(y)
 
     
-    forest = AlfalfaForest(height=0, num_trees=3)
+    forest = AlfalfaForest(height=0, num_trees=10)
     forest.initialise(bb_func.get_space())
 
     likelihood = gpy.likelihoods.GaussianLikelihood()
@@ -69,7 +70,7 @@ for itr in range(args.num_itr):
 
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
     train_params = BARTTrainParams(
-        warmup_steps=50,
+        warmup_steps=100,
         n_steps=50
     )
     data = BARTData(bb_func.get_space(), X_train)
@@ -88,6 +89,7 @@ for itr in range(args.num_itr):
     y.append(next_y)
 
     print(f"{itr}. min_val: {round(min(y), 5)}")
+    print(f"{next_x[0]:.4f}, {next_y:.4f}")
 
     tree_gp.eval()
     with torch.no_grad():

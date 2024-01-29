@@ -41,11 +41,12 @@ class GbmModel:
         )
 
     def load_forest(self, forest: AlfalfaForest):
-        self.n_trees = len(forest.trees)
-
         self.trees = [
             self._build_tree(tree) for tree in forest.trees
+            if not isinstance(tree.root, AlfalfaLeafNode)
         ]
+
+        self.n_trees = len(self.trees)
 
     def get_leaf_encodings(self, tree):
         yield from self.trees[tree].get_leaf_encodings()

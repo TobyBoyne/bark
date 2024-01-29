@@ -167,9 +167,7 @@ class DecisionNode(AlfalfaNode):
     
     # Model methods
     def initialise(self, depth, init_func: InitFuncType):
-        """Sample from the decision node prior.
-        
-        TODO: This isn't quite the prior!"""
+        """Sample from the decision node prior."""
         super().initialise(depth)
         if init_func is not None:
             init_func(self)
@@ -193,7 +191,7 @@ class DecisionNode(AlfalfaNode):
         else:
             # continuous - check if value is less than threshold
             return np.where(
-                var < self.threshold,
+                var <= self.threshold,
                 self.left(x),
                 self.right(x),
             )

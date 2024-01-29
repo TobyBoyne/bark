@@ -30,8 +30,11 @@ tree.initialise(space, data.get_init_prior())
 likelihood = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=gpytorch.constraints.Positive())
 model = AlfalfaGP(train_x, train_y, likelihood, tree)
 
-params = BARTTrainParams(warmup_steps=500, lag=5)
-bart = BART(model, data, params, scale_prior=stats.halfnorm(scale=5.0))
+params = BARTTrainParams(warmup_steps=10_000, lag=5)
+bart = BART(model, data, params, 
+            scale_prior=stats.halfnorm(scale=100.0),
+            noise_prior=stats.halfnorm(scale=100.0)
+)
 logger = bart.run()
 
 model.eval()
@@ -41,7 +44,10 @@ test_x = torch.linspace(0, 1, 100).reshape(-1, 1)
 fig, ax = plot_gp_1d(model, test_x, f)
 fig, axs = plt.subplots(ncols=3)
 axs[0].plot(logger["noise"])
+axs[0].set_title("noise")
 axs[1].plot(logger["scale"])
+axs[1].set_title("scale")
+
 with torch.no_grad():
     cov = model.covar_module(test_x).evaluate().numpy()
 axs[2].imshow(cov, interpolation="nearest")
