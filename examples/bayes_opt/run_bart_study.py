@@ -18,7 +18,7 @@ torch.set_default_dtype(torch.float64)
 
 from argparse import ArgumentParser
 parser = ArgumentParser()
-parser.add_argument("-bb-func", type=str, default="styblinski_tang")
+parser.add_argument("-bb-func", type=str, default="hartmann6d")
 parser.add_argument("-num-init", type=int, default=2)
 parser.add_argument("-num-itr", type=int, default=50)
 parser.add_argument("-rnd-seed", type=int, default=101)
@@ -68,7 +68,9 @@ for itr in range(args.num_itr):
         n_steps=50
     )
     data = BARTData(bb_func.get_space(), X_train)
-    bart = BART(tree_gp, data, train_params)
+    bart = BART(tree_gp, data, train_params,
+        noise_prior=None,
+        scale_prior=None)
     bart.run()
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)
@@ -84,6 +86,6 @@ for itr in range(args.num_itr):
 
     print(f"{itr}. min_val: {round(min(y), 5)}")
 
-with open("bart_bo_st.csv", "a+") as f:
+with open("bart_bo.csv", "a+") as f:
     f.write(",".join(map(str, y)))
     f.write("\n")

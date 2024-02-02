@@ -6,7 +6,9 @@ from typing import Callable
 
 from .logger import Logger
 
-def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable):
+def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable, ax=None):
+    if ax is None:
+        _, ax = plt.subplots()
     with torch.no_grad():
         likelihood = model.likelihood
         train_x = model.train_inputs[0]
@@ -14,13 +16,10 @@ def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable):
         # predictions
         observed_pred = likelihood(model(test_x))
 
-        # Initialize plot
-        fig, axs = plt.subplots(nrows=2)
-        ax = axs[0]
         # Get upper and lower confidence bounds
         lower, upper = observed_pred.confidence_region()
         # Plot training data as black stars
-        ax.plot(train_x.numpy(), train_y.numpy(), 'k*', label="test points")
+        ax.plot(train_x.numpy(), train_y.numpy(), 'k*', label="train points")
         # Plot predictive means as blue line
         ax.plot(test_x.flatten().numpy(), observed_pred.mean.numpy(), 'b', label="predictive mean")
         # Shade between the lower and upper confidence bounds
@@ -29,11 +28,11 @@ def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable):
         ax.plot(test_x.flatten().numpy(), target(test_x), label="target function")
         ax.legend()
 
-        ax = axs[1]
-        # plot *just* the variance
-        ax.plot(test_x.flatten().numpy(), (upper - observed_pred.mean).numpy())
+        # ax = axs[1]
+        # # plot *just* the variance
+        # ax.plot(test_x.flatten().numpy(), (upper - observed_pred.mean).numpy())
 
-    return fig, ax
+    return ax
 
 
 def plot_gp_2d(model: gpy.models.ExactGP, test_X, target: Callable):
@@ -67,13 +66,17 @@ def plot_gp_2d(model: gpy.models.ExactGP, test_X, target: Callable):
         axs[2].set_title(f"UCB ($\kappa={k}$)")
     return fig, axs
 
-def plot_covar_matrix(model: gpy.models.ExactGP, test_x):
+def plot_covar_matrix(model: gpy.models.ExactGP, test_x, ax=None):
+    if ax is None:
+        _, ax = plt.subplots()
     with torch.no_grad():
-        fig, ax = plt.subplots()
-
         cov = model.covar_module(test_x).evaluate().numpy()
-        ax.imshow(cov, interpolation="nearest")
-    return fig, ax
+        im = ax.imshow(cov, interpolation="nearest")
+
+    ax.grid(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    return ax, im
 
 
 def plot_loss_logs(logger: Logger, loss_key: str, step_key: str, test_loss_key: str):
