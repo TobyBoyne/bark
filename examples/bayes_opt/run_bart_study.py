@@ -15,8 +15,8 @@ torch.set_default_dtype(torch.float64)
 
 
 parser = ArgumentParser()
-parser.add_argument("-bb-func", type=str, default="hartmann6d")
-parser.add_argument("-num-init", type=int, default=2)
+parser.add_argument("-bb-func", type=str, default="g3")
+parser.add_argument("-num-init", type=int, default=5)
 parser.add_argument("-num-itr", type=int, default=50)
 parser.add_argument("-rnd-seed", type=int, default=101)
 parser.add_argument(
@@ -69,8 +69,10 @@ for itr in range(args.num_itr):
     bart.run()
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)
-    opt_model = build_opt_model(bb_func.get_space(), gbm_model, tree_gp, 1.96)
-    next_x = propose(bb_func.get_space(), opt_model, gbm_model)
+    opt_model = build_opt_model(
+        bb_func.get_space(), gbm_model, tree_gp, kappa=1.96, model_core=model_core
+    )
+    next_x = propose(bb_func.get_space(), opt_model, gbm_model, model_core)
     next_y = bb_func(next_x)
 
     # update progress
@@ -79,6 +81,6 @@ for itr in range(args.num_itr):
 
     print(f"{itr}. min_val: {round(min(y), 5)}")
 
-with open("bart_bo.csv", "a+") as f:
-    f.write(",".join(map(str, y)))
-    f.write("\n")
+# with open("bart_bo.csv", "a+") as f:
+#     f.write(",".join(map(str, y)))
+#     f.write("\n")

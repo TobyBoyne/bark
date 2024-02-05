@@ -23,7 +23,7 @@ def fit_leaf_gp(model: gpy.models.ExactGP):
     # "Loss" for GPs - the marginal log likelihood
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
-    for i in range(training_iter := 200):
+    for i in range(training_iter := 100):
         # Zero gradients from previous iteration
         optimizer.zero_grad()
         # Output from model

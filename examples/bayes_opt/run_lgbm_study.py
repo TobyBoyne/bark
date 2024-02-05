@@ -13,7 +13,7 @@ from alfalfa.tree_kernels import AlfalfaGP
 from alfalfa.utils.bb_funcs import get_func
 
 parser = ArgumentParser()
-parser.add_argument("-bb-func", type=str, default="branin")
+parser.add_argument("-bb-func", type=str, default="g3")
 parser.add_argument("-num-init", type=int, default=5)
 parser.add_argument("-num-itr", type=int, default=100)
 parser.add_argument("-rnd-seed", type=int, default=101)
@@ -42,16 +42,99 @@ print("* * * initial data targets:")
 print("\n".join(f"  val: {yi:.4f}" for yi in y))
 
 # add model_core with constraints if problem has constraints
-if bb_func.has_constr():
-    model_core = bb_func.get_model_core()
-else:
-    model_core = None
+model_core = bb_func.get_model_core()
 
 # modify tree model hyperparameters
 if not args.has_larger_model:
     tree_params = {"boosting_rounds": 50, "max_depth": 3, "min_data_in_leaf": 1}
 else:
     tree_params = {"boosting_rounds": 100, "max_depth": 5, "min_data_in_leaf": 1}
+
+X = [
+    [
+        0.3852022485955958,
+        0.6228813018628303,
+        0.41400182506057703,
+        0.1737091811912213,
+        0.5119263815690878,
+    ],
+    [
+        0.6309613412236432,
+        0.3389909693535073,
+        0.3890018127044594,
+        0.09168999687470201,
+        0.5720542609923439,
+    ],
+    [
+        0.026754203940608876,
+        0.8159070353313401,
+        0.16546117940401706,
+        0.5515269095819895,
+        0.04498464003309791,
+    ],
+    [
+        0.13132637524066224,
+        0.550525185688497,
+        0.5990280388082755,
+        0.5565417806821193,
+        0.10537718328798747,
+    ],
+    [
+        0.550303207113237,
+        0.15288904447725513,
+        0.7759863478354929,
+        0.22143391155370426,
+        0.15035409357404353,
+    ],
+    [
+        0.20981060772125404,
+        0.447785311849383,
+        0.4475563508096775,
+        0.4478649921592921,
+        0.5954669104928565,
+    ],
+    [
+        0.43821763086734405,
+        0.5069081165796212,
+        0.4842215099799958,
+        0.33819639508458027,
+        0.4496263723984085,
+    ],
+    [
+        0.41366927780220014,
+        0.4143023738351165,
+        0.5931916495543298,
+        0.4140607570139238,
+        0.3659393188807731,
+    ],
+    [
+        0.2974964653876007,
+        0.586693269783146,
+        0.507825824258923,
+        0.09931892819369466,
+        0.5472984040865184,
+    ],
+    [
+        0.4910719738160204,
+        0.5685992277358216,
+        0.3447276996850411,
+        0.49320739595445195,
+        0.2710238371280612,
+    ],
+]
+y = [
+    -0.4938006512659011,
+    -0.24396453542971938,
+    -0.005009389420974978,
+    -0.1419860476620413,
+    -0.12151136242104588,
+    -0.6268660796903548,
+    -0.9143425502359379,
+    -0.8611203975950393,
+    -0.2693325948728151,
+    -0.719266240868719,
+]
+
 
 # main bo loop
 print("\n* * * start bo loop...")
@@ -73,11 +156,11 @@ for itr in range(args.num_itr):
     fit_leaf_gp(tree_gp)
 
     # get new proposal and evaluate bb_func
-    tree_gp.likelihood.noise = 0.1977
-    tree_gp.covar_module.outputscale = 0.2841
     gbm_model = GbmModel(forest)
-    opt_model = build_opt_model(bb_func.get_space(), gbm_model, tree_gp, 1.96)
-    next_x = propose(bb_func.get_space(), opt_model, gbm_model)
+    opt_model = build_opt_model(
+        bb_func.get_space(), gbm_model, tree_gp, 1.96, model_core=model_core
+    )
+    next_x = propose(bb_func.get_space(), opt_model, gbm_model, model_core)
     next_y = bb_func(next_x)
 
     # tree_gp.eval()
@@ -85,16 +168,6 @@ for itr in range(args.num_itr):
     # target = lambda x: torch.tensor([bb_func(x[i, :]) for i in range(test_x.shape[0])])
     # plot_gp_1d(tree_gp, test_x, target)
     # plt.show()
-
-    # print all nodes
-    # def recurse(node):
-    #     if node.split_var == -1:
-    #         return "L"
-    #     l = recurse(node.left)
-    #     r = recurse(node.right)
-    #     return f"N{node.split_var}[{node.split_code_pred:.2f}]({l}, {r})"
-
-    # print([recurse(tree) for tree in gbm_model.trees])
 
     # update progress
     X.append(next_x)

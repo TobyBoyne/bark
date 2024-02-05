@@ -1,4 +1,9 @@
+from typing import Optional
+
+import gurobipy
 import numpy as np
+from gurobipy import GRB, MVar
+from scipy.linalg import cho_factor, cho_solve
 
 from ..tree_kernels import AlfalfaGP
 from ..utils.space import Space
@@ -6,15 +11,21 @@ from .gbm_model import GbmModel
 from .optimizer_utils import add_gbm_to_opt_model, get_opt_core
 
 
-def build_opt_model(space: Space, gbm_model: GbmModel, tree_gp: AlfalfaGP, kappa):
+def build_opt_model(
+    space: Space,
+    gbm_model: GbmModel,
+    tree_gp: AlfalfaGP,
+    kappa,
+    model_core: Optional[gurobipy.Model],
+):
     # build opt_model core
 
-    # # check if there's already a model core with extra constraints
-    # if self.model_core is None:
-    #     opt_model = get_opt_core(self.space)
-    # else:
-    #     # copy model core in case there are constr given already
-    #     opt_model = get_opt_core_copy(self.model_core)
+    # check if there's already a model core with extra constraints
+    if model_core is None:
+        opt_model = get_opt_core(space)
+    else:
+        # copy model core in case there are constr given already
+        opt_model = get_opt_core_copy(model_core)
     opt_model = get_opt_core(space)
 
     # build tree model
@@ -33,13 +44,11 @@ def build_opt_model(space: Space, gbm_model: GbmModel, tree_gp: AlfalfaGP, kappa
     ks = Kmm + s_diag
 
     # invert gram matrix
-    from scipy.linalg import cho_factor, cho_solve
 
     id_ks = np.eye(ks.shape[0])
     inv_ks = cho_solve(cho_factor(ks, lower=True), id_ks)
 
     # add tree_gp logic to opt_model
-    from gurobipy import GRB, MVar
 
     act_leave_vars = gbm_model.get_active_leaf_vars(
         train_x.numpy(), opt_model, "1st_obj"
@@ -98,3 +107,31 @@ def build_opt_model(space: Space, gbm_model: GbmModel, tree_gp: AlfalfaGP, kappa
     opt_model._mu_coeff = lin_term
 
     return opt_model
+
+
+def get_opt_core_copy(opt_core):
+    """creates the copy of an optimization model"""
+    new_opt_core = opt_core.copy()
+    new_opt_core._n_feat = opt_core._n_feat
+
+    # transfer var dicts
+    new_opt_core._cont_var_dict = {}
+    new_opt_core._cat_var_dict = {}
+
+    ## transfer cont_var_dict
+    for var in opt_core._cont_var_dict.keys():
+        var_name = opt_core._cont_var_dict[var].VarName
+
+        new_opt_core._cont_var_dict[var] = new_opt_core.getVarByName(var_name)
+
+    ## transfer cat_var_dict
+    for var in opt_core._cat_var_dict.keys():
+        for cat in opt_core._cat_var_dict[var].keys():
+            var_name = opt_core._cat_var_dict[var][cat].VarName
+
+            if var not in new_opt_core._cat_var_dict.keys():
+                new_opt_core._cat_var_dict[var] = {}
+
+            new_opt_core._cat_var_dict[var][cat] = new_opt_core.getVarByName(var_name)
+
+    return new_opt_core
