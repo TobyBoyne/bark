@@ -1,24 +1,38 @@
+import numpy as np
+import scipy.stats as stats
+import torch
+from tqdm import tqdm
+
+from alfalfa.utils.logger import MCMCLogger
+
+from ...forest import AlfalfaTree
+from ...tree_kernels import AlfalfaGP
+from .data import Data
+from .noise_scale_transitions import (noise_acceptance_probability,
+                                      propose_noise_transition,
+                                      propose_scale_transition,
+                                      scale_acceptance_probability)
 from .params import BARTTrainParams
 from .tree_transitions import propose_transition, tree_acceptance_probability
-from .noise_scale_transitions import propose_noise_transition, noise_acceptance_probability, propose_scale_transition, scale_acceptance_probability
-from ...tree_models.forest import AlfalfaTree
-from ...tree_models.tree_kernels import AlfalfaGP
-from .data import Data
-from alfalfa.utils.logger import MCMCLogger
-import torch
-import numpy as np
-from tqdm import tqdm
-import scipy.stats as stats
+
 
 def default_noise_prior():
     return stats.gamma(a=1.0)
 
+
 def default_scale_prior():
     return stats.halfnorm(scale=1.0)
 
+
 class BART:
-    def __init__(self, model: AlfalfaGP, data: Data, params: BARTTrainParams,
-                 noise_prior = None, scale_prior = None):
+    def __init__(
+        self,
+        model: AlfalfaGP,
+        data: Data,
+        params: BARTTrainParams,
+        noise_prior=None,
+        scale_prior=None,
+    ):
         self.model = model
         self.data = data
         self.params = params
@@ -60,20 +74,25 @@ class BART:
         if transition is None:
             # not a valid transition
             return
-        
-        log_alpha = tree_acceptance_probability(self.data, self.model, transition, self.params)
+
+        log_alpha = tree_acceptance_probability(
+            self.data, self.model, transition, self.params
+        )
         if self._accept_transition(log_alpha):
             transition.apply()
 
-            
     def _transition_noise(self):
         new_noise = propose_noise_transition(self.model)
-        log_alpha = noise_acceptance_probability(self.model, new_noise, self.noise_prior)
+        log_alpha = noise_acceptance_probability(
+            self.model, new_noise, self.noise_prior
+        )
         if self._accept_transition(log_alpha):
             self.model.likelihood.noise = new_noise
 
     def _transition_scale(self):
         new_scale = propose_scale_transition(self.model)
-        log_alpha = scale_acceptance_probability(self.model, new_scale, self.scale_prior)
+        log_alpha = scale_acceptance_probability(
+            self.model, new_scale, self.scale_prior
+        )
         if self._accept_transition(log_alpha):
             self.model.covar_module.outputscale = new_scale

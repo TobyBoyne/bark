@@ -1,11 +1,13 @@
 """Taken from Leaf-GP"""
 
 import collections as coll
+
 import numpy as np
 import torch
 
-from ..tree_models.forest import AlfalfaForest, AlfalfaTree, DecisionNode
-from ..tree_models.forest import LeafNode as AlfalfaLeafNode
+from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode
+from ..forest import LeafNode as AlfalfaLeafNode
+
 
 class GbmModel:
     """Define a gbm model.
@@ -26,6 +28,7 @@ class GbmModel:
     -
 
     """
+
     def __init__(self, forest: AlfalfaForest):
         self.load_forest(forest)
 
@@ -34,15 +37,12 @@ class GbmModel:
         split_var = node.var_idx
         split_code_pred = node.threshold
 
-        return GbmNode(
-            split_var=split_var,
-            split_code_pred=split_code_pred,
-            node=node
-        )
+        return GbmNode(split_var=split_var, split_code_pred=split_code_pred, node=node)
 
     def load_forest(self, forest: AlfalfaForest):
         self.trees = [
-            self._build_tree(tree) for tree in forest.trees
+            self._build_tree(tree)
+            for tree in forest.trees
             if not isinstance(tree.root, AlfalfaLeafNode)
         ]
 
@@ -64,16 +64,10 @@ class GbmModel:
         return self.trees[tree].get_branch_partition_pair(encoding)
 
     def get_left_leaves(self, tree, encoding):
-        yield from (
-            encoding + s
-            for s in self.trees[tree].get_left_leaves(encoding)
-        )
+        yield from (encoding + s for s in self.trees[tree].get_left_leaves(encoding))
 
     def get_right_leaves(self, tree, encoding):
-        yield from (
-            encoding + s
-            for s in self.trees[tree].get_right_leaves(encoding)
-        )
+        yield from (encoding + s for s in self.trees[tree].get_right_leaves(encoding))
 
     def get_branch_partition_pairs(self, tree, leaf_encoding):
         yield from self.trees[tree].get_branch_partition_pairs(leaf_encoding)
@@ -98,12 +92,12 @@ class GbmModel:
         for tree in self.trees:
             for var, breakpoint in tree.get_all_partition_pairs():
                 try:
-                    if isinstance(breakpoint,list):
+                    if isinstance(breakpoint, list):
                         var_breakpoints[var].append(breakpoint)
                     else:
                         var_breakpoints[var].add(breakpoint)
                 except KeyError:
-                    if isinstance(breakpoint,list):
+                    if isinstance(breakpoint, list):
                         var_breakpoints[var] = [breakpoint]
                     else:
                         var_breakpoints[var] = set([breakpoint])
@@ -116,10 +110,9 @@ class GbmModel:
 
     def get_leaf_count(self):
         resulting_counter = sum(
-            (tree.get_leaf_count() for tree in self.trees),
-            coll.Counter()
+            (tree.get_leaf_count() for tree in self.trees), coll.Counter()
         )
-        del resulting_counter['leaf']
+        del resulting_counter["leaf"]
         return resulting_counter
 
     def get_active_leaf_id_vec(self, X):
@@ -133,7 +126,7 @@ class GbmModel:
         x_leaves = np.apply_along_axis(self.get_active_leaf_id_vec, 1, X)
         x2_leaves = np.apply_along_axis(self.get_active_leaf_id_vec, 1, X2)
         sim_mat = np.equal(x_leaves[:, np.newaxis], x2_leaves[np.newaxis, :])
-        sim_mat = (1/self.n_trees)*np.sum(sim_mat, axis=2)
+        sim_mat = (1 / self.n_trees) * np.sum(sim_mat, axis=2)
         return sim_mat
 
     def get_gram_diag(self, X):
@@ -146,56 +139,49 @@ class GbmModel:
             self.trees[tree_id]._update_bnds(0, leaf, var_bnds)
         return var_bnds
 
-
     def get_active_leaves(self, X):
         all_active_leaves = []
         for tree in self.trees:
             active_leaf = []
             tree._populate_active_leaf_encodings(active_leaf, X)
-            all_active_leaves.append(''.join(active_leaf))
+            all_active_leaves.append("".join(active_leaf))
         return all_active_leaves
 
     def get_active_area(self, X, cat_idx=None, space=None, volume=False):
-            active_splits = {}
-            for tree in self.trees:
-                tree._populate_active_splits(active_splits, X)
+        active_splits = {}
+        for tree in self.trees:
+            tree._populate_active_splits(active_splits, X)
 
-            all_active_splits = {}
-            for idx,dim in enumerate(space.dimensions):
-                if idx not in cat_idx:
+        all_active_splits = {}
+        for idx, dim in enumerate(space.dimensions):
+            if idx not in cat_idx:
+                if idx in active_splits.keys():
+                    # if tree splits on this conti var
+                    all_active_splits[idx] = active_splits[idx]
+                    all_active_splits[idx].insert(0, dim.transformed_bounds[0])
+                    all_active_splits[idx].append(dim.transformed_bounds[1])
+                else:
+                    # add actual bounds of var if tree doesn't split on var
+                    all_active_splits[idx] = [
+                        dim.transformed_bounds[0],
+                        dim.transformed_bounds[1],
+                    ]
+        # sort all splits and extract modified bounds for vars
+        for key in all_active_splits.keys():
+            all_active_splits[key] = sorted(list(set(all_active_splits[key])))[:2]
 
-                    if idx in active_splits.keys():
-                        # if tree splits on this conti var
-                        all_active_splits[idx] = active_splits[idx]
-                        all_active_splits[idx].insert(0,dim.transformed_bounds[0])
-                        all_active_splits[idx].append(dim.transformed_bounds[1])
-                    else:
-                        # add actual bounds of var if tree doesn't split on var
-                        all_active_splits[idx] = \
-                            [
-                                dim.transformed_bounds[0],
-                                dim.transformed_bounds[1]
-                            ]
-            # sort all splits and extract modified bounds for vars
+        # return hypervolume if required
+        if volume:
+            hyper_vol = 1
             for key in all_active_splits.keys():
-                all_active_splits[key] = \
-                    sorted( list(set(all_active_splits[key])) )[:2]
+                hyper_vol *= abs(all_active_splits[key][0] - all_active_splits[key][1])
+            return all_active_splits, hyper_vol
+        else:
+            return all_active_splits
 
-            # return hypervolume if required
-            if volume:
-                hyper_vol = 1
-                for key in all_active_splits.keys():
-                    hyper_vol *= \
-                        abs(all_active_splits[key][0] - all_active_splits[key][1])
-                return all_active_splits, hyper_vol
-            else:
-                return all_active_splits
-            
     def get_active_leaf_vars(self, X, model, gbm_label):
         # get active leaves for X
-        act_leaves_x = np.asarray(
-            [self.get_active_leaves(x) for x in X]
-        )
+        act_leaves_x = np.asarray([self.get_active_leaves(x) for x in X])
 
         # generate active_leave_vars
         act_leaf_vars = []
@@ -221,7 +207,7 @@ class GbmType:
                 self.right._populate_active_splits(active_splits, X)
         else:
             if self.split_var != -1:
-                if not self.split_var in active_splits.keys():
+                if self.split_var not in active_splits.keys():
                     active_splits[self.split_var] = []
 
                 if X[self.split_var] <= self.split_code_pred:
@@ -232,45 +218,46 @@ class GbmType:
 
     def _update_bnds(self, curr_depth, leaf_enc, var_bnds):
         if self.split_var != -1:
-
             if isinstance(self.split_code_pred, list):
                 # categorical variable
                 cat_set = set(self.split_code_pred)
-                if leaf_enc[curr_depth] == '0':
-                    var_bnds[self.split_var] = \
-                        set(var_bnds[self.split_var]).intersection(cat_set)
+                if leaf_enc[curr_depth] == "0":
+                    var_bnds[self.split_var] = set(
+                        var_bnds[self.split_var]
+                    ).intersection(cat_set)
                     self.left._update_bnds(curr_depth + 1, leaf_enc, var_bnds)
                 else:
-                    var_bnds[self.split_var] = \
-                        set(var_bnds[self.split_var]).difference(cat_set)
+                    var_bnds[self.split_var] = set(var_bnds[self.split_var]).difference(
+                        cat_set
+                    )
                     self.right._update_bnds(curr_depth + 1, leaf_enc, var_bnds)
             else:
                 # continuous variable
                 lb, ub = var_bnds[self.split_var]
-                if leaf_enc[curr_depth] == '0':
-                    ub = min(ub,self.split_code_pred)
+                if leaf_enc[curr_depth] == "0":
+                    ub = min(ub, self.split_code_pred)
                     var_bnds[self.split_var] = (lb, ub)
                     self.left._update_bnds(curr_depth + 1, leaf_enc, var_bnds)
-                else: # if value is '1'
-                    lb = max(lb,self.split_code_pred)
+                else:  # if value is '1'
+                    lb = max(lb, self.split_code_pred)
                     var_bnds[self.split_var] = (lb, ub)
                     self.right._update_bnds(curr_depth + 1, leaf_enc, var_bnds)
 
     def _populate_active_leaf_encodings(self, active_leaf, X):
         if isinstance(self.split_code_pred, list):
             if X[self.split_var] in self.split_code_pred:
-                active_leaf.append('0')
+                active_leaf.append("0")
                 self.left._populate_active_leaf_encodings(active_leaf, X)
             else:
-                active_leaf.append('1')
+                active_leaf.append("1")
                 self.right._populate_active_leaf_encodings(active_leaf, X)
         else:
             if self.split_var != -1:
                 if X[self.split_var] <= self.split_code_pred:
-                    active_leaf.append('0')
+                    active_leaf.append("0")
                     self.left._populate_active_leaf_encodings(active_leaf, X)
                 else:
-                    active_leaf.append('1')
+                    active_leaf.append("1")
                     self.right._populate_active_leaf_encodings(active_leaf, X)
 
     def _get_active_leaf_id_vec(self, X, leaf_vec):
@@ -284,6 +271,7 @@ class GbmType:
                 return self.left._get_active_leaf_id_vec(X, leaf_vec)
             else:
                 return self.right._get_active_leaf_id_vec(X, leaf_vec)
+
 
 class GbmNode(GbmType):
     """Defines a gbm node which can be a split or leaf.
@@ -309,11 +297,9 @@ class GbmNode(GbmType):
     tree : list
         List of node dicts that define the tree
     """
+
     def __init__(
-        self,
-        split_var: int,
-        split_code_pred: torch.Tensor,
-        node: DecisionNode
+        self, split_var: int, split_code_pred: torch.Tensor, node: DecisionNode
     ):
         self.split_var = split_var
         # TODO: handle cat vars!
@@ -329,53 +315,38 @@ class GbmNode(GbmType):
         #     import sys
         #     sys.exit(1)
 
-        #TODO: check whether split_code_pred has any impact
+        # TODO: check whether split_code_pred has any impact
         child = node.left
         if isinstance(child, AlfalfaLeafNode):
-            self.left = LeafNode(
-                split_code_pred = 0.0,
-                leaf_id = child.leaf_id
-            )
+            self.left = LeafNode(split_code_pred=0.0, leaf_id=child.leaf_id)
         else:
             self.left = GbmNode(
-                split_var = child.var_idx,
-                split_code_pred = child.threshold,
-                node = child
+                split_var=child.var_idx, split_code_pred=child.threshold, node=child
             )
 
         # read right node
         child = node.right
         if isinstance(child, AlfalfaLeafNode):
-            self.right = LeafNode(
-                split_code_pred = 0.0,
-                leaf_id = child.leaf_id
-            )
+            self.right = LeafNode(split_code_pred=0.0, leaf_id=child.leaf_id)
         else:
             self.right = GbmNode(
-                split_var = child.var_idx,
-                split_code_pred = child.threshold,
-                node = child
+                split_var=child.var_idx, split_code_pred=child.threshold, node=child
             )
 
     def __repr__(self):
-        return ', '.join([
-            str(x)
-            for x in [
-                self.split_var,
-                self.split_code_pred]
-        ])
+        return ", ".join([str(x) for x in [self.split_var, self.split_code_pred]])
 
     def _get_next_node(self, direction):
         return self.right if int(direction) else self.left
 
-    def get_leaf_encodings(self, current_string=''):
-        yield from self.left.get_leaf_encodings(current_string+'0')
-        yield from self.right.get_leaf_encodings(current_string+'1')
+    def get_leaf_encodings(self, current_string=""):
+        yield from self.left.get_leaf_encodings(current_string + "0")
+        yield from self.right.get_leaf_encodings(current_string + "1")
 
-    def get_branch_encodings(self, current_string=''):
+    def get_branch_encodings(self, current_string=""):
         yield current_string
-        yield from self.left.get_branch_encodings(current_string+'0')
-        yield from self.right.get_branch_encodings(current_string+'1')
+        yield from self.left.get_branch_encodings(current_string + "0")
+        yield from self.right.get_branch_encodings(current_string + "1")
 
     def get_leaf_weight(self, encoding):
         next_node = self.right if int(encoding[0]) else self.left
@@ -397,14 +368,14 @@ class GbmNode(GbmType):
             next_node = self._get_next_node(encoding[0])
             yield from next_node.get_left_leaves(encoding[1:])
         else:
-            yield from self.left.get_leaf_encodings('0')
+            yield from self.left.get_leaf_encodings("0")
 
     def get_right_leaves(self, encoding):
         if encoding:
             next_node = self._get_next_node(encoding[0])
             yield from next_node.get_right_leaves(encoding[1:])
         else:
-            yield from self.right.get_leaf_encodings('1')
+            yield from self.right.get_leaf_encodings("1")
 
     def get_branch_partition_pairs(self, encoding):
         yield (self.split_var, self.split_code_pred)
@@ -466,42 +437,36 @@ class GbmNode(GbmType):
     def get_leaf_count(self):
         left_count = self.left.get_leaf_count()
         right_count = self.right.get_leaf_count()
-        joint_count = left_count+right_count
+        joint_count = left_count + right_count
 
         left_key = (self.split_var, self.split_code_pred, 0)
         right_key = (self.split_var, self.split_code_pred, 1)
-        joint_count[left_key] += left_count['leaf']
-        joint_count[right_key] += right_count['leaf']
+        joint_count[left_key] += left_count["leaf"]
+        joint_count[right_key] += right_count["leaf"]
         return joint_count
+
 
 class LeafNode(GbmType):
     """Defines a child class of `GbmType`. Leaf nodes have `split_var = -1` and
     `split_code_pred` as leaf value defined by training."""
-    def __init__(self,
-                 split_code_pred,
-                 leaf_id):
+
+    def __init__(self, split_code_pred, leaf_id):
         self.split_var = -1
         self.split_code_pred = split_code_pred
         self.leaf_id = leaf_id
 
     def __repr__(self):
-        return ', '.join([
-            str(x)
-            for x in [
-                'LeafNode',
-                self.split_code_pred]
-        ])
+        return ", ".join([str(x) for x in ["LeafNode", self.split_code_pred]])
 
     def switch_to_maximisation(self):
         """Changes the sign of tree model prediction by changing signs of
         leaf values."""
-        self.split_code_pred = -1*self.split_code_pred
+        self.split_code_pred = -1 * self.split_code_pred
 
-
-    def get_leaf_encodings(self, current_string=''):
+    def get_leaf_encodings(self, current_string=""):
         yield current_string
 
-    def get_branch_encodings(self, current_string=''):
+    def get_branch_encodings(self, current_string=""):
         yield from []
 
     def get_leaf_weight(self, encoding):
@@ -512,13 +477,13 @@ class LeafNode(GbmType):
         yield self.split_code_pred
 
     def get_branch_partition_pair(self, encoding):
-        raise Exception('Should not get here.')
+        raise Exception("Should not get here.")
 
     def get_left_leaves(self, encoding):
-        raise Exception('Should not get here.')
+        raise Exception("Should not get here.")
 
     def get_right_leaves(self, encoding):
-        raise Exception('Should not get here.')
+        raise Exception("Should not get here.")
 
     def get_branch_partition_pairs(self, encoding):
         assert not encoding
@@ -547,7 +512,7 @@ class LeafNode(GbmType):
         return var_interval
 
     def get_leaf_count(self):
-        return coll.Counter({'leaf': 1})
+        return coll.Counter({"leaf": 1})
 
     def _get_active_leaf_id_vec(self, X, leaf_vec):
         return leaf_vec.append(self.leaf_id)
