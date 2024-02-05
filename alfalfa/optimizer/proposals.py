@@ -3,7 +3,7 @@ import numpy as np
 
 from ..utils.space import Space
 from .gbm_model import GbmModel
-from .optimizer_utils import (get_opt_sol, label_leaf_index)
+from .optimizer_utils import get_opt_sol, label_leaf_index
 
 
 def propose(space: Space, opt_model: gurobipy.Model, gbm_model: GbmModel):

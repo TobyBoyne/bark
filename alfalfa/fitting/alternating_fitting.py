@@ -37,7 +37,7 @@ def all_threshold_values(var: torch.Tensor):
     # - linspace along axis
     # if not var.numel():
     #     return []
-    midpoints = (var[:-1] + var[1:]) / 2
+    # midpoints = (var[:-1] + var[1:]) / 2
     # thresholds = midpoints
     thresholds = var
     # thresholds = torch.linspace(var.min(), var.max(), var.shape[0])

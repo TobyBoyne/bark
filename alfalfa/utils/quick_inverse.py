@@ -27,13 +27,6 @@ def fast_inverse_sum_rank1_vec(A_inv, b):
     return A_inv - 1 / (1 + g) * (A_inv @ b) @ (b.T @ A_inv)
 
 
-def fast_inverse_sum(A_inv, Bs):
-    C_inv = A_inv
-    for B in Bs:
-        C_inv = fast_inverse_sum_rank1(C_inv, B)
-    return C_inv
-
-
 N = 20
 torch.manual_seed(42)
 L = torch.rand((N, N))

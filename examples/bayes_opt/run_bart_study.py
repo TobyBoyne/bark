@@ -1,29 +1,28 @@
+from argparse import ArgumentParser
+
+import gpytorch as gpy
 import numpy as np
 import torch
-import gpytorch as gpy
-import lightgbm as lgb
-import matplotlib.pyplot as plt
 
-from alfalfa.leaf_gp.bb_func_utils import get_func
-from alfalfa import AlfalfaForest
-from alfalfa.tree_models.tree_kernels import AlfalfaGP
-from alfalfa.optimizer import propose, build_opt_model
-from alfalfa.leaf_gp.gbm_model import GbmModel
-from alfalfa.fitting import BART, BARTTrainParams, BARTData
-
-from alfalfa.utils.plots import plot_gp_1d
-from alfalfa.utils.logger import BOLogger
+from alfalfa.fitting import BART, BARTData, BARTTrainParams
+from alfalfa.forest import AlfalfaForest
+from alfalfa.optimizer import build_opt_model, propose
+from alfalfa.optimizer.gbm_model import GbmModel
+from alfalfa.tree_kernels import AlfalfaGP
+from alfalfa.utils.bb_funcs import get_func
 
 torch.set_default_dtype(torch.float64)
 
-from argparse import ArgumentParser
+
 parser = ArgumentParser()
 parser.add_argument("-bb-func", type=str, default="hartmann6d")
 parser.add_argument("-num-init", type=int, default=2)
 parser.add_argument("-num-itr", type=int, default=50)
 parser.add_argument("-rnd-seed", type=int, default=101)
-parser.add_argument("-solver-type", type=str, default="global") # can also be 'sampling'
-parser.add_argument("-has-larger-model", action='store_true')
+parser.add_argument(
+    "-solver-type", type=str, default="global"
+)  # can also be 'sampling'
+parser.add_argument("-has-larger-model", action="store_true")
 args = parser.parse_args()
 
 # set random seeds for reproducibility
@@ -39,9 +38,9 @@ if bb_func.cat_idx:
 
 # generate initial data points
 init_data = bb_func.get_init_data(args.num_init, args.rnd_seed)
-X, y = init_data['X'], init_data['y']
+X, y = init_data["X"], init_data["y"]
 
-print(f"* * * initial data targets:")
+print("* * * initial data targets:")
 print("\n".join(f"  val: {yi:.4f}" for yi in y))
 
 # add model_core with constraints if problem has constraints
@@ -51,33 +50,27 @@ else:
     model_core = None
 
 # main bo loop
-print(f"\n* * * start bo loop...")
+print("\n* * * start bo loop...")
 for itr in range(args.num_itr):
     X_train, y_train = np.asarray(X), np.asarray(y)
 
-    
     forest = AlfalfaForest(height=0, num_trees=10)
     forest.initialise(bb_func.get_space())
 
     likelihood = gpy.likelihoods.GaussianLikelihood()
-    tree_gp = AlfalfaGP(torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest)
+    tree_gp = AlfalfaGP(
+        torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest
+    )
 
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
-    train_params = BARTTrainParams(
-        warmup_steps=100,
-        n_steps=50
-    )
+    train_params = BARTTrainParams(warmup_steps=100, n_steps=50)
     data = BARTData(bb_func.get_space(), X_train)
-    bart = BART(tree_gp, data, train_params,
-        noise_prior=None,
-        scale_prior=None)
+    bart = BART(tree_gp, data, train_params, noise_prior=None, scale_prior=None)
     bart.run()
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)
     opt_model = build_opt_model(bb_func.get_space(), gbm_model, tree_gp, 1.96)
-    next_x = propose(
-        bb_func.get_space(), opt_model, gbm_model
-    )
+    next_x = propose(bb_func.get_space(), opt_model, gbm_model)
     next_y = bb_func(next_x)
 
     # update progress

@@ -3,7 +3,7 @@ import numpy as np
 from ..tree_kernels import AlfalfaGP
 from ..utils.space import Space
 from .gbm_model import GbmModel
-from .optimizer_utils import (add_gbm_to_opt_model, get_opt_core)
+from .optimizer_utils import add_gbm_to_opt_model, get_opt_core
 
 
 def build_opt_model(space: Space, gbm_model: GbmModel, tree_gp: AlfalfaGP, kappa):

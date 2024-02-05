@@ -235,7 +235,7 @@ class SynFunc:
                 proj_x_vals.append(x_sol)
 
             return proj_x_vals
-        
+
     def vector_apply(self, x):
         ys = [self(xi) for xi in x]
         if isinstance(x, np.ndarray):
@@ -256,6 +256,7 @@ class Himmelblau1D(SynFunc):
     def get_bounds(self):
         return [[0.0, 1.0]]
 
+
 class Branin(SynFunc):
     # branin, rescaled to [0.0, 1.0]
     def __call__(self, x, **kwargs):
@@ -266,7 +267,7 @@ class Branin(SynFunc):
         A = (x2_b - (5.1 / (4 * np.pi**2)) * x1_b**2 + (5 / np.pi) * x1_b - 6) ** 2
         B = 10 * (1 - 1 / (8 * np.pi)) * np.cos(x1_b) - 44.81
         return -(A + B) / 51.95
-    
+
     def get_bounds(self):
         return [[0.0, 1.0], [0.0, 1.0]]
 
@@ -425,24 +426,29 @@ class G4(SynFunc):
         super().__init__()
         self.is_nonconvex = True
 
-        u = (
-            lambda x: 85.334407
-            + 0.0056858 * x[1] * x[4]
-            + 0.0006262 * x[0] * x[3]
-            - 0.0022053 * x[2] * x[4]
-        )
-        v = (
-            lambda x: 80.51249
-            + 0.0071317 * x[1] * x[4]
-            + 0.0029955 * x[0] * x[1]
-            + 0.0021813 * x[2] ** 2
-        )
-        w = (
-            lambda x: 9.300961
-            + 0.0047026 * x[2] * x[4]
-            + 0.0012547 * x[0] * x[2]
-            + 0.0019085 * x[2] * x[3]
-        )
+        def u(x):
+            return (
+                85.334407
+                + 0.0056858 * x[1] * x[4]
+                + 0.0006262 * x[0] * x[3]
+                - 0.0022053 * x[2] * x[4]
+            )
+
+        def v(x):
+            return (
+                80.51249
+                + 0.0071317 * x[1] * x[4]
+                + 0.0029955 * x[0] * x[1]
+                + 0.0021813 * x[2] ** 2
+            )
+
+        def w(x):
+            return (
+                9.300961
+                + 0.0047026 * x[2] * x[4]
+                + 0.0012547 * x[0] * x[2]
+                + 0.0019085 * x[2] * x[3]
+            )
 
         self.ineq_constr_funcs = [
             lambda x: -u(x),  # g1
@@ -1368,7 +1374,7 @@ class VAESmall(CatSynFunc):
 
         try:
             f = self._func(temp_dict)
-        except:
+        except ValueError:
             f = max(self.y) if self.y else 500
 
         self.y.append(f)

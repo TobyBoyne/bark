@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Circle
 
-from ...forest import (AlfalfaForest, AlfalfaNode, AlfalfaTree, DecisionNode)
+from ...forest import AlfalfaForest, AlfalfaNode, AlfalfaTree, DecisionNode
 
 NODE_SIZE = 0.5
 LEFT = np.array([-1.0, -2.0])

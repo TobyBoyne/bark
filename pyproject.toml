@@ -7,7 +7,8 @@ name = "alfalfa"
 version = "0.1"
 
 [tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I001"]
 ignore-init-module-imports = true
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]

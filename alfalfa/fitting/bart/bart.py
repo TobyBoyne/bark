@@ -8,10 +8,12 @@ from alfalfa.utils.logger import MCMCLogger
 from ...forest import AlfalfaTree
 from ...tree_kernels import AlfalfaGP
 from .data import Data
-from .noise_scale_transitions import (noise_acceptance_probability,
-                                      propose_noise_transition,
-                                      propose_scale_transition,
-                                      scale_acceptance_probability)
+from .noise_scale_transitions import (
+    noise_acceptance_probability,
+    propose_noise_transition,
+    propose_scale_transition,
+    scale_acceptance_probability,
+)
 from .params import BARTTrainParams
 from .tree_transitions import propose_transition, tree_acceptance_probability
 

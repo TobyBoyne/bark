@@ -1,19 +1,15 @@
-from alfalfa.tree_models.forest import AlfalfaTree, DecisionNode
-from alfalfa.fitting.bart.transitions import GrowTransition
+from alfalfa.fitting.bart.tree_transitions import GrowTransition
+from alfalfa.forest import AlfalfaTree, DecisionNode
+
 
 def test_grow_transition():
     tree = AlfalfaTree(root=DecisionNode())
-    transition = GrowTransition(tree, tree.root, "left")
+    transition = GrowTransition(tree, tree.root.left, DecisionNode())
     with transition:
         assert tree.structure_eq(AlfalfaTree(root=DecisionNode(left=DecisionNode())))
 
-    # without applying, the model should return to initial state
+    # context manager correctly applies inverse transition upon exit
     assert tree.structure_eq(AlfalfaTree(root=DecisionNode()))
 
-    with transition:
-        transition.apply()
-
+    transition.apply()
     assert tree.structure_eq(AlfalfaTree(root=DecisionNode(left=DecisionNode())))
-
-
-    

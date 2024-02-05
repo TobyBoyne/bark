@@ -1,15 +1,11 @@
-from alfalfa.tree_models import AlfalfaTree, DecisionNode
-from alfalfa.tree_models.tree_kernels import AlfalfaTreeModelKernel
-import torch
 import matplotlib.pyplot as plt
-from alfalfa.leaf_gp.space import Space
+import torch
 
-tree = AlfalfaTree(
-    root=DecisionNode(0, 0.5, left=DecisionNode(
-        0, 0.25
-        )
-    )
-)
+from alfalfa.forest import AlfalfaTree, DecisionNode
+from alfalfa.tree_kernels import AlfalfaTreeModelKernel
+from alfalfa.utils.space import Space
+
+tree = AlfalfaTree(root=DecisionNode(0, 0.5, left=DecisionNode(0, 0.25)))
 tree.initialise(Space([[0.0, 1.0]]))
 kernel = AlfalfaTreeModelKernel(tree)
 

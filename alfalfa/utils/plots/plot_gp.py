@@ -47,7 +47,6 @@ def plot_gp_2d(model: gpy.models.ExactGP, test_X, target: Callable):
 
     likelihood = model.likelihood
     train_x = model.train_inputs[0]
-    train_y = model.train_targets
     with torch.no_grad():
         # predictions
         test_X1, test_X2 = test_X

@@ -1,20 +1,21 @@
-import torch
 import gpytorch as gpy
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
-from alfalfa.tree_models.tree_kernels import AlfalfaGP
-from alfalfa.tree_models.forest import AlfalfaForest
 from alfalfa.baselines import RBFGP
 from alfalfa.leaf_gp.space import Space
-from alfalfa.utils.plots import plot_gp_2d
+from alfalfa.tree_models.tree_kernels import AlfalfaGP
 from alfalfa.utils.benchmarks import rescaled_branin
+from alfalfa.utils.plots import plot_gp_2d
+
 
 def _get_rbf_gp(path, x, y):
     likelihood = gpy.likelihoods.GaussianLikelihood()
     gp = RBFGP(x, y, likelihood)
     gp.load_state_dict(torch.load(path))
     return gp
+
 
 def _get_forest_gp(path, x, y):
     state = torch.load(path)
@@ -24,15 +25,18 @@ def _get_forest_gp(path, x, y):
     gp.tree_model.initialise(Space([[0.0, 1.0], [0.0, 1.0]]))
     return gp
 
+
 torch.manual_seed(42)
 np.random.seed(42)
 N_train = 50
 x = torch.rand((N_train, 2))
 f = rescaled_branin(x)
 noise_var = 0.2
-y = f + torch.randn_like(f) * noise_var ** 0.5
+y = f + torch.randn_like(f) * noise_var**0.5
 
-test_x = torch.meshgrid(torch.linspace(0, 1, 25), torch.linspace(0, 1, 25), indexing="ij")
+test_x = torch.meshgrid(
+    torch.linspace(0, 1, 25), torch.linspace(0, 1, 25), indexing="ij"
+)
 
 test_X1, test_X2 = test_x
 test_y = rescaled_branin(torch.stack((test_X1.flatten(), test_X2.flatten()), dim=1))
@@ -60,7 +64,8 @@ for name, path, model_fn in models:
     test_y = rescaled_branin(test_x_stacked)
     pred_dist = model.likelihood(model(test_x_stacked))
 
-    print(f"""Model {name}:
+    print(
+        f"""Model {name}:
     MLL= {loss:.3f}
     NLPD={gpy.metrics.negative_log_predictive_density(pred_dist, test_y):.4f}"""
     )
