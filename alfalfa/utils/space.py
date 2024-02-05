@@ -1,11 +1,10 @@
+from typing import Union, Literal
+
+BoundType = Union[int, float, str]
+
 class Dimension:
-    def __init__(self, bnds, var_type):
-        self.is_bin = False
-        if var_type in ('int', 'conti'):
-            lb, ub = bnds
-            if (var_type == 'int') and \
-               (lb == 0 and ub == 1):
-                self.is_bin = True
+    def __init__(self, bnds: list[BoundType], var_type: Literal["int", "conti", "cat"]):
+        self.is_bin = var_type == "int" and bnds == [0, 1]
 
         self.var_type = var_type
         self.bnds = bnds
@@ -16,7 +15,7 @@ class Dimension:
 
 class Space:
     def __init__(self,
-        bnds,
+        bnds: list[list[BoundType]],
         cat_idx=None,
         int_idx=None):
 

@@ -1,5 +1,10 @@
 import numpy as np
-from .optimizer_utils import conv2list
+from ..optimizer.optimizer_utils import conv2list, get_opt_core, get_opt_sol
+from .space import Space
+
+from skopt.space.space import Space as SkoptSpace
+from skopt.space.space import Categorical, Integer, Real
+
 
 def get_func(bb_name):
     # local vs. global acquisition optimization
@@ -82,12 +87,9 @@ class SynFunc:
                 x[idx] = round(x[idx])
 
     def get_space(self):
-        from .space import Space
         return Space(self.get_bounds(), int_idx=self.int_idx)
 
     def get_skopt_space(self):
-        from skopt.space.space import Space as SkoptSpace
-        from skopt.space.space import Categorical, Integer, Real
 
         skopt_bnds = []
         for idx, d in enumerate(self.get_bounds()):
@@ -114,7 +116,6 @@ class SynFunc:
         else:
             # define model core
             space = self.get_space()
-            from .optimizer_utils import get_opt_core
             model_core = get_opt_core(space)
 
             # add equality constraints to model core
@@ -362,8 +363,7 @@ class G3(SynFunc):
         ]
 
     def __call__(self, x, **kwargs):
-        from math import sqrt
-        f = (sqrt(self.dim)**self.dim)*np.prod([x[i] for i in range(self.dim)])
+        f = (np.sqrt(self.dim)**self.dim)*np.prod([x[i] for i in range(self.dim)])
         f = -float(f)
         return f
 
@@ -546,7 +546,6 @@ class Alkylation(SynFunc):
     def get_model_core(self):
         # define model core
         space = self.get_space()
-        from leaf_gp.optimizer_utils import get_opt_core
         model_core = get_opt_core(space)
 
         # add helper vars
@@ -632,7 +631,6 @@ class PressureVessel(SynFunc):
     def get_model_core(self):
         # define model core
         space = self.get_space()
-        from leaf_gp.optimizer_utils import get_opt_core
         model_core = get_opt_core(space)
 
         # add helper vars
@@ -775,16 +773,12 @@ class CatSynFunc(SynFunc):
             return conv2list(x)
 
     def get_space(self):
-        from leaf_gp.model_utils import Space
         if self._has_onehot_trafo:
             return Space(self.get_bounds(), int_idx=self.int_idx)
         else:
             return Space(self.get_bounds(), int_idx=self.int_idx, cat_idx=self.cat_idx)
 
     def get_skopt_space(self):
-        from skopt.space.space import Space as SkoptSpace
-        from skopt.space.space import Categorical
-
         skopt_bnds = []
         for idx, d in enumerate(self.bnds):
             skopt_bnds.append(Categorical(d, transform='onehot')
@@ -853,7 +847,6 @@ class CatSynFunc(SynFunc):
 
                 model_core.optimize()
 
-                from leaf_gp.optimizer_utils import get_opt_sol
                 x_sol = get_opt_sol(self.get_space(), model_core)
                 proj_x_vals.append(self.inv_trafo_inputs(x_sol))
 
@@ -956,7 +949,6 @@ class VAESmall(CatSynFunc):
     def _get_base_constr_model(self):
         # define model core
         space = self.get_space()
-        from leaf_gp.optimizer_utils import get_opt_core
         model_core = get_opt_core(space)
 
         # add helper vars

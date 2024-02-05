@@ -4,7 +4,7 @@ import gpytorch as gpy
 from torch.distributions import Normal, Categorical
 from typing import Optional, Sequence, Callable
 from operator import attrgetter
-from ..leaf_gp.space import Space
+from ..utils.space import Space
 import abc
 
 InitFuncType = Optional[Callable[["DecisionNode"], None]]

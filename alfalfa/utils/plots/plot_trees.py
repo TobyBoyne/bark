@@ -1,4 +1,4 @@
-from ..tree_models.forest import AlfalfaTree, AlfalfaNode, DecisionNode, LeafNode, AlfalfaForest
+from ...tree_models.forest import AlfalfaTree, AlfalfaNode, DecisionNode, LeafNode, AlfalfaForest
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 import numpy as np
