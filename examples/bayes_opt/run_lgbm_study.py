@@ -16,7 +16,7 @@ from alfalfa.utils.plots import plot_gp_1d
 
 from argparse import ArgumentParser
 parser = ArgumentParser()
-parser.add_argument("-bb-func", type=str, default="himmelblau1d")
+parser.add_argument("-bb-func", type=str, default="branin")
 parser.add_argument("-num-init", type=int, default=5)
 parser.add_argument("-num-itr", type=int, default=100)
 parser.add_argument("-rnd-seed", type=int, default=101)

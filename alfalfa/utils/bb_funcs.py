@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from skopt.space.space import Categorical, Integer, Real
 from skopt.space.space import Space as SkoptSpace
 
@@ -20,6 +21,8 @@ def get_func(bb_name):
         return Hartmann6D()
     elif bb_name == "himmelblau1d":
         return Himmelblau1D()
+    elif bb_name == "branin":
+        return Branin()
     elif bb_name == "rastrigin":
         return Rastrigin()
     elif bb_name == "styblinski_tang":
@@ -232,6 +235,15 @@ class SynFunc:
                 proj_x_vals.append(x_sol)
 
             return proj_x_vals
+        
+    def vector_apply(self, x):
+        ys = [self(xi) for xi in x]
+        if isinstance(x, np.ndarray):
+            return np.asarray(ys)
+        elif isinstance(x, torch.Tensor):
+            return torch.tensor(ys)
+        else:
+            return ys
 
 
 class Himmelblau1D(SynFunc):
@@ -243,6 +255,20 @@ class Himmelblau1D(SynFunc):
 
     def get_bounds(self):
         return [[0.0, 1.0]]
+
+class Branin(SynFunc):
+    # branin, rescaled to [0.0, 1.0]
+    def __call__(self, x, **kwargs):
+        x1 = x[0]
+        x2 = x[1]
+        x1_b = 15 * x1 - 5
+        x2_b = 15 * x2
+        A = (x2_b - (5.1 / (4 * np.pi**2)) * x1_b**2 + (5 / np.pi) * x1_b - 6) ** 2
+        B = 10 * (1 - 1 / (8 * np.pi)) * np.cos(x1_b) - 44.81
+        return -(A + B) / 51.95
+    
+    def get_bounds(self):
+        return [[0.0, 1.0], [0.0, 1.0]]
 
 
 class Hartmann6D(SynFunc):
@@ -1046,9 +1072,11 @@ class VAESmall(CatSynFunc):
 
         self.bnds = [bnd for key, bnd in self._var_keys]
 
-        from leaf_gp.vae_nas_utils import get_test_loss
+        # from leaf_gp.vae_nas_utils import get_test_loss
 
-        self._func = get_test_loss
+        # self._func = get_test_loss
+
+        raise NotImplementedError
 
     def is_feas(self, x):
         return True
