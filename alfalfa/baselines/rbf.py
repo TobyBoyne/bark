@@ -1,5 +1,6 @@
 import gpytorch as gpy
 
+
 class RBFGP(gpy.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood):
         super().__init__(train_inputs, train_targets, likelihood)

@@ -1,4 +1,4 @@
-from .alternating_fitting import alternating_fit, AlternatingTrainParams
+from .alternating_fitting import AlternatingTrainParams, alternating_fit
 from .bart.bart import BART
-from .bart.params import BARTTrainParams
 from .bart.data import Data as BARTData
+from .bart.params import BARTTrainParams

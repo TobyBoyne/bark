@@ -1,14 +1,15 @@
+import gurobipy
 import numpy as np
-import torch
-from .optimizer_utils import \
-    get_opt_core, add_gbm_to_opt_model, get_opt_core_copy, label_leaf_index, get_opt_sol
+
 from ..utils.space import Space
 from .gbm_model import GbmModel
+from .optimizer_utils import (get_opt_sol, label_leaf_index)
 
-import gurobipy
 
 def propose(space: Space, opt_model: gurobipy.Model, gbm_model: GbmModel):
-    next_x_area, next_val, curr_mean, curr_var = get_global_sol(space, opt_model, gbm_model)
+    next_x_area, next_val, curr_mean, curr_var = get_global_sol(
+        space, opt_model, gbm_model
+    )
 
     # add epsilon if input constr. exist
     # i.e. tree splits are rounded to the 5th decimal when adding them to the model,
@@ -26,6 +27,7 @@ def propose(space: Space, opt_model: gurobipy.Model, gbm_model: GbmModel):
     next_center = _get_leaf_center(space, next_x_area)
 
     return next_center
+
 
 def _get_leaf_center(space: Space, x_area):
     """returns the center of x_area"""
@@ -46,7 +48,9 @@ def _get_leaf_center(space: Space, x_area):
                 elif ub >= 0.9:
                     xi = 1
                 else:
-                    raise ValueError("problem with binary split, go to 'get_leaf_center'")
+                    raise ValueError(
+                        "problem with binary split, go to 'get_leaf_center'"
+                    )
 
             elif idx in space.int_idx:
                 # for int vars
@@ -76,12 +80,14 @@ def get_global_sol(space: Space, opt_model: gurobipy.Model, gbm_model: GbmModel)
     opt_model.optimize()
 
     # get active leaf area
-    label = '1st_obj'
+    label = "1st_obj"
     var_bnds = [d.bnds for d in space.dims]
 
-    active_enc = \
-        [(tree_id, leaf_enc) for tree_id, leaf_enc in label_leaf_index(opt_model, label)
-        if round(opt_model._z_l[label, tree_id, leaf_enc].x) == 1.0]
+    active_enc = [
+        (tree_id, leaf_enc)
+        for tree_id, leaf_enc in label_leaf_index(opt_model, label)
+        if round(opt_model._z_l[label, tree_id, leaf_enc].x) == 1.0
+    ]
     gbm_model.update_var_bounds(active_enc, var_bnds)
 
     # reading x_val
@@ -89,7 +95,11 @@ def get_global_sol(space: Space, opt_model: gurobipy.Model, gbm_model: GbmModel)
 
     # extract variance and mean
     curr_var = opt_model._var.x
-    curr_mean = sum([opt_model._mu_coeff[idx]*opt_model._sub_z_mu[idx].x
-                        for idx in range(len(opt_model._mu_coeff))])
+    curr_mean = sum(
+        [
+            opt_model._mu_coeff[idx] * opt_model._sub_z_mu[idx].x
+            for idx in range(len(opt_model._mu_coeff))
+        ]
+    )
 
     return var_bnds, next_x, curr_mean, curr_var

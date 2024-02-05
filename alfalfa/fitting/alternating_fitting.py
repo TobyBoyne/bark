@@ -1,15 +1,13 @@
 from dataclasses import dataclass
-
-import torch
-import gpytorch as gpy
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 from typing import Optional
 
-from ..forest import DecisionNode, AlfalfaTree, AlfalfaForest
+import gpytorch as gpy
+import torch
+from tqdm import tqdm
+
+from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode
 from ..tree_kernels import AlfalfaGP
-from ..utils.logger import Timer, Logger
-from ..utils.plots import plot_loss_logs
+from ..utils.logger import Logger, Timer
 
 
 @dataclass
@@ -20,15 +18,18 @@ class AlternatingTrainParams:
 
     threshold_jitter: float = 0.1
 
+
 timer = Timer()
 logger = Logger()
+
 
 def all_cat_combinations(n):
     # only need to go up to n // 2
     # beyond this, it's equivalent
-    for r in range(1, n//2 + 1):
+    for r in range(1, n // 2 + 1):
         for comb in torch.combinations(torch.arange(n), r=r):
             yield comb
+
 
 def all_threshold_values(var: torch.Tensor):
     # two approaches here:
@@ -94,7 +95,7 @@ def _fit_decision_node(
     if train_params.threshold_jitter:
         node.threshold += train_params.threshold_jitter * torch.randn(())
     node.var_idx = min_loss_var_idx
-    
+
     logger.log(min_loss=min_loss.item(), train_step="tree")
 
 
@@ -176,7 +177,6 @@ def alternating_fit(
     train_params: Optional[AlternatingTrainParams] = None,
     test_x: Optional[torch.Tensor] = None,
     test_y: Optional[torch.Tensor] = None,
-
 ):
     """Fit a Tree GP.
 
@@ -189,11 +189,16 @@ def alternating_fit(
     model.likelihood.train()
 
     logging = not (test_x is None or test_y is None)
+
     def log_test_loss():
         if logging:
             model.eval()
             pred_dist = model.likelihood(model(test_x))
-            logger.log(test_loss=gpy.metrics.negative_log_predictive_density(pred_dist, test_y).item())
+            logger.log(
+                test_loss=gpy.metrics.negative_log_predictive_density(
+                    pred_dist, test_y
+                ).item()
+            )
             model.train()
 
     log_test_loss()

@@ -1,11 +1,14 @@
 from dataclasses import dataclass
+from enum import Enum
+
 import numpy as np
-from enum import Enum, auto
+
 
 class TransitionEnum(Enum):
     GROW = 0
     PRUNE = 1
     CHANGE = 2
+
 
 @dataclass
 class BARTTrainParams:
@@ -24,9 +27,7 @@ class BARTTrainParams:
 
     @property
     def step_weights(self):
-        p = np.array([
-            self.grow_prune_weight, 
-            self.grow_prune_weight,
-            self.change_weight
-        ])
+        p = np.array(
+            [self.grow_prune_weight, self.grow_prune_weight, self.change_weight]
+        )
         return p / np.sum(p)

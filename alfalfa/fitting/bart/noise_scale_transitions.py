@@ -1,21 +1,23 @@
-from ...tree_kernels import AlfalfaGP
-from .data import Data
-from .params import BARTTrainParams
+import gpytorch as gpy
 import numpy as np
 import scipy.stats as stats
-import gpytorch as gpy
+
+from ...tree_kernels import AlfalfaGP
 
 STEP_SIZE = 0.1
+
 
 def softplus(x):
     """Used to transform from unconstrained space to constrained space"""
     return np.log(1 + np.exp(x))
+
 
 def log_q_ratio_lognorm(cur_val, new_val):
     """Compute the log transition ratio for a lognormal proposal"""
     log_q_star = stats.lognorm.logpdf(cur_val, s=STEP_SIZE, scale=new_val)
     log_q = stats.lognorm.logpdf(new_val, s=STEP_SIZE, scale=cur_val)
     return log_q_star - log_q
+
 
 def propose_noise_transition(model: AlfalfaGP):
     # take a proposal in the unconstrained space
@@ -25,9 +27,12 @@ def propose_noise_transition(model: AlfalfaGP):
     new_noise = softplus(new_raw_noise)
     return new_noise
 
-def noise_acceptance_probability(model: AlfalfaGP, new_noise: float, prior: stats.rv_continuous):
+
+def noise_acceptance_probability(
+    model: AlfalfaGP, new_noise: float, prior: stats.rv_continuous
+):
     cur_noise = model.likelihood.noise.item()
-    
+
     log_q_ratio = log_q_ratio_lognorm(cur_noise, new_noise)
     mll = gpy.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
 
@@ -54,7 +59,10 @@ def propose_scale_transition(model: AlfalfaGP):
     new_scale = softplus(new_raw_scale)
     return new_scale
 
-def scale_acceptance_probability(model: AlfalfaGP, new_scale: float, prior: stats.rv_continuous):
+
+def scale_acceptance_probability(
+    model: AlfalfaGP, new_scale: float, prior: stats.rv_continuous
+):
     cur_scale = model.covar_module.outputscale
 
     log_q_ratio = log_q_ratio_lognorm(cur_scale, new_scale)
