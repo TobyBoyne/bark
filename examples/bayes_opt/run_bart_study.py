@@ -44,10 +44,7 @@ print("* * * initial data targets:")
 print("\n".join(f"  val: {yi:.4f}" for yi in y))
 
 # add model_core with constraints if problem has constraints
-if bb_func.has_constr():
-    model_core = bb_func.get_model_core()
-else:
-    model_core = None
+model_core = bb_func.get_model_core()
 
 # main bo loop
 print("\n* * * start bo loop...")

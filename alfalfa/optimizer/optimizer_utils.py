@@ -29,7 +29,10 @@ def get_opt_sol(space, opt_model):
                 if opt_model._cat_var_dict[idx][cat].x > 0.5:
                     x_val = cat
         else:
-            x_val = opt_model._cont_var_dict[idx].x
+            try:
+                x_val = opt_model._cont_var_dict[idx].x
+            except AttributeError:
+                pass
 
         if x_val is None:
             raise ValueError(

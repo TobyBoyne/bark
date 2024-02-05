@@ -33,7 +33,7 @@ def propose(
             try:
                 next_center = _get_leaf_min_center_dist(next_x_area, space, model_core)
                 break
-            except RuntimeError:
+            except ValueError:
                 _add_epsilon_to_bnds(next_x_area, space)
     else:
         next_center = _get_leaf_center(next_x_area, space)
