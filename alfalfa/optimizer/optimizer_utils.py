@@ -314,7 +314,7 @@ def add_gbm_constraints(cat_idx, model):
 
     def y_order_r(model_, i, j):
         if j == len(model_._breakpoints(i)):
-            return Constraint.Skip
+            raise NotImplementedError("This constraint should be skipped")
         return model_._y[i, j] <= model_._y[i, j + 1]
 
     def cat_sums(model_, i):

@@ -4,8 +4,8 @@ import collections as coll
 import numpy as np
 import torch
 
-from ..tree_models.forest import AlfalfaForest, AlfalfaTree, DecisionNode
-from ..tree_models.forest import LeafNode as AlfalfaLeafNode
+from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode
+from ..forest import LeafNode as AlfalfaLeafNode
 
 class GbmModel:
     """Define a gbm model.

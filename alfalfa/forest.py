@@ -1,13 +1,13 @@
-import torch
-import numpy as np
-import gpytorch as gpy
-from torch.distributions import Normal, Categorical
-from typing import Optional, Sequence, Callable
-from operator import attrgetter
-from ..utils.space import Space
 import abc
+from typing import Callable, Optional, Sequence
+
+import numpy as np
+import torch
+
+from .utils.space import Space
 
 InitFuncType = Optional[Callable[["DecisionNode"], None]]
+
 
 def _leaf_id_iter():
     i = 0
@@ -32,10 +32,10 @@ _leaf_id = _leaf_id_iter()
 #         parent_node = attrgetter(".".join(parent_key))(module)
 #         setattr(parent_node, child, LeafNode())
 
+
 class AlfalfaNode:
-    """
-    
-    """
+    """ """
+
     def __init__(self):
         super().__init__()
         self.depth: int = 0
@@ -53,7 +53,7 @@ class AlfalfaNode:
     @abc.abstractmethod
     def child_leaves(self):
         return []
-    
+
     @property
     def space(self):
         return self.tree.space
@@ -66,7 +66,7 @@ class AlfalfaNode:
 
     def replace_self(self, new_node: "AlfalfaNode"):
         """Replace this node with a different node.
-        
+
         Assign either parent_node.left or parent_node.right to the new node,
         depending on the direction from the current node to the parent"""
         if self.parent is None:
@@ -88,10 +88,11 @@ class AlfalfaNode:
 
     def as_dict(self):
         return {}
-    
+
     @classmethod
     def from_dict(cls, d):
         return LeafNode()
+
 
 class LeafNode(AlfalfaNode):
     def __init__(self):
@@ -107,7 +108,7 @@ class LeafNode(AlfalfaNode):
 
     def structure_eq(self, other):
         return isinstance(other, LeafNode)
-    
+
     def __repr__(self):
         return "L"
 
@@ -123,19 +124,18 @@ class DecisionNode(AlfalfaNode):
         super().__init__()
         self.var_idx = None if var_idx is None else var_idx
         self.threshold = None if threshold is None else threshold
-        
+
         self._left: AlfalfaNode = None
         self._right: AlfalfaNode = None
-        
+
         self.left = LeafNode() if left is None else left
         self.right = LeafNode() if right is None else right
-
 
     # Structural methods
     @property
     def child_leaves(self):
         return self.left.child_leaves + self.right.child_leaves
-    
+
     def _set_child_data(self, child: AlfalfaNode, recurse=True):
         """Set the metadata (depth, parent, etc) for a child node"""
         child.tree = self.tree
@@ -147,7 +147,7 @@ class DecisionNode(AlfalfaNode):
     @property
     def left(self):
         return self._left
-    
+
     @left.setter
     def left(self, node: AlfalfaNode):
         self._left = node
@@ -157,22 +157,21 @@ class DecisionNode(AlfalfaNode):
     @property
     def right(self):
         return self._right
-    
+
     @right.setter
     def right(self, node: AlfalfaNode):
         self._right = node
         self._right.parent = (self, "right")
         self._set_child_data(node, recurse=True)
 
-    
     # Model methods
     def initialise(self, depth, init_func: InitFuncType):
         """Sample from the decision node prior."""
         super().initialise(depth)
         if init_func is not None:
             init_func(self)
-        self.left.initialise(depth+1, init_func)
-        self.right.initialise(depth+1, init_func)
+        self.left.initialise(depth + 1, init_func)
+        self.right.initialise(depth + 1, init_func)
 
     def __call__(self, x: np.ndarray, allow_not_initialised=False):
         if self.threshold is None and allow_not_initialised:
@@ -183,11 +182,7 @@ class DecisionNode(AlfalfaNode):
 
         if self.var_idx in self.space.cat_idx:
             # categorical - check if value is in subset
-            return np.where(
-                np.isin(var, self.threshold),
-                self.left(x),
-                self.right(x)
-            )
+            return np.where(np.isin(var, self.threshold), self.left(x), self.right(x))
         else:
             # continuous - check if value is less than threshold
             return np.where(
@@ -195,7 +190,7 @@ class DecisionNode(AlfalfaNode):
                 self.left(x),
                 self.right(x),
             )
-        
+
     def __repr__(self):
         return f"N{self.var_idx}({self.left}), ({self.right})"
 
@@ -227,9 +222,9 @@ class DecisionNode(AlfalfaNode):
             "var_idx": self.var_idx,
             "threshold": self.threshold,
             "left": self.left.as_dict(),
-            "right": self.right.as_dict()
+            "right": self.right.as_dict(),
         }
-    
+
     @classmethod
     def from_dict(cls, d):
         if not d:
@@ -262,7 +257,6 @@ class AlfalfaTree:
         self.space = space
         self.root.initialise(0, init_func)
 
-
     def _get_nodes_by_depth(self) -> dict[int, list[AlfalfaNode]]:
         nodes = [self.root]
         nodes_by_depth = {}
@@ -283,26 +277,23 @@ class AlfalfaTree:
         x1_leaves = self(x1)
         x2_leaves = self(x2)
 
-        sim_mat = np.equal(x1_leaves[..., :, None], x2_leaves[..., None, :]).astype(float)
+        sim_mat = np.equal(x1_leaves[..., :, None], x2_leaves[..., None, :]).astype(
+            float
+        )
         return sim_mat
-    
+
     def __call__(self, x):
         if isinstance(self.root, DecisionNode):
             return self.root(x)
         else:
             return np.full((x.shape[0],), fill_value=self.root.leaf_id)
 
-
     def structure_eq(self, other: "AlfalfaTree"):
         return self.root.structure_eq(other.root)
-    
 
     def as_dict(self):
-        return {
-            "tree_model_type": "tree",
-            "root": self.root.as_dict()
-        }
-    
+        return {"tree_model_type": "tree", "root": self.root.as_dict()}
+
     @classmethod
     def from_dict(cls, d):
         root = DecisionNode.from_dict(d["root"])
@@ -341,9 +332,9 @@ class AlfalfaForest:
     def as_dict(self):
         return {
             "tree_model_type": "forest",
-            "trees": [tree.as_dict() for tree in self.trees]
+            "trees": [tree.as_dict() for tree in self.trees],
         }
-    
+
     @classmethod
     def from_dict(cls, d):
         trees = [AlfalfaTree.from_dict(d_tree) for d_tree in d["trees"]]

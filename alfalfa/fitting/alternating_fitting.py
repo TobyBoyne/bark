@@ -6,8 +6,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from typing import Optional
 
-from ..tree_models.forest import DecisionNode, AlfalfaTree, AlfalfaForest
-from ..tree_models.tree_kernels import AlfalfaGP
+from ..forest import DecisionNode, AlfalfaTree, AlfalfaForest
+from ..tree_kernels import AlfalfaGP
 from ..utils.logger import Timer, Logger
 from ..utils.plots import plot_loss_logs
 

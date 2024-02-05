@@ -4,7 +4,7 @@ from collections import defaultdict
 import numpy as np
 from matplotlib.axes import Axes
 from typing import Callable
-from alfalfa.tree_models import AlfalfaGP
+from ..tree_kernels import AlfalfaGP
 
 class Timer:
     """Context manager for timing function calls."""

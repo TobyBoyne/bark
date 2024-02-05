@@ -1,8 +1,8 @@
 """Wrapper for data"""
 import torch
 import numpy as np
-from ...leaf_gp.space import Space
-from ...tree_models.forest import AlfalfaTree, DecisionNode, AlfalfaNode, LeafNode
+from ...utils.space import Space
+from ...forest import AlfalfaTree, DecisionNode, AlfalfaNode, LeafNode
 
 class Data:
     def __init__(self, space: Space, X: np.ndarray):

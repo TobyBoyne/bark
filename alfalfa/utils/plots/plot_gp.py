@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from typing import Callable
 
-from ..logger import Logger
-
 def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable, ax=None):
     if ax is None:
         _, ax = plt.subplots()

@@ -1,8 +1,9 @@
-import torch
-import numpy as np
+from typing import Union
+
 import gpytorch as gpy
-from .forest import AlfalfaTree, AlfalfaForest
-from typing import Any, Union
+import torch
+
+from .forest import AlfalfaForest, AlfalfaTree
 
 
 class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
@@ -19,7 +20,7 @@ class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
 
     def get_extra_state(self):
         return {"tree_model": self.tree_model.as_dict()}
-    
+
     def set_extra_state(self, state):
         d = state["tree_model"]
         if d["tree_model_type"] == "tree":
@@ -42,11 +43,11 @@ class AlfalfaGP(gpy.models.ExactGP):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
         return gpy.distributions.MultivariateNormal(mean_x, covar_x)
-    
+
     @property
     def tree_model(self) -> Union[AlfalfaTree, AlfalfaForest]:
         return self.covar_module.base_kernel.tree_model
-    
+
     @classmethod
     def from_mcmc_samples(cls, model: "AlfalfaGP", samples):
         likelihood = gpy.likelihoods.GaussianLikelihood()
@@ -54,15 +55,19 @@ class AlfalfaGP(gpy.models.ExactGP):
         for sample in samples:
             forest_dict = sample["covar_module.base_kernel._extra_state"]["tree_model"]
             all_trees["trees"] += forest_dict["trees"]
-        
+
         tree_model = AlfalfaForest.from_dict(all_trees)
         tree_model.initialise(model.tree_model.space)
         gp = cls(model.train_inputs[0], model.train_targets, likelihood, tree_model)
 
-        avg_noise = torch.mean(torch.tensor([s["likelihood.noise_covar.raw_noise"] for s in samples]))
+        avg_noise = torch.mean(
+            torch.tensor([s["likelihood.noise_covar.raw_noise"] for s in samples])
+        )
         likelihood.noise = torch.nn.Softplus(avg_noise)
 
-        avg_scale = torch.mean(torch.tensor([s["covar_module.raw_outputscale"] for s in samples]))
+        avg_scale = torch.mean(
+            torch.tensor([s["covar_module.raw_outputscale"] for s in samples])
+        )
         gp.covar_module.outputscale = torch.nn.Softplus(avg_scale)
 
         return gp

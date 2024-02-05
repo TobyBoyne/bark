@@ -1,4 +1,4 @@
-from ...tree_models.forest import AlfalfaTree, DecisionNode, LeafNode
+from ...forest import AlfalfaTree, DecisionNode, LeafNode
 from typing import Callable, Union
 
 def in_order_conditional(

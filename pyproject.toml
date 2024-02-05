@@ -5,3 +5,6 @@ build-backend = "hatchling.build"
 [project]
 name = "alfalfa"
 version = "0.1"
+
+[tool.ruff.lint]
+ignore-init-module-imports = true

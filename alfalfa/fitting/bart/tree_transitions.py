@@ -1,6 +1,6 @@
 """Processes for mutating trees"""
-from alfalfa.tree_models.forest import DecisionNode, AlfalfaTree, LeafNode
-from ...tree_models.tree_kernels import AlfalfaGP
+from ...forest import DecisionNode, AlfalfaTree, LeafNode
+from ...tree_kernels import AlfalfaGP
 from .tree_traversal import terminal_nodes, singly_internal_nodes
 from .data import Data
 from .params import BARTTrainParams, TransitionEnum

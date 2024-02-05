@@ -6,11 +6,11 @@ from botorch.utils import standardize
 import matplotlib.pyplot as plt
 
 from alfalfa.utils.bb_funcs import get_func
-from alfalfa import AlfalfaForest
-from alfalfa.tree_models.tree_kernels import AlfalfaGP
+from alfalfa.forest import AlfalfaForest
+from alfalfa.tree_kernels import AlfalfaGP
 from alfalfa.optimizer import propose, build_opt_model
 from alfalfa.optimizer.gbm_model import GbmModel
-from alfalfa.tree_models.lgbm_tree import lgbm_to_alfalfa_forest, fit_leaf_gp
+from alfalfa.fitting.lgbm_fitting import lgbm_to_alfalfa_forest, fit_leaf_gp
 from alfalfa.utils.space import Space
 from alfalfa.utils.plots import plot_gp_1d
 

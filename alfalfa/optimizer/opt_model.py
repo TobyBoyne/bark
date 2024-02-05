@@ -3,7 +3,7 @@ from .optimizer_utils import \
     get_opt_core, add_gbm_to_opt_model, get_opt_core_copy, label_leaf_index
 from ..utils.space import Space
 from .gbm_model import GbmModel
-from ..tree_models.tree_kernels import AlfalfaGP
+from ..tree_kernels import AlfalfaGP
 
 def build_opt_model(space: Space, gbm_model: GbmModel, tree_gp: AlfalfaGP, kappa):
     # build opt_model core

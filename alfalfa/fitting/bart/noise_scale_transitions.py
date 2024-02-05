@@ -1,4 +1,4 @@
-from ...tree_models.tree_kernels import AlfalfaGP
+from ...tree_kernels import AlfalfaGP
 from .data import Data
 from .params import BARTTrainParams
 import numpy as np
