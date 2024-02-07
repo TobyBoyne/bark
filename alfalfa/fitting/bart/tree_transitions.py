@@ -7,9 +7,12 @@ import numpy as np
 
 from ...forest import AlfalfaTree, DecisionNode, LeafNode
 from ...tree_kernels import AlfalfaGP
+from ...utils.logger import Timer
 from .data import Data
 from .params import BARTTrainParams, TransitionEnum
 from .tree_traversal import singly_internal_nodes, terminal_nodes
+
+tree_timer = Timer()
 
 
 def propose_transition(
@@ -58,13 +61,16 @@ def tree_acceptance_probability(
 ):
     # P(INVERSE_METHOD) / P(METHOD)
     # Not necessary as long as P(GROW) == P(PRUNE)
-    q_ratio = transition.log_q_ratio(data)
+    with tree_timer("q_ratio"):
+        q_ratio = transition.log_q_ratio(data)
     if np.isneginf(q_ratio):
         # no valid ways to perform the operation
         # e.g. there are no valid splitting rules for a given node
         return -np.inf
-    likelihood_ratio = transition.log_likelihood_ratio(model)
-    prior_ratio = transition.log_prior_ratio(data, params.alpha, params.beta)
+    with tree_timer("ll_ratio"):
+        likelihood_ratio = transition.log_likelihood_ratio(model)
+    with tree_timer("prior_ratio"):
+        prior_ratio = transition.log_prior_ratio(data, params.alpha, params.beta)
 
     return min(q_ratio + likelihood_ratio + prior_ratio, 0.0)
 

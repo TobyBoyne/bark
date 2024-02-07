@@ -32,6 +32,9 @@ class Timer:
             perf_counter() - self.current_start + duration,
         )
 
+    def average(self, unit=1.0):
+        return {k: (v[1] / v[0]) * unit for k, v in self.durations.items()}
+
     def __getitem__(self, key):
         return self.durations[key]
 

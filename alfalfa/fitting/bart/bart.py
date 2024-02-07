@@ -15,15 +15,18 @@ from .noise_scale_transitions import (
     scale_acceptance_probability,
 )
 from .params import BARTTrainParams
-from .tree_transitions import propose_transition, tree_acceptance_probability
+from .tree_transitions import (
+    propose_transition,
+    tree_acceptance_probability,
+)
 
 
 def default_noise_prior():
-    return stats.gamma(a=1.0)
+    return stats.halfnorm(scale=10.0)
 
 
 def default_scale_prior():
-    return stats.halfnorm(scale=1.0)
+    return stats.halfnorm(scale=10.0)
 
 
 class BART:
@@ -71,7 +74,6 @@ class BART:
         return np.log(np.random.rand()) <= log_alpha
 
     def _transition_tree(self, tree: AlfalfaTree):
-        # these two methods should probably be a part of the BART class
         transition = propose_transition(self.data, tree, self.params)
         if transition is None:
             # not a valid transition

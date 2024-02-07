@@ -15,7 +15,7 @@ torch.set_default_dtype(torch.float64)
 
 
 parser = ArgumentParser()
-parser.add_argument("-bb-func", type=str, default="g3")
+parser.add_argument("-bb-func", type=str, default="hartmann6d")
 parser.add_argument("-num-init", type=int, default=5)
 parser.add_argument("-num-itr", type=int, default=50)
 parser.add_argument("-rnd-seed", type=int, default=101)
@@ -46,13 +46,16 @@ print("\n".join(f"  val: {yi:.4f}" for yi in y))
 # add model_core with constraints if problem has constraints
 model_core = bb_func.get_model_core()
 
+# define trees outside of BO loop
+# allows for warm-up steps to be re-used across iterations
+forest = AlfalfaForest(height=0, num_trees=10)
+forest.initialise(bb_func.get_space())
+
+
 # main bo loop
 print("\n* * * start bo loop...")
 for itr in range(args.num_itr):
     X_train, y_train = np.asarray(X), np.asarray(y)
-
-    forest = AlfalfaForest(height=0, num_trees=10)
-    forest.initialise(bb_func.get_space())
 
     likelihood = gpy.likelihoods.GaussianLikelihood()
     tree_gp = AlfalfaGP(
@@ -60,7 +63,7 @@ for itr in range(args.num_itr):
     )
 
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
-    train_params = BARTTrainParams(warmup_steps=100, n_steps=50)
+    train_params = BARTTrainParams(warmup_steps=500 if itr == 0 else 10, n_steps=1)
     data = BARTData(bb_func.get_space(), X_train)
     bart = BART(tree_gp, data, train_params, noise_prior=None, scale_prior=None)
     bart.run()
