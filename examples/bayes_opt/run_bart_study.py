@@ -23,6 +23,7 @@ parser.add_argument(
     "-solver-type", type=str, default="global"
 )  # can also be 'sampling'
 parser.add_argument("-has-larger-model", action="store_true")
+parser.add_argument("-outfile", type=str, default="")
 args = parser.parse_args()
 
 # set random seeds for reproducibility
@@ -81,6 +82,6 @@ for itr in range(args.num_itr):
 
     print(f"{itr}. min_val: {round(min(y), 5)}")
 
-# with open("bart_bo.csv", "a+") as f:
-#     f.write(",".join(map(str, y)))
-#     f.write("\n")
+if args.outfile:
+    with open(args.outfile, "w+") as f:
+        f.write(",".join(map(str, y)))
