@@ -8,3 +8,12 @@ repos:
     args: [ --fix ]
   # Run the formatter.
   - id: ruff-format
+
+repos:
+-   repo: https://github.com/python-poetry/poetry
+    rev: '1.7.1'
+    hooks:
+    -   id: poetry-check
+    -   id: poetry-lock
+    -   id: poetry-export
+    -   id: poetry-install
