@@ -16,8 +16,8 @@ def plot_tree(tree: AlfalfaTree, ax: plt.Axes, xy: Optional[np.ndarray] = None):
     def plot_node(node: AlfalfaNode, xy: np.ndarray):
         ax.add_patch(Circle(xy, NODE_SIZE))
         if isinstance(node, DecisionNode):
-            ax.plot(*zip(xy, xy + LEFT), color="black", linewidth=5)
-            ax.plot(*zip(xy, xy + RIGHT), color="black", linewidth=5)
+            ax.plot(*zip(xy, xy + LEFT), color="black", linewidth=3)
+            ax.plot(*zip(xy, xy + RIGHT), color="black", linewidth=3)
             plot_node(node.left, xy + LEFT)
             plot_node(node.right, xy + RIGHT)
 
