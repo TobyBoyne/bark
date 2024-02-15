@@ -6,7 +6,6 @@ from ...tree_kernels import AlfalfaGP
 
 STEP_SIZE = 0.1
 
-
 def softplus(x):
     """Used to transform from unconstrained space to constrained space"""
     return np.log(1 + np.exp(x))
@@ -19,13 +18,22 @@ def log_q_ratio_lognorm(cur_val, new_val):
     return log_q_star - log_q
 
 
-def propose_noise_transition(model: AlfalfaGP):
-    # take a proposal in the unconstrained space
+def propose_positive_transition(cur_value: float, step_size: float=STEP_SIZE) -> float:
+    """Propose a new value for a hyperparameter that is positive.
 
-    cur_raw_noise = model.likelihood.raw_noise.item()
-    new_raw_noise = cur_raw_noise + np.random.randn() * STEP_SIZE
-    new_noise = softplus(new_raw_noise)
-    return new_noise
+    Proposals are made in the unconstrained log-space
+
+    Args:
+        cur_value (float): current value of hyperparameter
+        step_size (float): size of proposed step in log-space
+
+    Returns:
+        float: proposed value
+    """
+    cur_log_value = np.log(cur_value + 1e-30)
+    new_log_value = cur_log_value + np.random.randn() * step_size
+    new_value = np.exp(new_log_value)
+    return new_value
 
 
 def noise_acceptance_probability(
@@ -43,21 +51,14 @@ def noise_acceptance_probability(
     output = model(model.train_inputs[0])
     likelihood_star = mll(output, model.train_targets)
 
-    likelihood_ratio = (likelihood_star - likelihood).item()
+    # undo temporary transition
+    model.likelihood.noise = cur_noise
 
+    likelihood_ratio = (likelihood_star - likelihood).item()
     # prior ratio
     prior_ratio = prior.logpdf(new_noise) - prior.logpdf(cur_noise)
-
+    # likelihood_ratio = 0.0
     return min(log_q_ratio + likelihood_ratio + prior_ratio, 0.0)
-
-
-def propose_scale_transition(model: AlfalfaGP):
-    # take a proposal in the unconstrained space
-
-    cur_raw_scale = model.covar_module.raw_outputscale.item()
-    new_raw_scale = cur_raw_scale + np.random.randn() * STEP_SIZE
-    new_scale = softplus(new_raw_scale)
-    return new_scale
 
 
 def scale_acceptance_probability(

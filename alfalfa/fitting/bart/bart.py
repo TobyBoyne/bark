@@ -3,15 +3,15 @@ import scipy.stats as stats
 import torch
 from tqdm import tqdm
 
-from alfalfa.utils.logger import MCMCLogger
+import gpytorch as gpy
+from ...utils.logger import MCMCLogger
 
 from ...forest import AlfalfaTree
 from ...tree_kernels import AlfalfaGP
 from .data import Data
 from .noise_scale_transitions import (
     noise_acceptance_probability,
-    propose_noise_transition,
-    propose_scale_transition,
+    propose_positive_transition,
     scale_acceptance_probability,
 )
 from .params import BARTTrainParams
@@ -47,6 +47,9 @@ class BART:
         self.scale_prior = default_scale_prior() if scale_prior is None else scale_prior
 
     def run(self):
+        # create mll for logging only
+        mll = gpy.mlls.ExactMarginalLogLikelihood(self.model.likelihood, self.model)
+
         with torch.no_grad():
             for _ in tqdm(range(self.params.warmup_steps)):
                 self.step()
@@ -55,20 +58,21 @@ class BART:
                 self.step()
                 if i % self.params.lag == 0:
                     self.logger.checkpoint(self.model)
+                    output = self.model(self.model.train_inputs[0])
+                    likelihood = -mll(output, self.model.train_targets)
+                    self.logger.log(mll=likelihood)
 
         return self.logger
 
     def step(self):
-        if isinstance(self.model.tree_model, AlfalfaTree):
-            self._transition_tree(self.model.tree_model)
-        else:
-            for tree in self.model.tree_model.trees:
-                self._transition_tree(tree)
+        # if isinstance(self.model.tree_model, AlfalfaTree):
+        #     self._transition_tree(self.model.tree_model)
+        # else:
+        #     for tree in self.model.tree_model.trees:
+        #         self._transition_tree(tree)
 
         self._transition_noise()
-        self._transition_scale()
-        self.logger.log(noise=self.model.likelihood.noise)
-        self.logger.log(scale=self.model.covar_module.outputscale)
+        # self._transition_scale()
 
     def _accept_transition(self, log_alpha):
         return np.log(np.random.rand()) <= log_alpha
@@ -86,15 +90,18 @@ class BART:
             transition.apply()
 
     def _transition_noise(self):
-        new_noise = propose_noise_transition(self.model)
+        new_noise = propose_positive_transition(self.model.likelihood.noise)
         log_alpha = noise_acceptance_probability(
             self.model, new_noise, self.noise_prior
         )
         if self._accept_transition(log_alpha):
+            self.logger.log(accept_noise=True)
             self.model.likelihood.noise = new_noise
+        else:
+            self.logger.log(accept_noise=False)
 
     def _transition_scale(self):
-        new_scale = propose_scale_transition(self.model)
+        new_scale = propose_positive_transition(self.model.covar_module.outputscale)
         log_alpha = scale_acceptance_probability(
             self.model, new_scale, self.scale_prior
         )

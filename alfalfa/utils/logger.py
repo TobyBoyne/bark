@@ -99,3 +99,5 @@ class BOLogger(Logger):
 class MCMCLogger(Logger):
     def checkpoint(self, model: AlfalfaGP):
         self.log(samples=model.state_dict())
+        self.log(noise=model.likelihood.noise)
+        self.log(scale=model.covar_module.outputscale)

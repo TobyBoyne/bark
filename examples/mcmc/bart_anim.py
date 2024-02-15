@@ -31,7 +31,7 @@ X, y = init_data["X"], init_data["y"]
 
 train_x, train_y = np.asarray(X), np.asarray(y)
 
-tree = AlfalfaForest(height=0, num_trees=5)
+tree = AlfalfaForest(height=0, num_trees=1)
 data = Data(space, train_x)
 tree.initialise(space, data.get_init_prior())
 likelihood = gpytorch.likelihoods.GaussianLikelihood(
@@ -46,8 +46,8 @@ bart = BART(
     model,
     data,
     params,
-    scale_prior=stats.halfnorm(scale=100.0),
-    noise_prior=stats.halfnorm(scale=100.0),
+    scale_prior=stats.halfnorm(scale=1.0),
+    noise_prior=stats.halfnorm(scale=1.0),
 )
 logger = bart.run()
 model.eval()
@@ -59,8 +59,9 @@ ax_func = fig.add_subplot(gs[:, 0])
 ax_tree = fig.add_subplot(gs[0, 1])
 ax_hyper = fig.add_subplot(gs[1, 1])
 
-noise = logger["noise"][::LAG]
-scale = logger["scale"][::LAG]
+noise = logger["noise"]
+scale = logger["scale"]
+mlls = logger["mll"]
 samples = logger["samples"]
 forests = [
     AlfalfaForest.from_dict(s["covar_module.base_kernel._extra_state"]["tree_model"])
@@ -73,6 +74,8 @@ for forest in forests:
 t = np.arange(0, N, LAG)
 (l_n,) = ax_hyper.plot(noise[0], label="GP Noise")
 (l_s,) = ax_hyper.plot(scale[0], label="Kernel Scale")
+(l_mll,) = ax_hyper.plot(mlls[0], label="MLL")
+
 ax_hyper.legend()
 
 ax_hyper.set_xlim(0, N)
@@ -86,6 +89,7 @@ def update_fig(f):
     # hypers
     l_n.set_data(t[:frame], noise[:frame])
     l_s.set_data(t[:frame], scale[:frame])
+    l_mll.set_data(t[:frame], mlls[:frame])
 
     # forest
     ax_tree.clear()
@@ -105,6 +109,7 @@ def update_fig(f):
     model.likelihood.noise = noise[frame]
     model.covar_module.outputscale = scale[frame]
     plot_gp_1d(model, test_x, bb_func.vector_apply, ax_func)
+
     ax_func.set_ylim(-2.5, 2.5)
     ax_func.set_xlim(0.0, 1.0)
 
@@ -112,19 +117,4 @@ def update_fig(f):
 
 
 ani = FuncAnimation(fig, func=update_fig, frames=N // LAG, interval=60)
-ani.save("figs/bart_anim_alpha07.mp4")
-
-
-# torch.save(model.state_dict(), "models/1d_bart.pt")
-
-# test_x = torch.linspace(0, 1, 100).reshape(-1, 1)
-# fig, ax = plot_gp_1d(model, test_x, f)
-# fig, axs = plt.subplots(ncols=3)
-# axs[0].plot(logger["noise"])
-# axs[0].set_title("noise")
-# axs[1].plot(logger["scale"])
-# axs[1].set_title("scale")
-
-# with torch.no_grad():
-#     cov = model.covar_module(test_x).evaluate().numpy()
-# axs[2].imshow(cov, interpolation="nearest")
+ani.save("figs/bart_anim_mll.mp4")
