@@ -6,6 +6,7 @@ from ...tree_kernels import AlfalfaGP
 
 STEP_SIZE = 0.1
 
+
 def softplus(x):
     """Used to transform from unconstrained space to constrained space"""
     return np.log(1 + np.exp(x))
@@ -18,7 +19,9 @@ def log_q_ratio_lognorm(cur_val, new_val):
     return log_q_star - log_q
 
 
-def propose_positive_transition(cur_value: float, step_size: float=STEP_SIZE) -> float:
+def propose_positive_transition(
+    cur_value: float, step_size: float = STEP_SIZE
+) -> float:
     """Propose a new value for a hyperparameter that is positive.
 
     Proposals are made in the unconstrained log-space

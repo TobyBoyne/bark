@@ -1,13 +1,12 @@
+import gpytorch as gpy
 import numpy as np
 import scipy.stats as stats
 import torch
 from tqdm import tqdm
 
-import gpytorch as gpy
-from ...utils.logger import MCMCLogger
-
 from ...forest import AlfalfaTree
 from ...tree_kernels import AlfalfaGP
+from ...utils.logger import MCMCLogger
 from .data import Data
 from .noise_scale_transitions import (
     noise_acceptance_probability,

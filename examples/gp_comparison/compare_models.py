@@ -1,14 +1,14 @@
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 import numpy as np
+import scienceplots  # noqa: F401
 import torch
-import scienceplots # noqa: F401
 
 from alfalfa.baselines import RBFGP
-from alfalfa.utils.space import Space
 from alfalfa.tree_kernels import AlfalfaGP
 from alfalfa.utils.bb_funcs import get_func
 from alfalfa.utils.plots import plot_gp_nd
+from alfalfa.utils.space import Space
 
 
 def _get_rbf_gp(path, x, y):
@@ -29,7 +29,6 @@ def _get_forest_gp(path, x, y):
 
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
-
 
 
 torch.manual_seed(42)

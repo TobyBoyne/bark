@@ -12,7 +12,7 @@ from alfalfa.fitting.bart.params import BARTTrainParams
 from alfalfa.forest import AlfalfaForest
 from alfalfa.tree_kernels import AlfalfaGP
 from alfalfa.utils.bb_funcs import get_func
-from alfalfa.utils.plots import plot_forest, plot_gp_nd
+from alfalfa.utils.plots import plot_gp_nd
 
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
@@ -86,9 +86,7 @@ idx = np.argmin(mlls)
 forest_dict = samples[idx]["covar_module.base_kernel._extra_state"]["tree_model"]
 forest = AlfalfaForest.from_dict(forest_dict)
 forest.initialise(space)
-model = AlfalfaGP(
-    torch.tensor(train_x), torch.tensor(train_y), likelihood, forest
-)
+model = AlfalfaGP(torch.tensor(train_x), torch.tensor(train_y), likelihood, forest)
 model.eval()
 model.likelihood.noise = noise[idx]
 model.covar_module.outputscale = scale[idx]

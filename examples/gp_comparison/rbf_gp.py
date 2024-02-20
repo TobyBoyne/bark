@@ -1,7 +1,7 @@
 import gpytorch as gpy
 import matplotlib.pyplot as plt
-import torch
 import numpy as np
+import torch
 
 from alfalfa.baselines import RBFGP
 from alfalfa.utils.bb_funcs import get_func

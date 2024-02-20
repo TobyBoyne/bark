@@ -1,12 +1,11 @@
 import gpytorch as gpy
 import lightgbm as lgb
 import matplotlib.pyplot as plt
-import torch
 import numpy as np
-import scienceplots # noqa: F401
+import scienceplots  # noqa: F401
+import torch
 
-from alfalfa.utils.space import Space
-from alfalfa.fitting import lgbm_to_alfalfa_forest, fit_leaf_gp
+from alfalfa.fitting import fit_leaf_gp, lgbm_to_alfalfa_forest
 from alfalfa.tree_kernels import AlfalfaGP
 from alfalfa.utils.bb_funcs import get_func
 from alfalfa.utils.plots import plot_gp_nd
