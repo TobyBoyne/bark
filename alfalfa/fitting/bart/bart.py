@@ -65,14 +65,14 @@ class BART:
         return self.logger
 
     def step(self):
-        # if isinstance(self.model.tree_model, AlfalfaTree):
-        #     self._transition_tree(self.model.tree_model)
-        # else:
-        #     for tree in self.model.tree_model.trees:
-        #         self._transition_tree(tree)
+        if isinstance(self.model.tree_model, AlfalfaTree):
+            self._transition_tree(self.model.tree_model)
+        else:
+            for tree in self.model.tree_model.trees:
+                self._transition_tree(tree)
 
         self._transition_noise()
-        # self._transition_scale()
+        self._transition_scale()
 
     def _accept_transition(self, log_alpha):
         return np.log(np.random.rand()) <= log_alpha

@@ -4,6 +4,17 @@ import gpytorch as gpy
 import matplotlib.pyplot as plt
 import torch
 
+def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=None):
+    # infer dimension of input from train x
+    if D is None:
+        D = model.train_inputs[0].shape[-1]
+
+    if D == 1:
+        return plot_gp_1d(model, test_x, target, ax)
+    elif D == 2:
+        return plot_gp_2d(model, test_x, target)
+    else:
+        raise ValueError("You can only plot GPs with 1 or 2 input dimensions.")
 
 def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable, ax=None):
     if ax is None:

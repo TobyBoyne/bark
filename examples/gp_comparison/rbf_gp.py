@@ -1,15 +1,30 @@
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 import torch
+import numpy as np
 
 from alfalfa.baselines import RBFGP
-from alfalfa.utils.benchmarks import rescaled_branin
-from alfalfa.utils.plots import plot_gp_2d
+from alfalfa.utils.bb_funcs import get_func
+from alfalfa.utils.plots import plot_gp_nd
+
+bb_func = get_func("branin")
+
+torch.manual_seed(42)
+np.random.seed(42)
+
+init_data = bb_func.get_init_data(30, rnd_seed=42)
+space = bb_func.get_space()
+X, y = init_data["X"], init_data["y"]
+
+train_x, train_y = np.asarray(X), np.asarray(y)
 
 
-def fit_gp(x, y, model, likelihood):
+def fit_gp(model: RBFGP):
     model.train()
-    likelihood.train()
+    model.likelihood.train()
+
+    x = model.train_inputs[0]
+    y = model.train_targets
 
     # Use the adam optimizer
     optimizer = torch.optim.Adam(
@@ -41,24 +56,24 @@ def fit_gp(x, y, model, likelihood):
         optimizer.step()
 
 
-if __name__ == "__main__":
-    torch.manual_seed(42)
-    N_train = 50
-    x = torch.rand((N_train, 2))
-    f = rescaled_branin(x)
+torch.manual_seed(42)
+np.random.seed(42)
 
-    noise_var = 0.2
-    y = f + torch.randn_like(f) * noise_var**0.5
+init_data = bb_func.get_init_data(30, rnd_seed=42)
+space = bb_func.get_space()
+X, y = init_data["X"], init_data["y"]
 
-    likelihood = gpy.likelihoods.GaussianLikelihood()
-    gp = RBFGP(x, y, likelihood)
+train_x, train_y = np.asarray(X), np.asarray(y)
 
-    fit_gp(x, y, gp, likelihood)
-    gp.eval()
-    torch.save(gp.state_dict(), "models/branin_rbf_gp.pt")
+likelihood = gpy.likelihoods.GaussianLikelihood()
+gp = RBFGP(torch.from_numpy(train_x), torch.from_numpy(train_y), likelihood)
 
-    test_x = torch.meshgrid(
-        torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij"
-    )
-    plot_gp_2d(gp, likelihood, x, y, test_x, target=rescaled_branin)
-    plt.show()
+fit_gp(gp)
+gp.eval()
+torch.save(gp.state_dict(), "models/branin_rbf_gp.pt")
+
+test_x = torch.meshgrid(
+    torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij"
+)
+plot_gp_nd(gp, test_x, target=bb_func.vector_apply)
+plt.show()

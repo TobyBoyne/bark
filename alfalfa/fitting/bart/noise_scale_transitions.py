@@ -57,7 +57,6 @@ def noise_acceptance_probability(
     likelihood_ratio = (likelihood_star - likelihood).item()
     # prior ratio
     prior_ratio = prior.logpdf(new_noise) - prior.logpdf(cur_noise)
-    # likelihood_ratio = 0.0
     return min(log_q_ratio + likelihood_ratio + prior_ratio, 0.0)
 
 
@@ -75,6 +74,9 @@ def scale_acceptance_probability(
     model.covar_module.outputscale = new_scale
     output = model(model.train_inputs[0])
     likelihood_star = mll(output, model.train_targets)
+
+    # undo temporary transition
+    model.covar_module.outputscale = cur_scale
 
     likelihood_ratio = (likelihood_star - likelihood).item()
 

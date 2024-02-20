@@ -2,12 +2,13 @@ import gpytorch as gpy
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import scienceplots # noqa: F401
 
 from alfalfa.baselines import RBFGP
-from alfalfa.leaf_gp.space import Space
-from alfalfa.tree_models.tree_kernels import AlfalfaGP
-from alfalfa.utils.benchmarks import rescaled_branin
-from alfalfa.utils.plots import plot_gp_2d
+from alfalfa.utils.space import Space
+from alfalfa.tree_kernels import AlfalfaGP
+from alfalfa.utils.bb_funcs import get_func
+from alfalfa.utils.plots import plot_gp_nd
 
 
 def _get_rbf_gp(path, x, y):
@@ -26,42 +27,45 @@ def _get_forest_gp(path, x, y):
     return gp
 
 
+torch.set_default_dtype(torch.float64)
+plt.style.use(["science", "no-latex", "grid"])
+
+
+
 torch.manual_seed(42)
 np.random.seed(42)
-N_train = 50
-x = torch.rand((N_train, 2))
-f = rescaled_branin(x)
-noise_var = 0.2
-y = f + torch.randn_like(f) * noise_var**0.5
+bb_func = get_func("branin")
+
+init_data = bb_func.get_init_data(30, rnd_seed=42)
+space = bb_func.get_space()
+X, y = init_data["X"], init_data["y"]
+
+train_x, train_y = np.asarray(X), np.asarray(y)
 
 test_x = torch.meshgrid(
     torch.linspace(0, 1, 25), torch.linspace(0, 1, 25), indexing="ij"
 )
 
 test_X1, test_X2 = test_x
-test_y = rescaled_branin(torch.stack((test_X1.flatten(), test_X2.flatten()), dim=1))
-
+test_x_stacked = torch.stack((test_X1.flatten(), test_X2.flatten()), dim=1)
+test_y = bb_func.vector_apply(test_x_stacked)
 
 models = (
-    # ("RBF", "models/branin_rbf_gp.pt", _get_rbf_gp),
-    # ("Leaf-GP", "models/branin_leaf_gp.pt", _get_forest_gp),
-    # ("BART", "models/branin_bart.pt", _get_forest_gp),
-    ("BART_sampled", "models/branin_sampled_bart_.pt", _get_forest_gp),
+    ("RBF", "models/branin_rbf_gp.pt", _get_rbf_gp),
+    ("Leaf-GP", "models/branin_leaf_gp.pt", _get_forest_gp),
+    ("BART", "models/branin_bart_gp.pt", _get_forest_gp),
 )
 
 for name, path, model_fn in models:
-    model = model_fn(path, x, y)
+    model = model_fn(path, torch.from_numpy(train_x), torch.from_numpy(train_y))
     mll = gpy.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
-    output = model(x)
-    loss = -mll(output, y)
+    output = model(model.train_inputs[0])
+    loss = -mll(output, model.train_targets)
 
     model.eval()
-    fig, ax = plot_gp_2d(model, test_x, target=rescaled_branin)
+    fig, ax = plot_gp_nd(model, test_x, target=bb_func.vector_apply)
     fig.suptitle(f"{name} Model")
 
-    test_X1, test_X2 = test_x
-    test_x_stacked = torch.stack((test_X1.flatten(), test_X2.flatten()), dim=1)
-    test_y = rescaled_branin(test_x_stacked)
     pred_dist = model.likelihood(model(test_x_stacked))
 
     print(
@@ -70,8 +74,8 @@ for name, path, model_fn in models:
     NLPD={gpy.metrics.negative_log_predictive_density(pred_dist, test_y):.4f}"""
     )
 
-fig, ax = plt.subplots()
+# fig, ax = plt.subplots()
 
-ax.contourf(test_X1, test_X2, test_y.reshape(test_X1.shape))
+# ax.contourf(test_X1, test_X2, test_y.reshape(test_X1.shape))
 
-plt.show()
+# plt.show()

@@ -2,76 +2,47 @@ import gpytorch as gpy
 import lightgbm as lgb
 import matplotlib.pyplot as plt
 import torch
+import numpy as np
+import scienceplots # noqa: F401
 
-from alfalfa.leaf_gp.space import Space
-from alfalfa.tree_models.lgbm_tree import lgbm_to_alfalfa_forest
-from alfalfa.tree_models.tree_kernels import AlfalfaGP
-from alfalfa.utils.benchmarks import rescaled_branin
-from alfalfa.utils.plots import plot_gp_2d
+from alfalfa.utils.space import Space
+from alfalfa.fitting import lgbm_to_alfalfa_forest, fit_leaf_gp
+from alfalfa.tree_kernels import AlfalfaGP
+from alfalfa.utils.bb_funcs import get_func
+from alfalfa.utils.plots import plot_gp_nd
 
+torch.set_default_dtype(torch.float64)
+plt.style.use(["science", "no-latex", "grid"])
 
-def fit_gp(x, y, model, likelihood):
-    model.train()
-    likelihood.train()
+bb_func = get_func("branin")
 
-    # Use the adam optimizer
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=0.1
-    )  # Includes GaussianLikelihood parameters
+torch.manual_seed(42)
+np.random.seed(42)
 
-    # "Loss" for GPs - the marginal log likelihood
-    mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, model)
+init_data = bb_func.get_init_data(30, rnd_seed=42)
+space = bb_func.get_space()
+X, y = init_data["X"], init_data["y"]
 
-    for i in range(training_iter := 200):
-        # Zero gradients from previous iteration
-        optimizer.zero_grad()
-        # Output from model
-        output = model(x)
-        # Calc loss and backprop gradients
-        loss = -mll(output, y)
-        loss.backward()
-        if (i + 1) % 100 == 0:
-            print(
-                "Iter %d/%d - Loss: %.3f  noise: %.3f"
-                % (i + 1, training_iter, loss.item(), model.likelihood.noise.item())
-            )
-        optimizer.step()
+train_x, train_y = np.asarray(X), np.asarray(y)
 
+tree_model = lgb.train(
+    {"max_depth": 3, "min_data_in_leaf": 1},
+    lgb.Dataset(train_x, train_y),
+    num_boost_round=50,
+)
 
-if __name__ == "__main__":
-    torch.manual_seed(42)
-    N_train = 50
-    x = torch.rand((N_train, 2))
-    # x = torch.rand((N_train, 2)) * 15 + torch.tensor([-5, 0])
+forest = lgbm_to_alfalfa_forest(tree_model)
+forest.initialise(space)
+likelihood = gpy.likelihoods.GaussianLikelihood()
 
-    f = rescaled_branin(x)
-    # f = branin(x)
-    y = f
+gp = AlfalfaGP(torch.from_numpy(train_x), torch.from_numpy(train_y), likelihood, forest)
+fit_leaf_gp(gp)
+gp.eval()
+torch.save(gp.state_dict(), "models/branin_leaf_gp.pt")
 
-    noise_var = 0.2
-    y = f + torch.randn_like(f) * noise_var**0.5
+test_x = torch.meshgrid(
+    torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij"
+)
 
-    tree_model = lgb.train(
-        {"max_depth": 2, "min_data_in_leaf": 1},
-        lgb.Dataset(x.numpy(), y.numpy()),
-        num_boost_round=100,
-    )
-
-    forest = lgbm_to_alfalfa_forest(tree_model)
-    forest.initialise(Space([[0.0, 1.0], [0.0, 1.0]]))
-    likelihood = gpy.likelihoods.GaussianLikelihood()
-
-    gp = AlfalfaGP(x, y, likelihood, forest)
-    fit_gp(x, y, gp, likelihood)
-    gp.eval()
-    torch.save(gp.state_dict(), "models/branin_leaf_gp.pt")
-
-    test_x = torch.meshgrid(
-        torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij"
-    )
-    plot_gp_2d(gp, test_x, target=rescaled_branin)
-    plt.show()
-
-    # test_x = torch.meshgrid(torch.linspace(-5, 10, 100), torch.linspace(0, 15, 100), indexing="ij")
-    # fig, axs = plot_gp_2d(gp, likelihood, x, y, test_x, target=branin)
-    # plt.show()
+plot_gp_nd(gp, test_x, target=bb_func.vector_apply)
+plt.show()
