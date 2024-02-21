@@ -1,6 +1,6 @@
 from typing import Optional
 
-import gurobipy
+import gurobipy as gp
 import numpy as np
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
@@ -15,8 +15,8 @@ def build_opt_model(
     space: Space,
     gbm_model: GbmModel,
     tree_gp: AlfalfaGP,
-    kappa,
-    model_core: Optional[gurobipy.Model],
+    kappa: float,
+    model_core: Optional[gp.Model],
 ):
     # build opt_model core
 
@@ -109,7 +109,7 @@ def build_opt_model(
     return opt_model
 
 
-def get_opt_core_copy(opt_core):
+def get_opt_core_copy(opt_core: gp.Model):
     """creates the copy of an optimization model"""
     new_opt_core = opt_core.copy()
     new_opt_core._n_feat = opt_core._n_feat

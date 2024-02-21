@@ -4,6 +4,8 @@ import gurobipy as gp
 import numpy as np
 from gurobipy import GRB, quicksum
 
+from ..utils.space import Space
+
 
 def conv2list(x):
     temp_x = []
@@ -17,7 +19,7 @@ def conv2list(x):
     return temp_x
 
 
-def get_opt_sol(space, opt_model):
+def get_opt_sol(space: Space, opt_model: gp.Model):
     # get optimal solution from gurobi model
     next_x = []
     for idx in range(len(space.dims)):
@@ -43,7 +45,7 @@ def get_opt_sol(space, opt_model):
     return next_x
 
 
-def get_opt_core(space, opt_core: Optional[gp.Model] = None):
+def get_opt_core(space: Space, opt_core: Optional[gp.Model] = None):
     """creates the base optimization model"""
     if opt_core is None:
         model = gp.Model()
@@ -92,7 +94,7 @@ def get_opt_core(space, opt_core: Optional[gp.Model] = None):
     return model
 
 
-def get_opt_core_copy(opt_core):
+def get_opt_core_copy(opt_core: gp.Model):
     """creates the copy of an optimization model"""
     new_opt_core = opt_core.copy()
     new_opt_core._n_feat = opt_core._n_feat

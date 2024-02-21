@@ -1,6 +1,6 @@
 from typing import Optional
 
-import gurobipy
+import gurobipy as gp
 import numpy as np
 from gurobipy import GRB
 
@@ -15,9 +15,9 @@ from .optimizer_utils import (
 
 def propose(
     space: Space,
-    opt_model: gurobipy.Model,
+    opt_model: gp.Model,
     gbm_model: GbmModel,
-    model_core: Optional[gurobipy.Model] = None,
+    model_core: Optional[gp.Model] = None,
 ):
     next_x_area, next_val, curr_mean, curr_var = get_global_sol(
         space, opt_model, gbm_model
@@ -41,7 +41,7 @@ def propose(
     return next_center
 
 
-def get_global_sol(space: Space, opt_model: gurobipy.Model, gbm_model: GbmModel):
+def get_global_sol(space: Space, opt_model: gp.Model, gbm_model: GbmModel):
     # provides global solution to the optimization problem
 
     # build main model
@@ -117,7 +117,7 @@ def _get_leaf_center(x_area, space: Space):
     return next_x
 
 
-def _get_leaf_min_center_dist(x_area, space: Space, model_core: gurobipy.Model):
+def _get_leaf_min_center_dist(x_area, space: Space, model_core: gp.Model):
     """returns the feasible point closest to the x_area center"""
     # build opt_model core
 
