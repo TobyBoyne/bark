@@ -16,7 +16,7 @@ class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
     def forward(self, x1: torch.Tensor, x2: torch.Tensor, diag=False, **params):
         if diag:
             return torch.ones(x1.shape[0])
-        return torch.as_tensor(self.tree_model.gram_matrix(x1, x2)).float()
+        return torch.as_tensor(self.tree_model.gram_matrix(x1, x2)).double()
 
     def get_extra_state(self):
         return {"tree_model": self.tree_model.as_dict()}
@@ -71,3 +71,32 @@ class AlfalfaGP(gpy.models.ExactGP):
         gp.covar_module.outputscale = torch.nn.Softplus(avg_scale)
 
         return gp
+
+
+class AlfalfaMOGP(gpy.models.ExactGP):
+    def __init__(
+        self,
+        train_inputs,
+        train_targets,
+        likelihood,
+        tree_model: AlfalfaTree,
+        num_tasks: int = 2,
+    ):
+        super().__init__(train_inputs, train_targets, likelihood)
+        self.mean_module = gpy.means.ZeroMean()
+        self.covar_module = AlfalfaTreeModelKernel(tree_model)
+        self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=2, rank=1)
+
+        # TODO: support multitask noise
+
+    def forward(self, x, i):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        covar_i = self.task_covar_module(i)
+
+        covar = covar_x.mul(covar_i)
+        return gpy.distributions.MultivariateNormal(mean_x, covar)
+
+    @property
+    def tree_model(self) -> Union[AlfalfaTree, AlfalfaForest]:
+        return self.covar_module.tree_model
