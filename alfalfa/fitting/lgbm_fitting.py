@@ -1,44 +1,10 @@
 """Convert an LGBM tree to an instance of Alternating Tree for comparison"""
 from typing import Optional
 
-import gpytorch as gpy
 import lightgbm as lgb
 import numpy as np
-import torch
 
 from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode, LeafNode
-
-
-def fit_leaf_gp(model: gpy.models.ExactGP):
-    (x, *args) = model.train_inputs
-    y = model.train_targets
-    likelihood = model.likelihood
-
-    model.train()
-    likelihood.train()
-
-    # Use the adam optimizer
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=0.1
-    )  # Includes GaussianLikelihood parameters
-
-    # "Loss" for GPs - the marginal log likelihood
-    mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, model)
-
-    for i in range(training_iter := 100):
-        # Zero gradients from previous iteration
-        optimizer.zero_grad()
-        # Output from model
-        output = model(x, *args)
-        # Calc loss and backprop gradients
-        loss = -mll(output, y)
-        loss.backward()
-        if (i + 1) % 100 == 0:
-            print(
-                "Iter %d/%d - Loss: %.3f  noise: %.3f"
-                % (i + 1, training_iter, loss.item(), model.likelihood.noise.item())
-            )
-        optimizer.step()
 
 
 def fit_lgbm_forest(
