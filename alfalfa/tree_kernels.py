@@ -88,9 +88,7 @@ class AlfalfaMOGP(gpy.models.ExactGP):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
         self.covar_module = AlfalfaTreeModelKernel(tree_model)
-        self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=2, rank=1)
-
-        # TODO: support multitask noise
+        self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=num_tasks, rank=1)
 
     def forward(self, x, i):
         mean_x = self.mean_module(x)
@@ -111,11 +109,10 @@ class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
 
     [Folch 2023]
 
-    To initialize:
-    num_of_tasks : int
-    train_i : vector of tasks indexes for each training data-point
-    noise_prior : any prior you want to put on the noise
-    noise_constraint : constraint to put on the noise
+    Args:
+        num_of_tasks : number of tasks in the multi output GP
+        noise_prior : any prior you want to put on the noise
+        noise_constraint : constraint to put on the noise
     """
 
     def __init__(

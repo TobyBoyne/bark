@@ -31,6 +31,7 @@ pytest = "^8.0.0"
 ruff = "^0.2.0"
 pre-commit = "^3.6.0"
 ipython = "^8.21.0"
+pytest-benchmark = "^4.0.0"
 
 [build-system]
 requires = ["poetry-core"]
