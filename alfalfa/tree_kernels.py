@@ -121,7 +121,6 @@ class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(
         self,
         num_tasks,
-        train_task_idxs,
         noise_prior=None,
         noise_constraint=None,
         batch_shape=torch.Size(),
@@ -134,7 +133,6 @@ class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
             batch_shape=batch_shape,
         )
         self.num_tasks = num_tasks
-        self.train_task_idxs = train_task_idxs
         super().__init__(noise_covar=noise_covar)
 
     @property
@@ -153,12 +151,9 @@ class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
     def raw_noise(self, value: torch.Tensor) -> None:
         self.noise_covar.initialize(raw_noise=value)
 
-    def _shaped_noise_covar(
-        self, base_shape: torch.Size, *params: Any, task_idxs=None, **kwargs: Any
-    ):
-        # need to return 1 x num_obs x num_obs matrix
-        if task_idxs is None:
-            task_idxs = self.train_task_idxs
+    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
+        # params contains training data
+        task_idxs = params[0][-1]
         noise_base_covar_matrix = self.noise_covar(*params, shape=base_shape, **kwargs)
         # initialize masking
         mask = torch.zeros(size=noise_base_covar_matrix.shape)
@@ -181,12 +176,11 @@ class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
     def forward(
         self,
         function_samples: torch.Tensor,
-        task_idxs: torch.Tensor,
         *params: Any,
         **kwargs: Any,
     ) -> base_distributions.Normal:
         noise = self._shaped_noise_covar(
-            function_samples.shape, task_idxs, *params, **kwargs
+            function_samples.shape, *params, **kwargs
         ).diag()
         return base_distributions.Normal(function_samples, noise.sqrt())
 
