@@ -30,7 +30,7 @@ def test_evaluate_gram_matrix(benchmark, model: AlfalfaGP):
     train_x = model.train_inputs[0]
 
     def evaluate_gram_matrix():
-        model.covar_module(train_x, train_x)
+        model.covar_module(train_x)
 
     benchmark(evaluate_gram_matrix)
 

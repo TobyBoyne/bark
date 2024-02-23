@@ -33,6 +33,9 @@ pre-commit = "^3.6.0"
 ipython = "^8.21.0"
 pytest-benchmark = "^4.0.0"
 
+[tool.pytest.ini_options]
+addopts = "--benchmark-storage=benchmarks/results --benchmark-autosave"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

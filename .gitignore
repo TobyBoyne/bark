@@ -4,3 +4,4 @@ models
 .vscode
 *.sh
 *.csv
+*.json
