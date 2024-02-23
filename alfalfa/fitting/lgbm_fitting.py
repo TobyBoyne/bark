@@ -1,45 +1,26 @@
 """Convert an LGBM tree to an instance of Alternating Tree for comparison"""
-import gpytorch as gpy
+from typing import Optional
+
 import lightgbm as lgb
-import torch
+import numpy as np
 
 from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode, LeafNode
 
 
-def fit_leaf_gp(model: gpy.models.ExactGP):
-    (x,) = model.train_inputs
-    y = model.train_targets
-    likelihood = model.likelihood
+def fit_lgbm_forest(
+    train_x: np.ndarray, train_y: np.ndarray, params: Optional[dict] = None
+) -> lgb.Booster:
+    if params is None:
+        params = {"max_depth": 3, "min_data_in_leaf": 1}
 
-    model.double()
-    model.train()
-    likelihood.train()
-
-    # Use the adam optimizer
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=0.1
-    )  # Includes GaussianLikelihood parameters
-
-    # "Loss" for GPs - the marginal log likelihood
-    mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, model)
-
-    for i in range(training_iter := 100):
-        # Zero gradients from previous iteration
-        optimizer.zero_grad()
-        # Output from model
-        output = model(x)
-        # Calc loss and backprop gradients
-        loss = -mll(output, y)
-        loss.backward()
-        if (i + 1) % 100 == 0:
-            print(
-                "Iter %d/%d - Loss: %.3f  noise: %.3f"
-                % (i + 1, training_iter, loss.item(), model.likelihood.noise.item())
-            )
-        optimizer.step()
+    return lgb.train(
+        params,
+        lgb.Dataset(train_x, train_y),
+        num_boost_round=50,
+    )
 
 
-def lgbm_to_alfalfa_forest(tree_model: lgb.Booster):
+def lgbm_to_alfalfa_forest(tree_model: lgb.Booster) -> AlfalfaForest:
     all_trees = tree_model.dump_model()["tree_info"]
 
     def get_subtree(node_dict):
