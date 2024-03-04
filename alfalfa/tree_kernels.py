@@ -92,6 +92,7 @@ class AlfalfaMOGP(gpy.models.ExactGP):
         self.mean_module = gpy.means.ZeroMean()
         self.covar_module = AlfalfaTreeModelKernel(tree_model)
         self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=num_tasks, rank=1)
+        self.num_tasks = num_tasks
 
     def forward(self, x, i):
         mean_x = self.mean_module(x)
