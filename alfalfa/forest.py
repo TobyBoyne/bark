@@ -2,7 +2,6 @@ import abc
 from typing import Callable, Optional, Sequence
 
 import numpy as np
-import torch
 
 from .utils.space import Space
 
@@ -315,7 +314,7 @@ class AlfalfaForest:
         for tree in self.trees:
             tree.initialise(space, init_func)
 
-    def gram_matrix(self, x1: torch.tensor, x2: torch.tensor):
+    def gram_matrix(self, x1: np.ndarray, x2: np.ndarray):
         x1_leaves = np.stack([tree(x1) for tree in self.trees], axis=-1)
         x2_leaves = np.stack([tree(x2) for tree in self.trees], axis=-1)
 

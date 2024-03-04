@@ -4,13 +4,14 @@ import numpy as np
 import scipy.stats as stats
 import torch
 
+from alfalfa.benchmarks import Branin
 from alfalfa.fitting import BART, BARTData, BARTTrainParams
 from alfalfa.forest import AlfalfaForest
 from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.bb_funcs import Branin
 from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.space import Space
 
+torch.set_default_dtype(torch.float64)
 torch.manual_seed(42)
 np.random.seed(42)
 N_train = 50
@@ -42,7 +43,7 @@ test_y = test_f + torch.randn_like(test_f) * 0.2**0.5
 
 data = BARTData(space, np.asarray(x))
 params = BARTTrainParams(
-    warmup_steps=100,
+    warmup_steps=10,
     n_steps=10,
     lag=500 // 5,  # want 5 samples
 )

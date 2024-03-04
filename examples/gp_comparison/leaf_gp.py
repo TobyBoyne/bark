@@ -5,15 +5,15 @@ import numpy as np
 import scienceplots  # noqa: F401
 import torch
 
-from alfalfa.fitting import fit_leaf_gp, lgbm_to_alfalfa_forest
+from alfalfa.benchmarks import Branin
+from alfalfa.fitting import fit_gp_adam, lgbm_to_alfalfa_forest
 from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.bb_funcs import get_func
 from alfalfa.utils.plots import plot_gp_nd
 
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
 
-bb_func = get_func("branin")
+bb_func = Branin()
 
 torch.manual_seed(42)
 np.random.seed(42)
@@ -35,7 +35,7 @@ forest.initialise(space)
 likelihood = gpy.likelihoods.GaussianLikelihood()
 
 gp = AlfalfaGP(torch.from_numpy(train_x), torch.from_numpy(train_y), likelihood, forest)
-fit_leaf_gp(gp)
+fit_gp_adam(gp)
 gp.eval()
 torch.save(gp.state_dict(), "models/branin_leaf_gp.pt")
 

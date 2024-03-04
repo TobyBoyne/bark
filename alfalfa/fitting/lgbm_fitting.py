@@ -11,7 +11,7 @@ def fit_lgbm_forest(
     train_x: np.ndarray, train_y: np.ndarray, params: Optional[dict] = None
 ) -> lgb.Booster:
     if params is None:
-        params = {"max_depth": 3, "min_data_in_leaf": 1}
+        params = {"max_depth": 3, "min_data_in_leaf": 1, "verbose": -1}
 
     return lgb.train(
         params,

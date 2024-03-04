@@ -4,10 +4,10 @@ import numpy as np
 import torch
 
 from alfalfa.baselines import RBFGP
-from alfalfa.utils.bb_funcs import get_func
+from alfalfa.benchmarks import Branin
 from alfalfa.utils.plots import plot_gp_nd
 
-bb_func = get_func("branin")
+bb_func = Branin()
 
 torch.manual_seed(42)
 np.random.seed(42)

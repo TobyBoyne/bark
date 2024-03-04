@@ -5,6 +5,7 @@ import torch
 from gpytorch.distributions import MultivariateNormal, base_distributions
 from gpytorch.likelihoods.gaussian_likelihood import _GaussianLikelihoodBase
 from gpytorch.likelihoods.noise_models import MultitaskHomoskedasticNoise
+from linear_operator.operators import DiagLinearOperator
 
 from .forest import AlfalfaForest, AlfalfaTree
 
@@ -19,7 +20,9 @@ class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
     def forward(self, x1: torch.Tensor, x2: torch.Tensor, diag=False, **params):
         if diag:
             return torch.ones(x1.shape[0])
-        return torch.as_tensor(self.tree_model.gram_matrix(x1, x2)).double()
+        return torch.as_tensor(
+            self.tree_model.gram_matrix(x1.detach().numpy(), x2.detach().numpy())
+        )
 
     def get_extra_state(self):
         return {"tree_model": self.tree_model.as_dict()}
@@ -89,6 +92,7 @@ class AlfalfaMOGP(gpy.models.ExactGP):
         self.mean_module = gpy.means.ZeroMean()
         self.covar_module = AlfalfaTreeModelKernel(tree_model)
         self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=num_tasks, rank=1)
+        self.num_tasks = num_tasks
 
     def forward(self, x, i):
         mean_x = self.mean_module(x)
@@ -152,23 +156,11 @@ class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
         # params contains training data
         task_idxs = params[0][-1]
         noise_base_covar_matrix = self.noise_covar(*params, shape=base_shape, **kwargs)
-        # initialize masking
-        mask = torch.zeros(size=noise_base_covar_matrix.shape)
-        # for each task create a masking
-        for task_num in range(self.num_tasks):
-            # create vector of indexes
-            task_idx_diag = (task_idxs == task_num).int().reshape(-1).diag()
-            mask[..., task_num, :, :] = task_idx_diag
-        # multiply covar by masking
-        # there seems to be problems when base_shape is singleton, so we need to squeeze
-        if base_shape == torch.Size([1]):
-            noise_base_covar_matrix = noise_base_covar_matrix.squeeze(-1).mul(
-                mask.squeeze(-1)
-            )
-            noise_covar_matrix = noise_base_covar_matrix.unsqueeze(-1).sum(dim=1)
-        else:
-            noise_covar_matrix = noise_base_covar_matrix.mul(mask).sum(dim=1)
-        return noise_covar_matrix
+
+        all_tasks = torch.arange(self.num_tasks)[:, None]
+        diag = torch.eq(all_tasks, task_idxs.mT)
+        mask = DiagLinearOperator(diag)
+        return (noise_base_covar_matrix @ mask).sum(dim=-3)
 
     def forward(
         self,
