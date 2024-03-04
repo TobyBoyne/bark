@@ -9,7 +9,7 @@ standard_normal = torch.distributions.Normal(loc=0, scale=1)
 SQRT_2PI_E = torch.sqrt(2 * torch.pi * torch.exp(torch.tensor(1)))
 
 
-def choose_fidelity_information_based(
+def propose_fidelity_information_based(
     model: AlfalfaMOGP, x: torch.Tensor, costs: list[float]
 ) -> int:
     """Choose the fidelity level for a given input.
@@ -23,10 +23,11 @@ def choose_fidelity_information_based(
     """
 
     f_star = generate_fstar_samples(model, num_samples=100)
-    igs = [
-        information_gain(model, x, f_star, fidelity) / costs[fidelity]
-        for fidelity in range(model.num_tasks)
-    ]
+    with torch.no_grad():
+        igs = [
+            information_gain(model, x, f_star, fidelity) / costs[fidelity]
+            for fidelity in range(model.num_tasks)
+        ]
     fidelity = np.argmax(igs)
     return fidelity
 
@@ -34,9 +35,10 @@ def choose_fidelity_information_based(
 def information_gain(
     model: AlfalfaMOGP, x: torch.Tensor, f_star: torch.Tensor, fidelity: int
 ):
-    fidelity_vector = torch.tensor(fidelity)
+    fidelity_vector = torch.full((x.shape[0], 1), fidelity)
     posterior = model(x, fidelity_vector)
     mu_m, sigma_m = posterior.mean, posterior.stddev
+    mu_m, sigma_m = mu_m.reshape(-1, 1), sigma_m.reshape(-1, 1)
     H_1 = torch.log(sigma_m * SQRT_2PI_E)
     if fidelity == 0:
         H_2 = _entropy_target_fidelity(mu_m, sigma_m, f_star)
@@ -80,7 +82,7 @@ def _entropy_low_fidelity(
     fidelity_vector: torch.Tensor,
 ):
     # define fidelity vectors
-    target_fidelity_vector = torch.tensor(0)
+    target_fidelity_vector = torch.tensor([[0]])
     joint_fidelity_vector = torch.concat((fidelity_vector, target_fidelity_vector))
     # obtain joint covariance matrix
     with gpytorch.settings.fast_pred_var():

@@ -1,3 +1,5 @@
+import abc
+
 import numpy as np
 import skopt.space.space as skopt_space
 import torch
@@ -25,6 +27,9 @@ def preprocess_data(call_func):
 class SynFunc:
     """base class for synthetic benchmark functions for which the optimum is known."""
 
+    is_nonconvex = False
+    is_vectorised = False
+
     def __init__(self):
         # define index sets for categorical and integer variables
         self.cat_idx = set()
@@ -34,8 +39,13 @@ class SynFunc:
         self.ineq_constr_funcs = []
         self.eq_constr_funcs = []
 
-        # define if function is nonconvex
-        self.is_nonconvex = False
+    @abc.abstractmethod
+    def __call__(self, x):
+        pass
+
+    @abc.abstractmethod
+    def get_bounds(self):
+        pass
 
     def round_integers(self, x):
         # rounds all integer features to integers
@@ -57,9 +67,6 @@ class SynFunc:
             else:
                 skopt_bnds.append(skopt_space.Real(low=float(d[0]), high=float(d[1])))
         return skopt_space.Space(skopt_bnds)
-
-    def get_bounds(self):
-        return []
 
     def get_lb(self):
         return [b[0] for b in self.get_bounds()]
@@ -185,6 +192,9 @@ class SynFunc:
             return proj_x_vals
 
     def vector_apply(self, x, **kwargs):
+        if self.is_vectorised:
+            return self(x)
+
         ys = [self(xi) for xi in x]
         if isinstance(x, np.ndarray):
             return np.asarray(ys)
@@ -385,3 +395,39 @@ class CatSynFunc(SynFunc):
             proj_x_vals = [self.trafo_inputs(x) for x in proj_x_vals]
 
             return proj_x_vals
+
+
+class MFSynFunc(SynFunc):
+    """Synthetic benchmarks with multiple fidelities."""
+
+    @abc.abstractmethod
+    def __call__(self, x, i):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def costs():
+        pass
+
+    def get_init_data(
+        self, fidelities: list[int], rnd_seed, eval_constr=True, **kwargs
+    ):
+        num_init = sum(fidelities)
+        x_init = self.get_random_x(num_init, rnd_seed, eval_constr=eval_constr)
+        i = np.repeat(np.arange(len(fidelities)), fidelities)
+        xs = np.asarray(x_init)
+        ys = self.vector_apply(xs, i, **kwargs)
+
+        return (xs, i, ys)
+
+    def vector_apply(self, x, i, **kwargs):
+        if self.is_vectorised:
+            return self(x, i)
+
+        ys = [self(xi, ii) for xi, ii in zip(x, i)]
+        if isinstance(x, np.ndarray):
+            return np.asarray(ys)
+        elif isinstance(x, torch.Tensor):
+            return torch.tensor(ys)
+        else:
+            return ys

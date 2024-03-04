@@ -4,10 +4,11 @@ from typing import Optional
 
 import gurobipy as gp
 import numpy as np
+import torch
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 
-from ..tree_kernels import AlfalfaGP
+from ..tree_kernels import AlfalfaGP, AlfalfaMOGP
 from ..utils.space import Space
 from .gbm_model import GbmModel
 from .optimizer_utils import add_gbm_to_opt_model, get_opt_core
@@ -34,15 +35,42 @@ def build_opt_model(
     gbm_model_dict = {"1st_obj": gbm_model}
     add_gbm_to_opt_model(space, gbm_model_dict, opt_model)
 
-    # get tree_gp hyperparameters
-    kernel_var = tree_gp.covar_module.outputscale.detach().numpy()
-    noise_var = tree_gp.likelihood.noise.detach().numpy()
+    if isinstance(tree_gp, AlfalfaMOGP):
+        # multi-fidelity case - evaluate for highest fidelity
+        # get tree_gp hyperparameters
+        kernel_var = (
+            tree_gp.task_covar_module._eval_covar_matrix()[0, 0].detach().numpy()
+        )
+        noise_var = tree_gp.likelihood.noise[0].detach().numpy()
 
-    # get tree_gp matrices
-    (train_x,) = tree_gp.train_inputs
-    Kmm = tree_gp.covar_module(train_x).numpy()
-    k_diag = np.diagonal(Kmm)
-    s_diag = tree_gp.likelihood._shaped_noise_covar(k_diag.shape).numpy()
+        # get tree_gp matrices
+        (train_x_all, train_i) = tree_gp.train_inputs
+        # only optimise on highest fidelity
+        target_f = (train_i == 0).flatten()
+        assert target_f.any(), "No data for highest fidelity"
+        train_x = train_x_all[..., target_f, :]
+        Kmm = tree_gp.covar_module(train_x).numpy()
+        k_diag = np.diagonal(Kmm)
+        s_diag = tree_gp.likelihood._shaped_noise_covar(
+            k_diag.shape, [torch.zeros((k_diag.shape[0], 1))]
+        ).numpy()
+        s_diag = s_diag.squeeze(-3)
+
+        y_vals = tree_gp.train_targets[target_f].numpy()
+
+    else:
+        # get tree_gp hyperparameters
+        kernel_var = tree_gp.covar_module.outputscale.detach().numpy()
+        noise_var = tree_gp.likelihood.noise.detach().numpy()
+
+        # get tree_gp matrices
+        (train_x,) = tree_gp.train_inputs
+        Kmm = tree_gp.covar_module(train_x).numpy()
+        k_diag = np.diagonal(Kmm)
+        s_diag = tree_gp.likelihood._shaped_noise_covar(k_diag.shape).numpy()
+
+        y_vals = tree_gp.train_targets.numpy()
+
     ks = Kmm + s_diag
 
     # invert gram matrix
@@ -75,7 +103,7 @@ def build_opt_model(
     const_term = kernel_var + noise_var
 
     zeros = np.zeros((train_x.shape[0], 1))
-    quadr_constr = np.block([[[quadr_term, zeros], [zeros.T, -1.0]]])
+    quadr_constr = np.block([[quadr_term, zeros], [zeros.T, -1.0]])
 
     opt_model.addMQConstr(
         quadr_constr,
@@ -88,8 +116,6 @@ def build_opt_model(
 
     ## add linear objective
     opt_model._sub_z_obj = MVar(sub_k.values() + [opt_model._var])
-
-    y_vals = tree_gp.train_targets.numpy()
 
     # why multiply by kernel var here?
     lin_term = kernel_var * (inv_ks @ y_vals)

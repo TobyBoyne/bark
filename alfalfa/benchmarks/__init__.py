@@ -3,6 +3,7 @@ from typing import Union
 from .base import CatSynFunc, SynFunc
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
 from .mixed import PressureVessel, VAESmall
+from .multi_fidelity import CurrinExp2D
 from .unconstrained import (
     Branin,
     Hartmann6D,
@@ -31,6 +32,8 @@ BENCHMARK_MAP = {
     # mixed spaces
     "pressure_vessel": PressureVessel,
     "vae_nas": VAESmall,
+    # multi-fidelity
+    "currin": CurrinExp2D,
 }
 
 
