@@ -6,11 +6,11 @@ import numpy as np
 import torch
 from botorch.utils import standardize
 
+from alfalfa.benchmarks import map_benchmark
 from alfalfa.fitting.lgbm_fitting import fit_leaf_gp, lgbm_to_alfalfa_forest
 from alfalfa.optimizer import build_opt_model, propose
 from alfalfa.optimizer.gbm_model import GbmModel
 from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.bb_funcs import get_func
 
 parser = ArgumentParser()
 parser.add_argument("-bb-func", type=str, default="g3")
@@ -28,7 +28,7 @@ np.random.seed(args.rnd_seed)
 torch.manual_seed((args.rnd_seed))
 
 # load black-box function to evaluate
-bb_func = get_func(args.bb_func)
+bb_func = map_benchmark(args.bb_func)
 
 # activate label encoding if categorical features are given
 if bb_func.cat_idx:

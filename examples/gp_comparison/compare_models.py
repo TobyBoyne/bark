@@ -5,8 +5,8 @@ import scienceplots  # noqa: F401
 import torch
 
 from alfalfa.baselines import RBFGP
+from alfalfa.benchmarks import Branin
 from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.bb_funcs import get_func
 from alfalfa.utils.plots import plot_gp_nd
 from alfalfa.utils.space import Space
 
@@ -33,7 +33,7 @@ plt.style.use(["science", "no-latex", "grid"])
 
 torch.manual_seed(42)
 np.random.seed(42)
-bb_func = get_func("branin")
+bb_func = Branin()
 
 init_data = bb_func.get_init_data(30, rnd_seed=42)
 space = bb_func.get_space()

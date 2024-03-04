@@ -4,10 +4,10 @@ from collections import namedtuple
 import gpytorch
 import torch
 
+from alfalfa.benchmarks import Himmelblau1D
 from alfalfa.fitting import fit_lgbm_forest, lgbm_to_alfalfa_forest
 from alfalfa.optimizer.nystrom import construct_nystrom_features, nystrom_samples
 from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.bb_funcs import Himmelblau1D
 
 TrainingData = namedtuple("TrainingData", ["train_x", "train_y", "space"])
 torch.set_default_dtype(torch.float64)

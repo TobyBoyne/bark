@@ -9,7 +9,9 @@ standard_normal = torch.distributions.Normal(loc=0, scale=1)
 SQRT_2PI_E = torch.sqrt(2 * torch.pi * torch.exp(torch.tensor(1)))
 
 
-def choose_fidelity_information_based(model: AlfalfaMOGP, x: torch.Tensor) -> int:
+def choose_fidelity_information_based(
+    model: AlfalfaMOGP, x: torch.Tensor, costs: list[float]
+) -> int:
     """Choose the fidelity level for a given input.
 
     Args:
@@ -22,7 +24,7 @@ def choose_fidelity_information_based(model: AlfalfaMOGP, x: torch.Tensor) -> in
 
     f_star = generate_fstar_samples(model, num_samples=100)
     igs = [
-        information_gain(model, x, f_star, fidelity)
+        information_gain(model, x, f_star, fidelity) / costs[fidelity]
         for fidelity in range(model.num_tasks)
     ]
     fidelity = np.argmax(igs)

@@ -6,18 +6,18 @@ import torch
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 
+from alfalfa.benchmarks import map_benchmark
 from alfalfa.fitting.bart.bart import BART
 from alfalfa.fitting.bart.data import Data
 from alfalfa.fitting.bart.params import BARTTrainParams
 from alfalfa.forest import AlfalfaForest
 from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.bb_funcs import get_func
 from alfalfa.utils.plots import plot_gp_nd
 
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
 
-bb_func = get_func("branin")
+bb_func = map_benchmark("branin")
 # bb_func = get_func("himmelblau1d")
 
 # True function is sin(2*pi*x) with Gaussian noise

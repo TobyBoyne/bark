@@ -4,10 +4,10 @@ import numpy as np
 import scipy.stats as stats
 import torch
 
+from alfalfa.benchmarks import Branin
 from alfalfa.fitting import BART, BARTData, BARTTrainParams
 from alfalfa.forest import AlfalfaForest
 from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.bb_funcs import Branin
 from alfalfa.utils.plots import plot_gp_2d
 from alfalfa.utils.space import Space
 
