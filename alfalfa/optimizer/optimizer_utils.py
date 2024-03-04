@@ -178,9 +178,9 @@ def alt_interval_index(model):
 alt_interval_index.dimen = 2
 
 
-def add_gbm_to_opt_model(space, gbm_model_dict, model, z_as_bin=False):
+def add_gbm_to_opt_model(space: Space, gbm_model_dict: dict, model: gp.Model):
     add_gbm_parameters(space.cat_idx, gbm_model_dict, model)
-    add_gbm_variables(model, z_as_bin)
+    add_gbm_variables(model)
     add_gbm_constraints(space.cat_idx, model)
 
 
@@ -223,15 +223,10 @@ def add_gbm_parameters(cat_idx, gbm_model_dict, model):
     )
 
 
-def add_gbm_variables(model, z_as_bin=False):
-    if not z_as_bin:
-        model._z_l = model.addVars(
-            leaf_index(model), lb=0, ub=GRB.INFINITY, name="z_l", vtype="C"
-        )
-    else:
-        model._z_l = model.addVars(
-            leaf_index(model), lb=0, ub=1, name="z_l", vtype=GRB.BINARY
-        )
+def add_gbm_variables(model):
+    model._z_l = model.addVars(
+        leaf_index(model), lb=0, ub=1, name="z_l", vtype=GRB.BINARY
+    )
 
     model._y = model.addVars(misic_interval_index(model), name="y", vtype=GRB.BINARY)
     model.update()

@@ -1,3 +1,5 @@
+"""From Leaf-GP"""
+
 from typing import Optional
 
 import gurobipy as gp
@@ -30,7 +32,7 @@ def build_opt_model(
 
     # build tree model
     gbm_model_dict = {"1st_obj": gbm_model}
-    add_gbm_to_opt_model(space, gbm_model_dict, opt_model, z_as_bin=True)
+    add_gbm_to_opt_model(space, gbm_model_dict, opt_model)
 
     # get tree_gp hyperparameters
     kernel_var = tree_gp.covar_module.outputscale.detach().numpy()
@@ -64,18 +66,16 @@ def build_opt_model(
     )
 
     ## add quadratic constraints
+    # \sigma <= K_xx - K_xX @ K_XX^-1 @ X_xX^T
     opt_model._var = opt_model.addVar(lb=0, ub=GRB.INFINITY, name="var", vtype="C")
 
-    opt_model._sub_k_var = MVar(
-        [sub_k[id] for id in range(len(sub_k))] + [opt_model._var]
-    )
+    opt_model._sub_k_var = MVar(sub_k.values() + [opt_model._var])
 
     quadr_term = -(kernel_var**2) * inv_ks
     const_term = kernel_var + noise_var
 
-    quadr_constr = np.zeros((quadr_term.shape[0] + 1, quadr_term.shape[1] + 1))
-    quadr_constr[:-1, :-1] = quadr_term
-    quadr_constr[-1, -1] = -1.0
+    zeros = np.zeros((train_x.shape[0], 1))
+    quadr_constr = np.block([[[quadr_term, zeros], [zeros.T, -1.0]]])
 
     opt_model.addMQConstr(
         quadr_constr,
@@ -87,23 +87,21 @@ def build_opt_model(
     )
 
     ## add linear objective
-    opt_model._sub_z_obj = MVar(
-        [sub_k[idx] for idx in range(len(sub_k))] + [opt_model._var]
-    )
+    opt_model._sub_z_obj = MVar(sub_k.values() + [opt_model._var])
 
-    y_vals = tree_gp.train_targets.numpy().tolist()
-    lin_term = kernel_var * np.matmul(inv_ks, np.asarray(y_vals))
+    y_vals = tree_gp.train_targets.numpy()
 
-    lin_obj = np.zeros(len(lin_term) + 1)
-    lin_obj[:-1] = lin_term
-    lin_obj[-1] = -kappa
+    # why multiply by kernel var here?
+    lin_term = kernel_var * (inv_ks @ y_vals)
+
+    lin_obj = np.concatenate((lin_term, [-kappa]))
 
     opt_model.setMObjective(
         None, lin_obj, 0, xc=opt_model._sub_z_obj, sense=GRB.MINIMIZE
     )
 
     ## add mu variable
-    opt_model._sub_z_mu = MVar([sub_k[idx] for idx in range(len(sub_k))])
+    opt_model._sub_z_mu = MVar(sub_k.values())
     opt_model._mu_coeff = lin_term
 
     return opt_model

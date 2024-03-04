@@ -182,15 +182,12 @@ class SynFunc:
         return feas_penalty
 
     def get_init_data(self, num_init, rnd_seed, eval_constr=True):
-        data = {"X": [], "y": []}
-
         x_init = self.get_random_x(num_init, rnd_seed, eval_constr=eval_constr)
 
-        for xi in x_init:
-            data["X"].append(xi)
-            data["y"].append(self(xi))
+        xs = np.asarray(x_init)
+        ys = self.vector_apply(xs)
 
-        return data
+        return (xs, ys)
 
     def get_random_x(self, num_points, rnd_seed, eval_constr=True):
         # initial space

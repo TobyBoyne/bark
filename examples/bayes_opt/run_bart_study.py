@@ -38,11 +38,10 @@ if bb_func.cat_idx:
     bb_func.eval_label()
 
 # generate initial data points
-init_data = bb_func.get_init_data(args.num_init, args.rnd_seed)
-X, y = init_data["X"], init_data["y"]
+X_train, y_train = bb_func.get_init_data(args.num_init, args.rnd_seed)
 
 print("* * * initial data targets:")
-print("\n".join(f"  val: {yi:.4f}" for yi in y))
+print("\n".join(f"  val: {yi:.4f}" for yi in y_train))
 
 # add model_core with constraints if problem has constraints
 model_core = bb_func.get_model_core()
@@ -56,15 +55,13 @@ forest.initialise(bb_func.get_space())
 # main bo loop
 print("\n* * * start bo loop...")
 for itr in range(args.num_itr):
-    X_train, y_train = np.asarray(X), np.asarray(y)
-
     likelihood = gpy.likelihoods.GaussianLikelihood()
     tree_gp = AlfalfaGP(
         torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest
     )
 
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
-    train_params = BARTTrainParams(warmup_steps=500 if itr == 0 else 10, n_steps=1)
+    train_params = BARTTrainParams(warmup_steps=10 if itr == 0 else 10, n_steps=1)
     data = BARTData(bb_func.get_space(), X_train)
     bart = BART(tree_gp, data, train_params, noise_prior=None, scale_prior=None)
     bart.run()
@@ -77,11 +74,11 @@ for itr in range(args.num_itr):
     next_y = bb_func(next_x)
 
     # update progress
-    X.append(next_x)
-    y.append(next_y)
+    X_train = np.concatenate(X_train, next_x)
+    y_train = np.concatenate(y_train, next_y)
 
-    print(f"{itr}. min_val: {round(min(y), 5)}")
+    print(f"{itr}. min_val: {round(min(y_train), 5)}")
 
 if args.outfile:
     with open(args.outfile, "w+") as f:
-        f.write(",".join(map(str, y)))
+        np.save(f, y_train)
