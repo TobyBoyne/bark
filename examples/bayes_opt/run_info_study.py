@@ -36,7 +36,7 @@ if bb_func.cat_idx:
     bb_func.eval_label()
 
 # generate initial data points
-init_data = bb_func.get_init_data([3, 3], args.rnd_seed)
+init_data = bb_func.get_init_data([2, 2], args.rnd_seed)
 X_train, i_train, y_train = init_data
 
 print("* * * initial data targets:")
@@ -86,4 +86,4 @@ for itr in range(args.num_itr):
     i_train = np.concatenate((i_train, [next_i]))
     y_train = np.concatenate((y_train, next_y))
     print(next_i)
-    print(f"{itr}. min_val: {round(min(y_train), 5)}")
+    print(f"{itr}. min_val: {round(min(y_train[i_train == 0]), 5)}")

@@ -1,3 +1,5 @@
+import warnings
+
 import gpytorch
 import numpy as np
 import torch
@@ -49,6 +51,11 @@ def information_gain(
 
     assert not H.isnan().any()
     assert not H.isinf().any()
+
+    if H < 0:
+        warnings.warn(
+            f"Negative information gain: {H.item()}. This is likely due to numerical instability/inaccuracy in integration."
+        )
     return H
 
 
@@ -102,7 +109,6 @@ def _entropy_low_fidelity(
     # define s^2
     s_sqrd = sigma_M_sqrd - (sigma_mM_sqrd) ** 2 / (sigma_m**2 + 1e-9)
 
-    # now we can define Psi(x)
     def Psi(f):
         u_x = mu_0 + sigma_mM_sqrd * (f - mu_m) / (
             sigma_m**2 + 1e-9
@@ -120,25 +126,35 @@ def _entropy_low_fidelity(
     # we can now estimate the one dimensional integral
     # define integral range
 
-    min_integration = -10.0
-    max_integration = 10.0
-    num_of_integration_steps = 250
+    # adaptive integral range to include full support of Psi
 
+    init_min_integration = -10.0
+    init_max_integration = 10.0
+    num_adaptive_locations = 100
+    adaptive_bound = 0.25
+
+    f_range_adapt = torch.linspace(
+        init_min_integration, init_max_integration, steps=num_adaptive_locations
+    )
+    psi = Psi(f_range_adapt.reshape(-1, 1, 1))
+    psi_nonzeros = psi.abs().sum(dim=-1).sum(dim=-1) > 1e-8
+    min_integration = f_range_adapt[psi_nonzeros].min() - adaptive_bound
+    max_integration = f_range_adapt[psi_nonzeros].max() + adaptive_bound
+
+    if min_integration < init_min_integration or max_integration > init_max_integration:
+        warnings.warn(
+            "Integration does not cover Psi; consider increasing initial range."
+        )
+
+    num_of_integration_steps = 250
     f_range = torch.linspace(
         min_integration, max_integration, steps=num_of_integration_steps
     )
-    # preallocate the space
-    integral_grid = torch.zeros((num_of_integration_steps, batch_size, f_star.shape[0]))
-    # calculate corresponding y values
-    for idx, f in enumerate(f_range):
-        z_psi = Z * Psi(f)
-        # recall that limit of x * log(x) as x-> 0 is 0; but computationally we get nans, so set it to 1 to obtain correct values
-        z_psi = z_psi.masked_fill(z_psi <= 0, 1)
-        y_vals = z_psi * torch.log(z_psi)
-        assert not y_vals.isnan().any()
-        integral_grid[idx, :, :] = y_vals
+    # y_vals has shape (num_of_integration_steps, batch_size, f_star.shape[0])
+    z_phi = Z * Psi(f_range.reshape(-1, 1, 1))
+    integral_grid = torch.special.xlogy(z_phi, z_phi)
     # estimate integral using trapezium rule
     integral_estimates = torch.trapezoid(integral_grid, f_range, dim=0)
     # now estimate H2 using Monte Carlo
-    H_2 = -integral_estimates.mean(dim=1).reshape(-1, 1)
+    H_2 = -integral_estimates.mean(dim=-1).reshape(-1, 1)
     return H_2

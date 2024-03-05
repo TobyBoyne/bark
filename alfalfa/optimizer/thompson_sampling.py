@@ -1,7 +1,4 @@
-"""Generate samples of f^*
-
-This uses a similar formulation to the UCB. Here, however, we sample posterior
-draws from the GP, then take the minimum."""
+import warnings
 
 import torch
 
@@ -16,10 +13,14 @@ def generate_fstar_samples(
     sample_sites = model.train_inputs[0]
     i = torch.zeros((sample_sites.shape[0], 1), dtype=torch.long)
     model.eval()
-    function_values = model(sample_sites, i).sample(torch.Size([num_samples]))
+    with warnings.catch_warnings():
+        # sampling from GP warns due to not being pd
+        # which is expected for a tree kernel
+        warnings.simplefilter("ignore")
+        function_values = model(sample_sites, i).sample(torch.Size([num_samples]))
     if maximise:
-        f_star = function_values.max(dim=0).values
+        f_star = function_values.max(dim=-1).values
     else:
-        f_star = function_values.min(dim=0).values
+        f_star = function_values.min(dim=-1).values
 
     return f_star
