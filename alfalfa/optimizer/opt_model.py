@@ -1,10 +1,9 @@
 """From Leaf-GP"""
 
-from typing import Optional
-
 import gurobipy as gp
 import numpy as np
 import torch
+from beartype.typing import Optional
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 

@@ -1,9 +1,9 @@
 """Processes for mutating trees"""
 import abc
-from typing import Optional
 
 import gpytorch as gpy
 import numpy as np
+from beartype.typing import Optional
 
 from ...forest import AlfalfaTree, DecisionNode, LeafNode
 from ...tree_kernels import AlfalfaGP

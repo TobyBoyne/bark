@@ -1,7 +1,6 @@
-from typing import Any, Union
-
 import gpytorch as gpy
 import torch
+from beartype.typing import Any, Union
 from gpytorch.distributions import MultivariateNormal, base_distributions
 from gpytorch.likelihoods.gaussian_likelihood import _GaussianLikelihoodBase
 from gpytorch.likelihoods.noise_models import MultitaskHomoskedasticNoise
@@ -37,7 +36,11 @@ class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
 
 class AlfalfaGP(gpy.models.ExactGP):
     def __init__(
-        self, train_inputs, train_targets, likelihood, tree_model: AlfalfaTree
+        self,
+        train_inputs,
+        train_targets,
+        likelihood,
+        tree_model: Union[AlfalfaTree, AlfalfaForest],
     ):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
@@ -55,7 +58,7 @@ class AlfalfaGP(gpy.models.ExactGP):
         return self.covar_module.base_kernel.tree_model
 
     @classmethod
-    def from_mcmc_samples(cls, model: "AlfalfaGP", samples):
+    def from_mcmc_samples(cls, model: "AlfalfaGP", samples: int):
         likelihood = gpy.likelihoods.GaussianLikelihood()
         all_trees = {"tree_model_type": "forest", "trees": []}
         for sample in samples:

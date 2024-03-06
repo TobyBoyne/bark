@@ -1,7 +1,7 @@
 import abc
-from typing import Callable, Optional, Sequence
 
 import numpy as np
+from beartype.typing import Callable, Optional, Sequence
 
 from .utils.space import Space
 

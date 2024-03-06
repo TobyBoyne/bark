@@ -1,8 +1,7 @@
 """Convert an LGBM tree to an instance of Alternating Tree for comparison"""
-from typing import Optional
-
 import lightgbm as lgb
 import numpy as np
+from beartype.typing import Optional
 
 from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode, LeafNode
 

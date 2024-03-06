@@ -1,4 +1,4 @@
-from typing import Callable, Union
+from beartype.typing import Callable, Union
 
 from ...forest import AlfalfaTree, DecisionNode, LeafNode
 

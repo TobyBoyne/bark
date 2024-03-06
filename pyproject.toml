@@ -24,6 +24,7 @@ scikit-optimize = "^0.9.0"
 gurobipy = "10.0.3"
 lightgbm = "^4.3.0"
 botorch = "^0.9.5"
+beartype = "^0.17.2"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -34,7 +35,7 @@ ipython = "^8.21.0"
 pytest-benchmark = "^4.0.0"
 
 [tool.pytest.ini_options]
-addopts = "--benchmark-storage=benchmarks/results --benchmark-autosave"
+addopts = "--benchmark-storage=benchmarks/results --benchmark-autosave --jaxtyping-packages=alfalfa,beartype.beartype"
 
 [build-system]
 requires = ["poetry-core"]

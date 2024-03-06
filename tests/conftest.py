@@ -3,16 +3,18 @@ from collections import namedtuple
 import gpytorch
 import pytest
 import torch
+from jaxtyping import install_import_hook
 
 from alfalfa.benchmarks import Himmelblau1D
 from alfalfa.fitting import fit_lgbm_forest, lgbm_to_alfalfa_forest
 from alfalfa.tree_kernels import AlfalfaGP
 
+torch.set_default_dtype(torch.float64)
+
 TrainingData = namedtuple("TrainingData", ["train_x", "train_y", "space"])
 
-
-def pytest_runtestloop(session):
-    torch.set_default_dtype(torch.float64)
+with install_import_hook("alfalfa", "beartype.beartype"):
+    import alfalfa  # noqa: F401
 
 
 @pytest.fixture(scope="session")

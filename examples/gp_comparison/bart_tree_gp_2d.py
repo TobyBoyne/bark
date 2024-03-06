@@ -3,13 +3,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 import torch
+from jaxtyping import install_import_hook
 
-from alfalfa.benchmarks import Branin
-from alfalfa.fitting import BART, BARTData, BARTTrainParams
-from alfalfa.forest import AlfalfaForest
-from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.plots import plot_gp_2d
-from alfalfa.utils.space import Space
+with install_import_hook("alfalfa", "beartype.beartype"):
+    from alfalfa.benchmarks import Branin
+    from alfalfa.fitting import BART, BARTData, BARTTrainParams
+    from alfalfa.forest import AlfalfaForest
+    from alfalfa.tree_kernels import AlfalfaGP
+    from alfalfa.utils.plots import plot_gp_2d
+    from alfalfa.utils.space import Space
 
 torch.set_default_dtype(torch.float64)
 torch.manual_seed(42)
@@ -65,7 +67,7 @@ sampled_model = AlfalfaGP.from_mcmc_samples(gp, logger["samples"])
 sampled_model.eval()
 
 
-torch.save(sampled_model.state_dict(), "models/branin_sampled_bart_.pt")
+# torch.save(sampled_model.state_dict(), "models/branin_sampled_bart_.pt")
 test_x = torch.meshgrid(
     torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij"
 )

@@ -1,4 +1,6 @@
-from typing import Literal, Union
+from typing import Literal
+
+from beartype.typing import Union
 
 BoundType = Union[int, float, str]
 
