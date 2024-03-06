@@ -89,7 +89,7 @@ class BART:
             transition.apply()
 
     def _transition_noise(self):
-        new_noise = propose_positive_transition(self.model.likelihood.noise)
+        new_noise = propose_positive_transition(self.model.likelihood.noise.item())
         log_alpha = noise_acceptance_probability(
             self.model, new_noise, self.noise_prior
         )
@@ -100,7 +100,9 @@ class BART:
             self.logger.log(accept_noise=False)
 
     def _transition_scale(self):
-        new_scale = propose_positive_transition(self.model.covar_module.outputscale)
+        new_scale = propose_positive_transition(
+            self.model.covar_module.outputscale.item()
+        )
         log_alpha = scale_acceptance_probability(
             self.model, new_scale, self.scale_prior
         )

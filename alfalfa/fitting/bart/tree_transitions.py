@@ -3,6 +3,7 @@ import abc
 
 import gpytorch as gpy
 import numpy as np
+from beartype.cave import IntType
 from beartype.typing import Optional
 
 from ...forest import AlfalfaTree, DecisionNode, LeafNode
@@ -202,9 +203,9 @@ class ChangeTransition(Transition):
         self,
         tree: AlfalfaTree,
         node: DecisionNode,
-        new_var_idx: int,
+        new_var_idx: IntType,
         new_threshold: float,
-        cur_var_idx: Optional[int] = None,
+        cur_var_idx: Optional[IntType] = None,
         cur_threshold: Optional[float] = None,
     ):
         self.node = node

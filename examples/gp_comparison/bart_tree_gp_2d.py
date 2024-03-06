@@ -11,24 +11,22 @@ with install_import_hook("alfalfa", "beartype.beartype"):
     from alfalfa.forest import AlfalfaForest
     from alfalfa.tree_kernels import AlfalfaGP
     from alfalfa.utils.plots import plot_gp_2d
-    from alfalfa.utils.space import Space
 
 torch.set_default_dtype(torch.float64)
 torch.manual_seed(42)
 np.random.seed(42)
-N_train = 50
-x = torch.rand((N_train, 2))
+
 bb_func = Branin()
-f = bb_func.vector_apply(x)
-
+x, f = bb_func.get_init_data(50, rnd_seed=42)
+x = torch.as_tensor(x)
+f = torch.as_tensor(f)
 y = f + torch.randn_like(f) * 0.2**0.5
-
 
 likelihood = gpy.likelihoods.GaussianLikelihood(
     noise_constraint=gpy.constraints.Positive()
 )
 forest = AlfalfaForest(height=0, num_trees=10)
-space = Space([[0.0, 1.0], [0.0, 1.0]])
+space = bb_func.get_space()
 forest.initialise(space)
 gp = AlfalfaGP(x, y, likelihood, forest)
 

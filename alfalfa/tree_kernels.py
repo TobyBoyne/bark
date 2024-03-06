@@ -58,7 +58,7 @@ class AlfalfaGP(gpy.models.ExactGP):
         return self.covar_module.base_kernel.tree_model
 
     @classmethod
-    def from_mcmc_samples(cls, model: "AlfalfaGP", samples: int):
+    def from_mcmc_samples(cls, model: "AlfalfaGP", samples):
         likelihood = gpy.likelihoods.GaussianLikelihood()
         all_trees = {"tree_model_type": "forest", "trees": []}
         for sample in samples:
