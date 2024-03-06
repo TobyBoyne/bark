@@ -82,16 +82,16 @@ class AlfalfaGP(gpy.models.ExactGP):
         return gp
 
 
-class AlfalfaMOGP(gpy.models.ExactGP):
+class AlfalfaMOGP(AlfalfaGP):
     def __init__(
         self,
         train_inputs,
         train_targets,
         likelihood,
-        tree_model: AlfalfaTree,
+        tree_model: Union[AlfalfaTree, AlfalfaForest],
         num_tasks: int = 2,
     ):
-        super().__init__(train_inputs, train_targets, likelihood)
+        super(AlfalfaGP, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
         self.covar_module = AlfalfaTreeModelKernel(tree_model)
         self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=num_tasks, rank=1)

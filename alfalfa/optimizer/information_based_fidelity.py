@@ -3,6 +3,7 @@ import warnings
 import gpytorch
 import numpy as np
 import torch
+from beartype.cave import IntType
 
 from ..tree_kernels import AlfalfaMOGP
 from .thompson_sampling import generate_fstar_samples
@@ -13,7 +14,7 @@ SQRT_2PI_E = torch.sqrt(2 * torch.pi * torch.exp(torch.tensor(1)))
 
 def propose_fidelity_information_based(
     model: AlfalfaMOGP, x: torch.Tensor, costs: list[float]
-) -> int:
+) -> IntType:
     """Choose the fidelity level for a given input.
 
     Args:

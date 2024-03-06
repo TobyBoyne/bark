@@ -2,15 +2,17 @@ from argparse import ArgumentParser
 
 import numpy as np
 import torch
+from jaxtyping import install_import_hook
 
-from alfalfa.benchmarks import CurrinExp2D
-from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
-from alfalfa.optimizer import build_opt_model, propose
-from alfalfa.optimizer.gbm_model import GbmModel
-from alfalfa.optimizer.information_based_fidelity import (
-    propose_fidelity_information_based,
-)
-from alfalfa.tree_kernels import AlfalfaMOGP, MultitaskGaussianLikelihood
+with install_import_hook("alfalfa", "beartype.beartype"):
+    from alfalfa.benchmarks import CurrinExp2D
+    from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
+    from alfalfa.optimizer import build_opt_model, propose
+    from alfalfa.optimizer.gbm_model import GbmModel
+    from alfalfa.optimizer.information_based_fidelity import (
+        propose_fidelity_information_based,
+    )
+    from alfalfa.tree_kernels import AlfalfaMOGP, MultitaskGaussianLikelihood
 
 parser = ArgumentParser()
 parser.add_argument("-bb-func", type=str, default="currin")
