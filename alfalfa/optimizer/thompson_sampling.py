@@ -1,13 +1,14 @@
 import warnings
 
 import torch
+from jaxtyping import Float
 
 from ..tree_kernels import AlfalfaGP
 
 
 def generate_fstar_samples(
     model: AlfalfaGP, num_samples: int = 10, maximise: bool = False
-):
+) -> Float[torch.Tensor, "{num_samples}"]:
     """Generate samples of function optima."""
 
     sample_sites = model.train_inputs[0]

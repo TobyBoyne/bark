@@ -87,5 +87,5 @@ for itr in range(args.num_itr):
     X_train = np.concatenate((X_train, [next_x]))
     i_train = np.concatenate((i_train, [next_i]))
     y_train = np.concatenate((y_train, next_y))
-    print(next_i)
+    print(f"Query at fidelity {next_i}")
     print(f"{itr}. min_val: {round(min(y_train[i_train == 0]), 5)}")

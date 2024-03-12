@@ -128,9 +128,9 @@ gurobipy==10.0.3 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:bea65f0b0edcd40a0e6bdf6a468a3a92195dd6ca7fa588200ec169610275f273 \
     --hash=sha256:c5d908a9682d28d4eafc6f97d1408ab204e72aa97c2c726f339097b58de48d7a \
     --hash=sha256:e41628b167dd33e853347ea5adce93e8924777797965bbd895e333a3795557f1
-jaxtyping==0.2.25 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:4ec4bdb6839a67c062e48c27d62d44bf353099d7ff6cd3628b5a511c097ab922 \
-    --hash=sha256:503772cf985ff50bd160d0661266e1628da47cc8b9a302de16f230e07f5ac119
+jaxtyping==0.2.28 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:4a54eb964087cd46463d9a86c805b4e4f5c20cce5f22049d6f35a26d9f105bd3 \
+    --hash=sha256:cd20bf1558a90c6d77c589354e35670ecc5b94925ef45bf1c020fde7b44fac8d
 jinja2==3.1.3 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa \
     --hash=sha256:ac8bd6544d4bb2c9792bf3a159e80bba8fda7f07e81bc3aed565432d5925ba90
@@ -424,9 +424,9 @@ nvidia-nvtx-cu12==12.1.105 ; platform_system == "Linux" and platform_machine == 
 opt-einsum==3.3.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:2455e59e3947d3c275477df7f5205b30635e266fe6dc300e3d9f9646bfcea147 \
     --hash=sha256:59f6475f77bbc37dcf7cd748519c0ec60722e91e63ca114e68821c0c54a46549
-packaging==23.2 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:048fb0e9405036518eaaf48a55953c750c11e1a1b68e0dd1a9d62ed0c092cfc5 \
-    --hash=sha256:8c491190033a9af7e1d931d0b5dacc2ef47509b34dd0de67ed209b5203fc88c7
+packaging==24.0 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5 \
+    --hash=sha256:eb82c5e3e56209074766e6885bb04b8c38a0c015d0a30036ebe7ece34c9989e9
 pillow==10.2.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:0304004f8067386b477d20a518b50f3fa658a28d44e4116970abfcd94fac34a8 \
     --hash=sha256:0689b5a8c5288bc0504d9fcee48f61a6a586b9b98514d7d29b840143d6734f39 \
