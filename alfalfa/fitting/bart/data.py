@@ -1,5 +1,7 @@
 """Wrapper for data"""
 import numpy as np
+from beartype.cave import IntType
+from beartype.typing import Optional
 
 from ...forest import AlfalfaNode, AlfalfaTree, DecisionNode
 from ...utils.space import Space
@@ -20,7 +22,7 @@ class Data:
 
     def sample_splitting_rule(
         self, tree: AlfalfaTree, node: AlfalfaNode
-    ) -> tuple[int, float]:
+    ) -> Optional[tuple[IntType, float]]:
         x_index = self.get_x_index(tree, node)
         valid_features = self.valid_split_features(x_index)
         if not valid_features.size:
@@ -46,7 +48,7 @@ class Data:
         ]
         return np.array(valid)
 
-    def unique_split_values(self, x_index: np.ndarray, var_idx: int):
+    def unique_split_values(self, x_index: np.ndarray, var_idx: IntType):
         """
         x_index is shape (N,), where it is true if the x value reaches a leaf"""
         x = self.X[x_index, var_idx]

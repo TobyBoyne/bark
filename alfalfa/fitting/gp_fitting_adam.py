@@ -4,7 +4,7 @@ import gpytorch as gpy
 import torch
 
 
-def fit_gp_adam(model: gpy.models.ExactGP) -> None:
+def fit_gp_adam(model: gpy.models.ExactGP, verbose: bool = False) -> None:
     """Fit a Gaussian process model using the Adam optimiser.
 
     Fit a GP where all parameters to be optimised are PyTorch parameters,
@@ -39,6 +39,6 @@ def fit_gp_adam(model: gpy.models.ExactGP) -> None:
         # Calc loss and backprop gradients
         loss = -mll(output, y, args) if args else -mll(output, y)
         loss.backward()
-        if (i + 1) % 100 == 0:
+        if (i + 1) % 100 == 0 and verbose:
             print("Iter %d/%d - Loss: %.3f" % (i + 1, training_iter, loss.item()))
         optimizer.step()

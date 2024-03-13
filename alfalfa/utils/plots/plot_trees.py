@@ -1,7 +1,6 @@
-from typing import Optional
-
 import matplotlib.pyplot as plt
 import numpy as np
+from beartype.typing import Optional
 from matplotlib.patches import Circle
 
 from ...forest import AlfalfaForest, AlfalfaNode, AlfalfaTree, DecisionNode

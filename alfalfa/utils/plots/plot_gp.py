@@ -1,8 +1,7 @@
-from typing import Callable
-
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 import torch
+from beartype.typing import Callable
 
 
 def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=None):

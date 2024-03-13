@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from typing import Optional
 
 import gpytorch as gpy
 import torch
+from beartype.typing import Optional
 from tqdm import tqdm
 
 from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode

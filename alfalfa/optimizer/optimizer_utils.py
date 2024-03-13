@@ -1,7 +1,6 @@
-from typing import Optional
-
 import gurobipy as gp
 import numpy as np
+from beartype.typing import Optional
 from gurobipy import GRB, quicksum
 
 from ..utils.space import Space

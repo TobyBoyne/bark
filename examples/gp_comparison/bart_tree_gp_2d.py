@@ -3,30 +3,30 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 import torch
+from jaxtyping import install_import_hook
 
-from alfalfa.benchmarks import Branin
-from alfalfa.fitting import BART, BARTData, BARTTrainParams
-from alfalfa.forest import AlfalfaForest
-from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.plots import plot_gp_2d
-from alfalfa.utils.space import Space
+with install_import_hook("alfalfa", "beartype.beartype"):
+    from alfalfa.benchmarks import Branin
+    from alfalfa.fitting import BART, BARTData, BARTTrainParams
+    from alfalfa.forest import AlfalfaForest
+    from alfalfa.tree_kernels import AlfalfaGP
+    from alfalfa.utils.plots import plot_gp_2d
 
 torch.set_default_dtype(torch.float64)
 torch.manual_seed(42)
 np.random.seed(42)
-N_train = 50
-x = torch.rand((N_train, 2))
+
 bb_func = Branin()
-f = bb_func.vector_apply(x)
-
+x, f = bb_func.get_init_data(50, rnd_seed=42)
+x = torch.as_tensor(x)
+f = torch.as_tensor(f)
 y = f + torch.randn_like(f) * 0.2**0.5
-
 
 likelihood = gpy.likelihoods.GaussianLikelihood(
     noise_constraint=gpy.constraints.Positive()
 )
 forest = AlfalfaForest(height=0, num_trees=10)
-space = Space([[0.0, 1.0], [0.0, 1.0]])
+space = bb_func.get_space()
 forest.initialise(space)
 gp = AlfalfaGP(x, y, likelihood, forest)
 
@@ -65,7 +65,7 @@ sampled_model = AlfalfaGP.from_mcmc_samples(gp, logger["samples"])
 sampled_model.eval()
 
 
-torch.save(sampled_model.state_dict(), "models/branin_sampled_bart_.pt")
+# torch.save(sampled_model.state_dict(), "models/branin_sampled_bart_.pt")
 test_x = torch.meshgrid(
     torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij"
 )

@@ -1,10 +1,9 @@
 """From Leaf-GP"""
 
-from typing import Optional
-
 import gurobipy as gp
 import numpy as np
 import torch
+from beartype.typing import Optional
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 
@@ -52,7 +51,7 @@ def build_opt_model(
         Kmm = tree_gp.covar_module(train_x).numpy()
         k_diag = np.diagonal(Kmm)
         s_diag = tree_gp.likelihood._shaped_noise_covar(
-            k_diag.shape, [torch.zeros((k_diag.shape[0], 1))]
+            torch.Size(k_diag.shape), [torch.zeros((k_diag.shape[0], 1))]
         ).numpy()
         s_diag = s_diag.squeeze(-3)
 

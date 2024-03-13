@@ -3,7 +3,6 @@
 import collections as coll
 
 import numpy as np
-import torch
 
 from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode
 from ..forest import LeafNode as AlfalfaLeafNode
@@ -298,9 +297,7 @@ class GbmNode(GbmType):
         List of node dicts that define the tree
     """
 
-    def __init__(
-        self, split_var: int, split_code_pred: torch.Tensor, node: DecisionNode
-    ):
+    def __init__(self, split_var: int, split_code_pred: float, node: DecisionNode):
         self.split_var = split_var
         # TODO: handle cat vars!
         self.split_code_pred = split_code_pred

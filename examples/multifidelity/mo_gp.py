@@ -49,7 +49,7 @@ model.eval()
 likelihood.eval()
 
 # Initialize plots
-f, (y1_ax, y2_ax) = plt.subplots(1, 2, figsize=(8, 3))
+fig, (y1_ax, y2_ax) = plt.subplots(1, 2, figsize=(8, 3))
 
 # Test points every 0.02 in [0,1]
 test_x = torch.linspace(0, 1, 78)
@@ -78,32 +78,38 @@ with torch.no_grad(), gpy.settings.fast_pred_var():
 
 # Define plotting function
 def ax_plot(ax, train_y, train_x, rand_var, title):
-    # Get lower and upper confidence bounds
-    lower, upper = rand_var.confidence_region()
-    # Plot training data as black stars
-    ax.plot(train_x.detach().numpy(), train_y.detach().numpy(), "k*")
-    # Predictive mean as blue line
-    ax.plot(test_x.detach().numpy(), rand_var.mean.detach().numpy(), "b")
-    # Shade in confidence
-    ax.fill_between(
-        test_x.detach().numpy(),
-        lower.detach().numpy(),
-        upper.detach().numpy(),
-        alpha=0.5,
+    ax.plot(
+        train_x.detach().numpy(), train_y.detach().numpy(), "k*", label="Observed Data"
     )
+
+    # # Get lower and upper confidence bounds
+    # lower, upper = rand_var.confidence_region()
+    # # Plot training data as black stars
+    # # Predictive mean as blue line
+    # ax.plot(test_x.detach().numpy(), rand_var.mean.detach().numpy(), "b", label="Mean")
+    # # Shade in confidence
+    # ax.fill_between(
+    #     test_x.detach().numpy(),
+    #     lower.detach().numpy(),
+    #     upper.detach().numpy(),
+    #     alpha=0.5,
+    #     label="Confidence",
+    # )
     ax.set_ylim([-3, 3])
-    ax.legend(["Observed Data", "Mean", "Confidence"])
 
     ax.plot(
         test_x.detach().numpy(),
         torch.sin(test_x * (2 * torch.pi)).detach().numpy(),
         color="orange",
+        label="True Function",
     )
 
     ax.set_title(title)
+    ax.legend()
 
 
 # Plot both tasks
 ax_plot(y1_ax, train_y1, train_x1, observed_pred_y1, "Low Fidelity")
 ax_plot(y2_ax, train_y2, train_x2, observed_pred_y2, "High Fidelity")
+fig.savefig("figs/mo_gp_nomodel.png")
 plt.show()

@@ -3,6 +3,8 @@ import warnings
 import gpytorch
 import numpy as np
 import torch
+from beartype.cave import IntType
+from jaxtyping import Float, Int, Shaped
 
 from ..tree_kernels import AlfalfaMOGP
 from .thompson_sampling import generate_fstar_samples
@@ -12,8 +14,8 @@ SQRT_2PI_E = torch.sqrt(2 * torch.pi * torch.exp(torch.tensor(1)))
 
 
 def propose_fidelity_information_based(
-    model: AlfalfaMOGP, x: torch.Tensor, costs: list[float]
-) -> int:
+    model: AlfalfaMOGP, x: Shaped[torch.Tensor, "1 D"], costs: list[float]
+) -> IntType:
     """Choose the fidelity level for a given input.
 
     Args:
@@ -27,7 +29,7 @@ def propose_fidelity_information_based(
     f_star = generate_fstar_samples(model, num_samples=100)
     with torch.no_grad():
         igs = [
-            information_gain(model, x, f_star, fidelity) / costs[fidelity]
+            information_gain(model, x, f_star, fidelity).item() / costs[fidelity]
             for fidelity in range(model.num_tasks)
         ]
     fidelity = np.argmax(igs)
@@ -35,8 +37,11 @@ def propose_fidelity_information_based(
 
 
 def information_gain(
-    model: AlfalfaMOGP, x: torch.Tensor, f_star: torch.Tensor, fidelity: int
-):
+    model: AlfalfaMOGP,
+    x: Shaped[torch.Tensor, "batch D"],
+    f_star: Float[torch.Tensor, "N"],
+    fidelity: int,
+) -> Float[torch.Tensor, "1 1"]:
     fidelity_vector = torch.full((x.shape[0], 1), fidelity)
     posterior = model(x, fidelity_vector)
     mu_m, sigma_m = posterior.mean, posterior.stddev
@@ -60,8 +65,10 @@ def information_gain(
 
 
 def _entropy_target_fidelity(
-    mu_m: torch.Tensor, sigma_m: torch.Tensor, f_star: torch.Tensor
-):
+    mu_m: Float[torch.Tensor, "batch 1"],
+    sigma_m: Float[torch.Tensor, "batch 1"],
+    f_star: Float[torch.Tensor, "N"],
+) -> Float[torch.Tensor, "batch 1"]:
     # calculate expected entropy of f(X, m) | f_*, D_t
     # calculate gamma
     gamma = (f_star - mu_m) / (sigma_m + 1e-7)
@@ -81,13 +88,13 @@ def _entropy_target_fidelity(
 
 
 def _entropy_low_fidelity(
-    mu_m: torch.Tensor,
-    sigma_m: torch.Tensor,
-    f_star: torch.Tensor,
+    mu_m: Float[torch.Tensor, "batch 1"],
+    sigma_m: Float[torch.Tensor, "batch 1"],
+    f_star: Float[torch.Tensor, "N"],
     model: AlfalfaMOGP,
-    x: torch.Tensor,
-    fidelity_vector: torch.Tensor,
-):
+    x: Shaped[torch.Tensor, "batch D"],
+    fidelity_vector: Int[torch.Tensor, "batch 1"],
+) -> Float[torch.Tensor, "1 1"]:
     # define fidelity vectors
     target_fidelity_vector = torch.tensor([[0]])
     joint_fidelity_vector = torch.concat((fidelity_vector, target_fidelity_vector))
@@ -109,7 +116,7 @@ def _entropy_low_fidelity(
     # define s^2
     s_sqrd = sigma_M_sqrd - (sigma_mM_sqrd) ** 2 / (sigma_m**2 + 1e-9)
 
-    def Psi(f):
+    def Psi(f: Float[torch.Tensor, "G 1 1"]) -> Float[torch.Tensor, "G batch N"]:
         u_x = mu_0 + sigma_mM_sqrd * (f - mu_m) / (
             sigma_m**2 + 1e-9
         )  # should be size: batch size x 1

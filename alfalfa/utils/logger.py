@@ -1,9 +1,9 @@
 """Logging helpers for analysing bottlenecks - not a part of public API."""
 from collections import defaultdict
 from time import perf_counter
-from typing import Callable
 
 import numpy as np
+from beartype.typing import Callable
 from matplotlib.axes import Axes
 
 from ..tree_kernels import AlfalfaGP

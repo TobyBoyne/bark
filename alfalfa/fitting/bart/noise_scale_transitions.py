@@ -1,6 +1,7 @@
 import gpytorch as gpy
 import numpy as np
 import scipy.stats as stats
+from scipy.stats._distn_infrastructure import rv_frozen
 
 from ...tree_kernels import AlfalfaGP
 
@@ -39,9 +40,7 @@ def propose_positive_transition(
     return new_value
 
 
-def noise_acceptance_probability(
-    model: AlfalfaGP, new_noise: float, prior: stats.rv_continuous
-):
+def noise_acceptance_probability(model: AlfalfaGP, new_noise: float, prior: rv_frozen):
     cur_noise = model.likelihood.noise.item()
 
     log_q_ratio = log_q_ratio_lognorm(cur_noise, new_noise)
@@ -63,9 +62,7 @@ def noise_acceptance_probability(
     return min(log_q_ratio + likelihood_ratio + prior_ratio, 0.0)
 
 
-def scale_acceptance_probability(
-    model: AlfalfaGP, new_scale: float, prior: stats.rv_continuous
-):
+def scale_acceptance_probability(model: AlfalfaGP, new_scale: float, prior: rv_frozen):
     cur_scale = model.covar_module.outputscale
 
     log_q_ratio = log_q_ratio_lognorm(cur_scale, new_scale)

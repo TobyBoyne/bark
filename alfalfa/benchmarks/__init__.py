@@ -1,4 +1,4 @@
-from typing import Union
+from beartype.typing import Union
 
 from .base import CatSynFunc, SynFunc
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
