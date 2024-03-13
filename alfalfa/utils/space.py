@@ -1,5 +1,7 @@
 from typing import Literal
 
+import numpy as np
+from beartype.cave import IntType
 from beartype.typing import Union
 
 BoundType = Union[int, float, str]
@@ -14,6 +16,13 @@ class Dimension:
 
     def __str__(self):
         return f"({self.var_type}, {self.bnds})"
+
+    def grid_sample(self, shape: IntType):
+        if self.var_type == "conti":
+            ub, lb = self.bnds
+            return np.linspace(ub, lb, shape)
+        else:
+            raise NotImplementedError()
 
 
 class Space:
