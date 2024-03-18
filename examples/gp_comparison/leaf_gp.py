@@ -20,7 +20,7 @@ np.random.seed(42)
 
 init_data = bb_func.get_init_data(30, rnd_seed=42)
 space = bb_func.get_space()
-X, y = init_data["X"], init_data["y"]
+X, y = init_data
 
 train_x, train_y = np.asarray(X), np.asarray(y)
 

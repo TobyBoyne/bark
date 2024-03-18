@@ -41,7 +41,7 @@ if bb_func.cat_idx:
 
 # generate initial data points
 init_data = bb_func.get_init_data(args.num_init, args.rnd_seed)
-X, y = init_data["X"], init_data["y"]
+X, y = init_data
 
 print("* * * initial data targets:")
 print("\n".join(f"  val: {yi:.4f}" for yi in y))
