@@ -7,6 +7,7 @@ from gpytorch.likelihoods.noise_models import MultitaskHomoskedasticNoise
 from linear_operator.operators import DiagLinearOperator
 
 from .forest import AlfalfaForest, AlfalfaTree
+from .utils.space import Space
 
 
 class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
@@ -108,6 +109,39 @@ class AlfalfaMOGP(AlfalfaGP):
     @property
     def tree_model(self) -> Union[AlfalfaTree, AlfalfaForest]:
         return self.covar_module.tree_model
+
+
+class AlfalfaMCMCModel:
+    """A model generated from many MCMC samples of a GP"""
+
+    def __init__(self, train_inputs, train_targets, samples, space: Space, seed: int):
+        # samples contains a list of GP hyperparameters
+        # need to take function samples
+        self.samples = samples
+        self.rng = torch.Generator().manual_seed(seed)
+
+        self.train_inputs = train_inputs
+        self.train_targets = train_targets
+        self.space = space
+
+    def __call__(self, x, *args):
+        function_samples = torch.zeros((len(self.samples), x.shape[0]))
+        for i, sample in enumerate(self.samples):
+            gp = AlfalfaGP(
+                self.train_inputs,
+                self.train_targets,
+                gpy.likelihoods.GaussianLikelihood(),
+                None,
+            )
+            gp.load_state_dict(sample)
+            gp.tree_model.initialise(self.space)
+            gp.eval()
+            output = gp.likelihood(gp(x))
+            function_samples[i, :] = output.sample()
+
+        mean = function_samples.mean(dim=0)
+        var = DiagLinearOperator(function_samples.var(dim=0))
+        return gpy.distributions.MultivariateNormal(mean, var)
 
 
 class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
