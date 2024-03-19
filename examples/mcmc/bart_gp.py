@@ -39,7 +39,7 @@ likelihood = gpytorch.likelihoods.GaussianLikelihood(
 )
 model = AlfalfaGP(torch.tensor(train_x), torch.tensor(train_y), likelihood, tree)
 
-N = 500
+N = 50
 LAG = 5
 params = BARTTrainParams(warmup_steps=0, n_steps=N, lag=LAG, alpha=0.95)
 bart = BART(
