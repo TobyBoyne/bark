@@ -26,7 +26,7 @@ np.random.seed(42)
 
 init_data = bb_func.get_init_data(30, rnd_seed=42)
 space = bb_func.get_space()
-X, y = init_data["X"], init_data["y"]
+X, y = init_data
 
 train_x, train_y = np.asarray(X), np.asarray(y)
 # train_y = np.zeros_like(train_y) + np.random.randn(*train_y.shape) * 0.0
@@ -39,7 +39,7 @@ likelihood = gpytorch.likelihoods.GaussianLikelihood(
 )
 model = AlfalfaGP(torch.tensor(train_x), torch.tensor(train_y), likelihood, tree)
 
-N = 500
+N = 50
 LAG = 5
 params = BARTTrainParams(warmup_steps=0, n_steps=N, lag=LAG, alpha=0.95)
 bart = BART(

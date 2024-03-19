@@ -1,7 +1,8 @@
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 import torch
-from beartype.typing import Callable
+from beartype.typing import Callable, Optional
+import numpy as np
 
 
 def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=None):
@@ -17,7 +18,7 @@ def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=N
         raise ValueError("You can only plot GPs with 1 or 2 input dimensions.")
 
 
-def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable, ax=None):
+def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Optional[Callable[[np.ndarray], np.ndarray]], ax=None):
     if ax is None:
         _, ax = plt.subplots()
     with torch.no_grad():
@@ -30,7 +31,7 @@ def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable, ax=None):
         # Get upper and lower confidence bounds
         lower, upper = observed_pred.confidence_region()
         # Plot training data as black stars
-        ax.plot(train_x.numpy(), train_y.numpy(), "k*", label="train points")
+        ax.plot(train_x.numpy(), train_y.numpy(), "k*", label="train points", zorder=10)
         # Plot predictive means as blue line
         ax.plot(
             test_x.flatten().numpy(),
@@ -42,8 +43,8 @@ def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Callable, ax=None):
         ax.fill_between(
             test_x.flatten().numpy(), lower.numpy(), upper.numpy(), alpha=0.5
         )
-
-        ax.plot(test_x.flatten().numpy(), target(test_x), label="target function")
+        if target is not None:
+            ax.plot(test_x.flatten().numpy(), target(test_x), label="target function")
         ax.legend()
 
         # ax = axs[1]
