@@ -2,6 +2,7 @@ import abc
 
 import numpy as np
 from beartype.typing import Callable, Optional, Sequence
+from jaxtyping import Shaped
 
 from .utils.space import Space
 
@@ -16,20 +17,6 @@ def _leaf_id_iter():
 
 
 _leaf_id = _leaf_id_iter()
-
-
-# def prune_tree_hook(module, incompatible_keys):
-#     """Post hook for load_state_dict to handle missing nodes.
-
-#     This transforms any nodes that are missing data to leaves, effectively
-#     'pruning' branches of the tree. This function is to be used as a pre-hook
-#     for torch.load_state_dict, must be registered before loading the data."""
-
-#     while incompatible_keys.missing_keys:
-#         key = incompatible_keys.missing_keys.pop()
-#         *parent_key, child, _ = key.split(".")
-#         parent_node = attrgetter(".".join(parent_key))(module)
-#         setattr(parent_node, child, LeafNode())
 
 
 class AlfalfaNode:
@@ -116,7 +103,7 @@ class DecisionNode(AlfalfaNode):
     def __init__(
         self,
         var_idx=None,
-        threshold=None,
+        threshold: Optional[float | Shaped[np.ndarray, "T"]] = None,
         left: Optional["AlfalfaNode"] = None,
         right: Optional["AlfalfaNode"] = None,
     ):
@@ -181,11 +168,13 @@ class DecisionNode(AlfalfaNode):
 
         if self.var_idx in self.space.cat_idx:
             # categorical - check if value is in subset
-            return np.where(np.isin(var, self.threshold), self.left(x), self.right(x))
+            # TODO: implement subset
+            return np.where(np.equal(var, self.threshold), self.left(x), self.right(x))
         else:
             # continuous - check if value is less than threshold
+            # TODO: confirm that this `lt` sign shouldn't be `le`
             return np.where(
-                var <= self.threshold,
+                var < self.threshold,
                 self.left(x),
                 self.right(x),
             )
