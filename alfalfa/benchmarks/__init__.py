@@ -2,7 +2,7 @@ from beartype.typing import Union
 
 from .base import CatSynFunc, SynFunc
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
-from .mixed import PressureVessel, VAESmall
+from .mixed import CatAckley, PressureVessel, VAESmall
 from .multi_fidelity import CurrinExp2D
 from .unconstrained import (
     Branin,
@@ -32,6 +32,7 @@ BENCHMARK_MAP = {
     # mixed spaces
     "pressure_vessel": PressureVessel,
     "vae_nas": VAESmall,
+    "cat_ackley": CatAckley,
     # multi-fidelity
     "currin": CurrinExp2D,
 }

@@ -4,6 +4,28 @@ from ..optimizer.optimizer_utils import get_opt_core
 from .base import CatSynFunc, SynFunc, preprocess_data
 
 
+class CatAckley(SynFunc):
+    """
+    adapted from: https://arxiv.org/pdf/1911.12473.pdf"""
+
+    int_idx = {
+        0,
+    }
+
+    def __call__(self, x, **kwargs):
+        z = x[1:] + x[0]
+        return (
+            -20 * np.exp(-0.2 * np.sqrt(0.2 * np.sum(z**2)))
+            - np.exp(0.2 * np.sum(np.cos(2 * np.pi * z)))
+            + 20
+            + np.exp(1)
+            + x[0]
+        )
+
+    def get_bounds(self):
+        return [(0, 4)] + [[-3.0, 3.0] for _ in range(5)]
+
+
 class PressureVessel(SynFunc):
     # adapted from: https://www.scielo.br/j/lajss/a/ZsdRkGWRVtDdHJP8WTDFFpB/?format=pdf&lang=en
 
