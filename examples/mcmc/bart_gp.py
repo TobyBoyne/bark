@@ -17,7 +17,7 @@ from alfalfa.utils.plots import plot_gp_nd
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
 
-bb_func = map_benchmark("branin")
+bb_func = map_benchmark("cat_ackley")
 # bb_func = get_func("himmelblau1d")
 
 # True function is sin(2*pi*x) with Gaussian noise
@@ -31,7 +31,7 @@ X, y = init_data
 train_x, train_y = np.asarray(X), np.asarray(y)
 # train_y = np.zeros_like(train_y) + np.random.randn(*train_y.shape) * 0.0
 
-tree = AlfalfaForest(height=0, num_trees=50)
+tree = AlfalfaForest(height=0, num_trees=10)
 data = Data(space, train_x)
 tree.initialise(space, data.get_init_prior())
 likelihood = gpytorch.likelihoods.GaussianLikelihood(
@@ -39,7 +39,7 @@ likelihood = gpytorch.likelihoods.GaussianLikelihood(
 )
 model = AlfalfaGP(torch.tensor(train_x), torch.tensor(train_y), likelihood, tree)
 
-N = 500
+N = 100
 LAG = 5
 params = BARTTrainParams(warmup_steps=0, n_steps=N, lag=LAG, alpha=0.95)
 bart = BART(
@@ -88,8 +88,6 @@ forest = AlfalfaForest.from_dict(forest_dict)
 forest.initialise(space)
 model = AlfalfaGP(torch.tensor(train_x), torch.tensor(train_y), likelihood, forest)
 model.eval()
-model.likelihood.noise = noise[idx]
-model.covar_module.outputscale = scale[idx]
 
 torch.save(model.state_dict(), "models/branin_bart_gp.pt")
 
