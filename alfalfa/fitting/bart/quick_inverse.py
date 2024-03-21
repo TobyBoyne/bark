@@ -17,8 +17,6 @@ DetType = Float[torch.Tensor, ""]
 def low_rank_inv_update(
     K_inv: InverseType, U: Float[torch.Tensor, "N B"], subtract: bool = False
 ) -> InverseType:
-    # num = (K_inv @ z) @ (z.mT @ K_inv)
-    # den = 1 + z.mT @ K_inv @ z
     mul = -1.0 if subtract else 1.0
     den = mul * torch.eye(U.shape[-1]) + (U.mT @ K_inv @ U)
 
@@ -31,13 +29,8 @@ def low_rank_det_update(
     K_logdet: DetType,
     subtract: bool = False,
 ) -> DetType:
-    # return torch.log(1 + z.mT @ K_inv @ z).squeeze() + K_logdet
-    even = U.shape[0] % 2 == 0
-    mul1 = -1.0 if subtract and even else 1.0
-    mul2 = -1.0 if subtract and not even else 1.0
-    return K_logdet + torch.logdet(
-        mul1 * torch.eye(U.shape[-1]) + mul2 * (U.mT @ K_inv @ U)
-    )
+    mul = -1.0 if subtract else 1.0
+    return K_logdet + torch.logdet(torch.eye(U.shape[-1]) + mul * (U.mT @ K_inv @ U))
 
 
 def mll(
