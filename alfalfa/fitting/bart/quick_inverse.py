@@ -15,19 +15,29 @@ DetType = Float[torch.Tensor, ""]
 
 
 def low_rank_inv_update(
-    K_inv: InverseType, U: Float[torch.Tensor, "N B"]
+    K_inv: InverseType, U: Float[torch.Tensor, "N B"], subtract: bool = False
 ) -> InverseType:
     # num = (K_inv @ z) @ (z.mT @ K_inv)
     # den = 1 + z.mT @ K_inv @ z
-    den = torch.eye(U.shape[-1]) + U.mT @ K_inv @ U
+    mul = -1.0 if subtract else 1.0
+    den = mul * torch.eye(U.shape[-1]) + (U.mT @ K_inv @ U)
+
     return K_inv - K_inv @ U @ torch.linalg.solve(den, U.mT @ K_inv)
 
 
 def low_rank_det_update(
-    K_inv: InverseType, U: Float[torch.Tensor, "N B"], K_logdet: DetType
+    K_inv: InverseType,
+    U: Float[torch.Tensor, "N B"],
+    K_logdet: DetType,
+    subtract: bool = False,
 ) -> DetType:
     # return torch.log(1 + z.mT @ K_inv @ z).squeeze() + K_logdet
-    return K_logdet + torch.logdet(torch.eye(U.shape[-1]) + U.mT @ K_inv @ U)
+    even = U.shape[0] % 2 == 0
+    mul1 = -1.0 if subtract and even else 1.0
+    mul2 = -1.0 if subtract and not even else 1.0
+    return K_logdet + torch.logdet(
+        mul1 * torch.eye(U.shape[-1]) + mul2 * (U.mT @ K_inv @ U)
+    )
 
 
 def mll(
@@ -39,7 +49,7 @@ def mll(
 class QuickInverter:
     """Handles the fast inversion of forest kernels.
 
-    Using the Sherman–Morrison formula and the Matrix determinant lemma, matrix inversion
+    Using the Sherman-Morrison formula and the Matrix determinant lemma, matrix inversion
     becomes O(N^2 m), where m is the number of trees in the forest. Since m is fixed, for large
     N this becomes O(N^2)"""
 
@@ -61,24 +71,35 @@ class QuickInverter:
         self._x: Shaped[np.ndarray, "N D"] = model.train_inputs[0].detach().numpy()
         self._y: Float[torch.Tensor, "N 1"] = model.train_targets.reshape(-1, 1)
 
+        self.scale = model.covar_module.outputscale * (1 / len(model.tree_model.trees))
+
     def get_mll_current(self) -> Float[torch.Tensor, ""]:
         K_inv, K_logdet = self._cached_inverse, self._cached_logdet
         return mll(K_inv, K_logdet, self._y)
 
     def get_mll_proposed(self, transition: "Transition") -> Float[torch.Tensor, ""]:
         tree = transition.tree
-        cur_leaf_vectors = torch.as_tensor(tree.get_leaf_vectors(self._x))
+        cur_leaf_vectors = torch.as_tensor(tree.get_leaf_vectors(self._x)) * self.scale
         with transition:
-            new_leaf_vectors = torch.as_tensor(tree.get_leaf_vectors(self._x))
+            new_leaf_vectors = (
+                torch.as_tensor(tree.get_leaf_vectors(self._x)) * self.scale
+            )
 
         K_inv = self.cached_inverse
         K_logdet = self.cached_logdet
 
-        K_inv = low_rank_inv_update(K_inv, -cur_leaf_vectors)
-        K_logdet = low_rank_det_update(K_inv, -cur_leaf_vectors, K_logdet)
+        K_inv, K_logdet = (
+            low_rank_inv_update(K_inv, cur_leaf_vectors, subtract=True),
+            low_rank_det_update(K_inv, cur_leaf_vectors, K_logdet, subtract=True),
+        )
 
-        K_inv = low_rank_inv_update(K_inv, new_leaf_vectors)
-        K_logdet = low_rank_det_update(K_inv, new_leaf_vectors, K_logdet)
+        # K = torch.linalg.inv(K_inv)
+        # actual = torch.linalg.inv(K + cur_leaf_vectors)
+
+        K_inv, K_logdet = (
+            low_rank_inv_update(K_inv, new_leaf_vectors),
+            low_rank_det_update(K_inv, new_leaf_vectors, K_logdet),
+        )
 
         self._new_cached_inverse = K_inv
         self._new_cached_logdet = K_logdet

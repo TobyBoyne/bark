@@ -26,14 +26,14 @@ bb_func = map_benchmark("branin")
 torch.manual_seed(42)
 np.random.seed(42)
 
-init_data = bb_func.get_init_data(5, rnd_seed=42)
+init_data = bb_func.get_init_data(50, rnd_seed=42)
 space = bb_func.get_space()
 X, y = init_data
 
 train_x, train_y = np.asarray(X), np.asarray(y)
 # train_y = np.zeros_like(train_y) + np.random.randn(*train_y.shape) * 0.0
 
-tree = AlfalfaForest(height=0, num_trees=20)
+tree = AlfalfaForest(height=0, num_trees=30)
 data = Data(space, train_x)
 tree.initialise(space, data.get_init_prior())
 likelihood = gpytorch.likelihoods.GaussianLikelihood(

@@ -89,7 +89,7 @@ class BART:
         )
         if self._accept_transition(log_alpha):
             transition.apply()
-            quick_inverter.cache()
+            quick_inverter.cache_proposal()
 
     def _transition_noise(self):
         new_noise = propose_positive_transition(self.model.likelihood.noise.item())

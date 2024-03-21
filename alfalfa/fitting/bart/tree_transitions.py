@@ -119,17 +119,10 @@ class Transition(abc.ABC):
     def log_likelihood_ratio(
         self, model: AlfalfaGP, quick_inverter: QuickInverter
     ) -> float:
-        with self:
-            likelihood_star = my_mll(model)
+        ll = quick_inverter.get_mll_current()
+        ll_star = quick_inverter.get_mll_proposed(self)
 
-        # output = model(model.train_inputs[0])
-        # likelihood = mll(output, model.train_targets)
-        likelihood = my_mll(model)
-
-        # ll = quick_inverter.get_mll_current()
-        # ll_star = quick_inverter.get_mll_proposed(self)
-
-        return (likelihood_star - likelihood).item()
+        return (ll_star - ll).item()
 
     @abc.abstractmethod
     def log_prior_ratio(self):
