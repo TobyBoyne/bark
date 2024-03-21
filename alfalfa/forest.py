@@ -281,6 +281,10 @@ class AlfalfaTree:
         )
         return sim_mat
 
+    def get_leaf_vectors(self, x: np.ndarray):
+        x_leaves = self(x)
+        return [np.equal(x_leaves, leaf_id) for leaf_id in self.root.child_leaves]
+
     def __call__(self, x):
         if isinstance(self.root, DecisionNode):
             return self.root(x)

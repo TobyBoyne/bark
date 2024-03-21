@@ -1,73 +1,80 @@
 """This is a suggestion for speeding up matrix inverses (for MLL).
 However, it doesn't seem to be much faster..."""
 
-from timeit import timeit
-
+import numpy as np
 import torch
+from beartype.typing import Optional
+from jaxtyping import Float, Shaped
+
+from ..fitting.bart.tree_transitions import Transition
+from ..forest import AlfalfaTree
+
+InverseType = Float[torch.Tensor, "N N"]
+DetType = Float[torch.Tensor, ""]
 
 
-def inverse_sum(A, B):
-    return torch.linalg.inv(A + B)
+def rank_one_inv_update(
+    K_inv: InverseType, z: Float[torch.Tensor, "N 1"]
+) -> InverseType:
+    num = (K_inv @ z) @ (z.mT @ K_inv)
+    den = 1 + z.mT @ K_inv @ z
+    return K_inv - num / den
 
 
-def fast_inverse_sum_rank1(A_inv, B):
-    g = torch.trace(B @ A_inv)
-    return A_inv - 1 / (1 + g) * A_inv @ B @ A_inv
+def rank_one_det_update(
+    K_inv: InverseType, z: Float[torch.Tensor, "N 1"], K_logdet: DetType
+) -> DetType:
+    return torch.log(1 + z.mT @ K_inv @ z) + K_logdet
 
 
-def fast_inverse_sum(A_inv, Bs):
-    C_inv = A_inv
-    for B in Bs:
-        C_inv = fast_inverse_sum_rank1(C_inv, B)
-    return C_inv
+class QuickInverter:
+    """Handles the fast inversion of forest kernels.
 
+    Using the Sherman–Morrison formula and the Matrix determinant lemma, matrix inversion
+    becomes O(N^2 m), where m is the number of trees in the forest. Since m is fixed, for large
+    N this becomes O(N^2)"""
 
-def fast_inverse_sum_rank1_vec(A_inv, b):
-    g = b.T @ (A_inv @ b)
-    return A_inv - 1 / (1 + g) * (A_inv @ b) @ (b.T @ A_inv)
+    def __init__(self):
+        self._cached_inverse: Optional[InverseType] = None
+        self._cached_logdet: Optional[DetType] = None
 
+        self._new_cached_inverse: Optional[InverseType] = None
+        self._new_cached_logdet: Optional[DetType] = None
 
-N = 20
-torch.manual_seed(42)
-L = torch.rand((N, N))
-A = L @ L.T
-A_inv = torch.linalg.inv(A)
+    def tree_transition_update(
+        self, x: Shaped[np.ndarray, "N D"], tree: AlfalfaTree, transition: Transition
+    ) -> tuple[InverseType, DetType]:
+        cur_leaf_vectors = tree.get_leaf_vectors(x)
+        with transition:
+            new_leaf_vectors = tree.get_leaf_vectors(x)
 
+        K_inv = self.cached_inverse
+        K_logdet = self.cached_logdet
+        for z in cur_leaf_vectors:
+            K_inv = rank_one_inv_update(K_inv, -z)
+            K_det = rank_one_det_update(K_inv, z, K_logdet)
 
-# K = model.covar_module(x).evaluate()
-# N = K.shape[0]
-# sigma = model.likelihood.noise * torch.eye(N)
-# K_inv = torch.linalg.inv(K + sigma)
-# loss_manual = - y @ K_inv @ y - torch.logdet(K + sigma)
+        for z in new_leaf_vectors:
+            K_inv = rank_one_inv_update(K_inv, z)
+            K_det = rank_one_det_update(K_inv, z, K_logdet)
 
+        self._new_cached_inverse: Optional[InverseType] = K_inv
+        self._new_cached_logdet: Optional[DetType] = K_logdet
 
-# # Rank 1
-# B = torch.zeros_like(A)
-# t = 2
-# B[:t, :t] = 1
-# print(timeit(lambda: inverse_sum(A, B), number=10_000))
-# print(timeit(lambda: fast_inverse_sum_rank1(A_inv, B), number=10_000))
+        return K_inv, K_det
 
-# t = N//3
-# b = (torch.arange(N) < t).float().reshape((-1, 1))
-# Bs = torch.stack((b @ b.T, (1-b) @ (1-b).T))
-# B = torch.sum(Bs, dim=0)
-# print(timeit(lambda: inverse_sum(A, B), number=10_000))
-# print(timeit(lambda: fast_inverse_sum(A_inv, Bs), number=10_000))
+    @property
+    def cached_inverse(self):
+        if self._cached_inverse is None:
+            raise ValueError
+        return self._cached_inverse
 
-## vectorized
+    @property
+    def cached_logdet(self):
+        if self._cached_logdet is None:
+            raise ValueError
+        return self._cached_logdet
 
-# Rank 1
-B = torch.zeros_like(A)
-t = 2
-b = (torch.arange(N) < t).float().reshape((-1, 1))
-B = b @ b.T
-print(timeit(lambda: inverse_sum(A, B), number=10_000))
-print(timeit(lambda: fast_inverse_sum_rank1_vec(A_inv, b), number=10_000))
-
-t = N // 3
-b = (torch.arange(N) < t).float().reshape((-1, 1))
-Bs = torch.stack((b @ b.T, (1 - b) @ (1 - b).T))
-B = torch.sum(Bs, dim=0)
-print(timeit(lambda: inverse_sum(A, B), number=10_000))
-print(timeit(lambda: fast_inverse_sum(A_inv, Bs), number=10_000))
+    def cache(self):
+        self._cached_inverse = self._new_cached_inverse
+        self._cached_logdet = self._new_cached_logdet
