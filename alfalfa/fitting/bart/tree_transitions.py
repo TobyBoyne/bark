@@ -1,8 +1,8 @@
 """Processes for mutating trees"""
 import abc
 
-import gpytorch as gpy
 import numpy as np
+import torch
 from beartype.cave import IntType
 from beartype.typing import Optional
 
@@ -76,6 +76,18 @@ def tree_acceptance_probability(
     return min(q_ratio + likelihood_ratio + prior_ratio, 0.0)
 
 
+def my_mll(model: AlfalfaGP):
+    covar = model.covar_module(model.train_inputs[0])
+    noise_covar = model.likelihood._shaped_noise_covar(torch.Size([covar.shape[-1]]))
+    full_covar = covar + noise_covar
+
+    y = model.train_targets.reshape(-1, 1)
+
+    data_fit = y.T @ torch.linalg.solve(full_covar, y)
+    complexity = torch.logdet(full_covar)
+    return -data_fit - complexity
+
+
 class Transition(abc.ABC):
     """Proposed tree transition"""
 
@@ -99,13 +111,12 @@ class Transition(abc.ABC):
         pass
 
     def log_likelihood_ratio(self, model: AlfalfaGP):
-        mll = gpy.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
         with self:
-            output = model(model.train_inputs[0])
-            likelihood_star = mll(output, model.train_targets)
+            likelihood_star = my_mll(model)
 
-        output = model(model.train_inputs[0])
-        likelihood = mll(output, model.train_targets)
+        # output = model(model.train_inputs[0])
+        # likelihood = mll(output, model.train_targets)
+        likelihood = my_mll(model)
 
         return (likelihood_star - likelihood).item()
 

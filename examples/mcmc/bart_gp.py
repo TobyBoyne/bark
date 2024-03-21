@@ -31,7 +31,7 @@ X, y = init_data
 train_x, train_y = np.asarray(X), np.asarray(y)
 # train_y = np.zeros_like(train_y) + np.random.randn(*train_y.shape) * 0.0
 
-tree = AlfalfaForest(height=0, num_trees=50)
+tree = AlfalfaForest(height=0, num_trees=20)
 data = Data(space, train_x)
 tree.initialise(space, data.get_init_prior())
 likelihood = gpytorch.likelihoods.GaussianLikelihood(
@@ -65,9 +65,15 @@ mlls = logger["mll"]
 samples = logger["samples"]
 
 t = np.arange(0, N, LAG)
-(l_n,) = ax_hyper.plot(t, noise, label="GP Noise")
-(l_s,) = ax_hyper.plot(t, scale, label="Kernel Scale")
-(l_mll,) = ax_hyper.plot(t, mlls, label="MLL")
+
+
+def flatten(t):
+    return [*map(torch.Tensor.item, noise)]
+
+
+(l_n,) = ax_hyper.plot(t, flatten(noise), label="GP Noise")
+(l_s,) = ax_hyper.plot(t, flatten(scale), label="Kernel Scale")
+(l_mll,) = ax_hyper.plot(t, flatten(mlls), label="MLL")
 
 ax_hist.hist(torch.tensor(noise), density=True, bins=20)
 x_prior = np.linspace(0, 2, 50)
