@@ -3,16 +3,18 @@ import numpy as np
 import scienceplots  # noqa: F401
 import scipy.stats as stats
 import torch
+from jaxtyping import install_import_hook
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-from alfalfa.benchmarks import map_benchmark
-from alfalfa.fitting.bart.bart import BART
-from alfalfa.fitting.bart.data import Data
-from alfalfa.fitting.bart.params import BARTTrainParams
-from alfalfa.forest import AlfalfaForest
-from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.plots import plot_gp_nd
+with install_import_hook("alfalfa", typechecker="beartype.beartype"):
+    from alfalfa.benchmarks import map_benchmark
+    from alfalfa.fitting.bart.bart import BART
+    from alfalfa.fitting.bart.data import Data
+    from alfalfa.fitting.bart.params import BARTTrainParams
+    from alfalfa.forest import AlfalfaForest
+    from alfalfa.tree_kernels import AlfalfaGP
+    from alfalfa.utils.plots import plot_gp_nd
 
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
@@ -24,7 +26,7 @@ bb_func = map_benchmark("branin")
 torch.manual_seed(42)
 np.random.seed(42)
 
-init_data = bb_func.get_init_data(30, rnd_seed=42)
+init_data = bb_func.get_init_data(5, rnd_seed=42)
 space = bb_func.get_space()
 X, y = init_data
 

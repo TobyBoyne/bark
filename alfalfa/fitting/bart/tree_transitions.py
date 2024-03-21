@@ -6,6 +6,8 @@ import torch
 from beartype.cave import IntType
 from beartype.typing import Optional
 
+from alfalfa.fitting.bart.quick_inverse import QuickInverter
+
 from ...forest import AlfalfaTree, DecisionNode, LeafNode
 from ...tree_kernels import AlfalfaGP
 from ...utils.logger import Timer
@@ -58,7 +60,11 @@ def propose_transition(
 
 
 def tree_acceptance_probability(
-    data: Data, model: AlfalfaGP, transition: "Transition", params: BARTTrainParams
+    data: Data,
+    model: AlfalfaGP,
+    transition: "Transition",
+    params: BARTTrainParams,
+    quick_inverter: QuickInverter,
 ):
     # P(INVERSE_METHOD) / P(METHOD)
     # Not necessary as long as P(GROW) == P(PRUNE)
@@ -69,7 +75,7 @@ def tree_acceptance_probability(
         # e.g. there are no valid splitting rules for a given node
         return -np.inf
     with tree_timer("ll_ratio"):
-        likelihood_ratio = transition.log_likelihood_ratio(model)
+        likelihood_ratio = transition.log_likelihood_ratio(model, quick_inverter)
     with tree_timer("prior_ratio"):
         prior_ratio = transition.log_prior_ratio(data, params.alpha, params.beta)
 
@@ -110,13 +116,18 @@ class Transition(abc.ABC):
     def log_q_ratio(self):
         pass
 
-    def log_likelihood_ratio(self, model: AlfalfaGP):
+    def log_likelihood_ratio(
+        self, model: AlfalfaGP, quick_inverter: QuickInverter
+    ) -> float:
         with self:
             likelihood_star = my_mll(model)
 
         # output = model(model.train_inputs[0])
         # likelihood = mll(output, model.train_targets)
         likelihood = my_mll(model)
+
+        # ll = quick_inverter.get_mll_current()
+        # ll_star = quick_inverter.get_mll_proposed(self)
 
         return (likelihood_star - likelihood).item()
 

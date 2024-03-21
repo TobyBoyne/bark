@@ -283,7 +283,8 @@ class AlfalfaTree:
 
     def get_leaf_vectors(self, x: np.ndarray):
         x_leaves = self(x)
-        return [np.equal(x_leaves, leaf_id) for leaf_id in self.root.child_leaves]
+        all_leaves = np.array(self.root.child_leaves)
+        return (np.equal(x_leaves[:, None], all_leaves[None, :])).astype(float)
 
     def __call__(self, x):
         if isinstance(self.root, DecisionNode):
