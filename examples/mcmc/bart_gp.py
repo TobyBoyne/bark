@@ -3,16 +3,18 @@ import numpy as np
 import scienceplots  # noqa: F401
 import scipy.stats as stats
 import torch
+from jaxtyping import install_import_hook
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-from alfalfa.benchmarks import map_benchmark
-from alfalfa.fitting.bart.bart import BART
-from alfalfa.fitting.bart.data import Data
-from alfalfa.fitting.bart.params import BARTTrainParams
-from alfalfa.forest import AlfalfaForest
-from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.plots import plot_gp_nd
+with install_import_hook("alfalfa", typechecker="beartype.beartype"):
+    from alfalfa.benchmarks import map_benchmark
+    from alfalfa.fitting.bart.bart import BART
+    from alfalfa.fitting.bart.data import Data
+    from alfalfa.fitting.bart.params import BARTTrainParams
+    from alfalfa.forest import AlfalfaForest
+    from alfalfa.tree_kernels import AlfalfaGP
+    from alfalfa.utils.plots import plot_gp_nd
 
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
@@ -24,7 +26,7 @@ bb_func = map_benchmark("cat_ackley")
 torch.manual_seed(42)
 np.random.seed(42)
 
-init_data = bb_func.get_init_data(30, rnd_seed=42)
+init_data = bb_func.get_init_data(100, rnd_seed=42)
 space = bb_func.get_space()
 X, y = init_data
 
@@ -39,8 +41,7 @@ likelihood = gpytorch.likelihoods.GaussianLikelihood(
 )
 model = AlfalfaGP(torch.tensor(train_x), torch.tensor(train_y), likelihood, tree)
 
-
-N = 50
+N = 100
 LAG = 5
 params = BARTTrainParams(warmup_steps=0, n_steps=N, lag=LAG, alpha=0.95)
 bart = BART(
@@ -66,9 +67,15 @@ mlls = logger["mll"]
 samples = logger["samples"]
 
 t = np.arange(0, N, LAG)
-(l_n,) = ax_hyper.plot(t, noise, label="GP Noise")
-(l_s,) = ax_hyper.plot(t, scale, label="Kernel Scale")
-(l_mll,) = ax_hyper.plot(t, mlls, label="MLL")
+
+
+def flatten(t):
+    return [*map(torch.Tensor.item, noise)]
+
+
+(l_n,) = ax_hyper.plot(t, flatten(noise), label="GP Noise")
+(l_s,) = ax_hyper.plot(t, flatten(scale), label="Kernel Scale")
+(l_mll,) = ax_hyper.plot(t, flatten(mlls), label="MLL")
 
 ax_hist.hist(torch.tensor(noise), density=True, bins=20)
 x_prior = np.linspace(0, 2, 50)

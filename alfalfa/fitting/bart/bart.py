@@ -14,6 +14,7 @@ from .noise_scale_transitions import (
     scale_acceptance_probability,
 )
 from .params import BARTTrainParams
+from .quick_inverse import QuickInverter
 from .tree_transitions import (
     propose_transition,
     tree_acceptance_probability,
@@ -67,8 +68,9 @@ class BART:
         if isinstance(self.model.tree_model, AlfalfaTree):
             self._transition_tree(self.model.tree_model)
         else:
+            quick_inverter = QuickInverter(self.model)
             for tree in self.model.tree_model.trees:
-                self._transition_tree(tree)
+                self._transition_tree(tree, quick_inverter)
 
         self._transition_noise()
         self._transition_scale()
@@ -76,17 +78,18 @@ class BART:
     def _accept_transition(self, log_alpha):
         return np.log(np.random.rand()) <= log_alpha
 
-    def _transition_tree(self, tree: AlfalfaTree):
+    def _transition_tree(self, tree: AlfalfaTree, quick_inverter: QuickInverter):
         transition = propose_transition(self.data, tree, self.params)
         if transition is None:
             # not a valid transition
             return
 
         log_alpha = tree_acceptance_probability(
-            self.data, self.model, transition, self.params
+            self.data, self.model, transition, self.params, quick_inverter
         )
         if self._accept_transition(log_alpha):
             transition.apply()
+            quick_inverter.cache_proposal()
 
     def _transition_noise(self):
         new_noise = propose_positive_transition(self.model.likelihood.noise.item())

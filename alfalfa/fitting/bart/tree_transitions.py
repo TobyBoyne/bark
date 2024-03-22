@@ -1,10 +1,12 @@
 """Processes for mutating trees"""
 import abc
 
-import gpytorch as gpy
 import numpy as np
+import torch
 from beartype.cave import IntType
 from beartype.typing import Optional
+
+from alfalfa.fitting.bart.quick_inverse import QuickInverter
 
 from ...forest import AlfalfaTree, DecisionNode, LeafNode
 from ...tree_kernels import AlfalfaGP
@@ -58,7 +60,11 @@ def propose_transition(
 
 
 def tree_acceptance_probability(
-    data: Data, model: AlfalfaGP, transition: "Transition", params: BARTTrainParams
+    data: Data,
+    model: AlfalfaGP,
+    transition: "Transition",
+    params: BARTTrainParams,
+    quick_inverter: QuickInverter,
 ):
     # P(INVERSE_METHOD) / P(METHOD)
     # Not necessary as long as P(GROW) == P(PRUNE)
@@ -69,11 +75,23 @@ def tree_acceptance_probability(
         # e.g. there are no valid splitting rules for a given node
         return -np.inf
     with tree_timer("ll_ratio"):
-        likelihood_ratio = transition.log_likelihood_ratio(model)
+        likelihood_ratio = transition.log_likelihood_ratio(model, quick_inverter)
     with tree_timer("prior_ratio"):
         prior_ratio = transition.log_prior_ratio(data, params.alpha, params.beta)
 
     return min(q_ratio + likelihood_ratio + prior_ratio, 0.0)
+
+
+def my_mll(model: AlfalfaGP):
+    covar = model.covar_module(model.train_inputs[0])
+    noise_covar = model.likelihood._shaped_noise_covar(torch.Size([covar.shape[-1]]))
+    full_covar = covar + noise_covar
+
+    y = model.train_targets.reshape(-1, 1)
+
+    data_fit = y.T @ torch.linalg.solve(full_covar, y)
+    complexity = torch.logdet(full_covar)
+    return -data_fit - complexity
 
 
 class Transition(abc.ABC):
@@ -98,16 +116,13 @@ class Transition(abc.ABC):
     def log_q_ratio(self):
         pass
 
-    def log_likelihood_ratio(self, model: AlfalfaGP):
-        mll = gpy.mlls.ExactMarginalLogLikelihood(model.likelihood, model)
-        with self:
-            output = model(model.train_inputs[0])
-            likelihood_star = mll(output, model.train_targets)
+    def log_likelihood_ratio(
+        self, model: AlfalfaGP, quick_inverter: QuickInverter
+    ) -> float:
+        ll = quick_inverter.get_mll_current()
+        ll_star = quick_inverter.get_mll_proposed(self)
 
-        output = model(model.train_inputs[0])
-        likelihood = mll(output, model.train_targets)
-
-        return (likelihood_star - likelihood).item()
+        return (ll_star - ll).item()
 
     @abc.abstractmethod
     def log_prior_ratio(self):
