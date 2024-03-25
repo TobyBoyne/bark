@@ -23,7 +23,7 @@ class CatAckley(SynFunc):
         )
 
     def get_bounds(self):
-        return [(0, 4)] + [[-3.0, 3.0] for _ in range(5)]
+        return [[0, 4]] + [[-3.0, 3.0] for _ in range(5)]
 
 
 class PressureVessel(SynFunc):

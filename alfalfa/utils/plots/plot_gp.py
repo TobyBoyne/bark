@@ -1,8 +1,10 @@
+import warnings
+
 import gpytorch as gpy
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from beartype.typing import Callable, Optional
-import numpy as np
 
 
 def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=None):
@@ -15,10 +17,15 @@ def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=N
     elif D == 2:
         return plot_gp_2d(model, test_x, target)
     else:
-        raise ValueError("You can only plot GPs with 1 or 2 input dimensions.")
+        warnings.warn("You can only plot GPs with 1 or 2 input dimensions.")
 
 
-def plot_gp_1d(model: gpy.models.ExactGP, test_x, target: Optional[Callable[[np.ndarray], np.ndarray]], ax=None):
+def plot_gp_1d(
+    model: gpy.models.ExactGP,
+    test_x,
+    target: Optional[Callable[[np.ndarray], np.ndarray]],
+    ax=None,
+):
     if ax is None:
         _, ax = plt.subplots()
     with torch.no_grad():
