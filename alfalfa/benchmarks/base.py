@@ -422,7 +422,7 @@ class MFSynFunc(SynFunc):
 
     @property
     @abc.abstractmethod
-    def costs():
+    def costs(self):
         pass
 
     def get_init_data(
