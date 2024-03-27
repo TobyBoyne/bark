@@ -161,10 +161,10 @@ class SynFunc(BaseFunc):
     def grid_sample(
         self, shape: Int[np.ndarray, "D"]
     ) -> tuple[
-        Shaped[np.ndarray, "{shape.prod()} D"], Shaped[np.ndarray, "{shape.prod()}"]  # type: ignore
+        Shaped[np.ndarray, "{shape.prod()} D"], Shaped[np.ndarray, "{shape.prod()}"]  # pyright: ignore[reportUndefinedVariable]
     ]:
         """Return data sampled on a grid"""
-        space = self.get_space()
+        space = self.space
         xs = [dim.grid_sample(s) for s, dim in zip(shape, space.dims)]
         test_x_mgrid = np.meshgrid(*xs, indexing="ij")
         flats = [x.flatten() for x in test_x_mgrid]
