@@ -10,7 +10,8 @@ class Himmelblau1D(SynFunc):
         f_bar = (f - 7 / 60) * np.sqrt(525 / 4)
         return f_bar * np.sin(10.0 * x[0])
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [[0.0, 1.0]]
 
 
@@ -25,7 +26,8 @@ class Branin(SynFunc):
         B = 10 * (1 - 1 / (8 * np.pi)) * np.cos(x1_b) - 44.81
         return -(A + B) / 51.95
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [[0.0, 1.0], [0.0, 1.0]]
 
 
@@ -63,7 +65,8 @@ class Hartmann6D(SynFunc):
         y = -s
         return y
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [[0.0, 1.0] for _ in range(6)]
 
 
@@ -81,7 +84,8 @@ class Rastrigin(SynFunc):
         f = 10.0 * d + total
         return f
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [[-4.0, 5.0] for _ in range(self.dim)]
 
 
@@ -102,7 +106,8 @@ class StyblinskiTang(SynFunc):
         y = sum / 2.0
         return y
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [[-5.0, 5.0] for _ in range(self.dim)]
 
 
@@ -121,5 +126,6 @@ class Schwefel(SynFunc):
         f = 418.9829 * d - total
         return f
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [[-500.0, 500.0] for _ in range(self.dim)]

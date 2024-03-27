@@ -32,5 +32,6 @@ class CurrinExp2D(MFSynFunc):
 
         return -prod1 * prod2 / 10
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [[0.0, 1.0], [0.0, 1.0]]

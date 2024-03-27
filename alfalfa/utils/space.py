@@ -45,7 +45,8 @@ class Space:
             elif idx in self.cat_idx:
                 self.dims.append(Dimension(b, "cat"))
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [d.bnds for d in self.dims]
 
     def process_vals(self, X):

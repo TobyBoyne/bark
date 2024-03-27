@@ -20,7 +20,8 @@ class G1(SynFunc):
             lambda x: -2 * x[7] - x[8] + x[11],  # g9
         ]
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         bnds = []
         for idx in range(13):
             lb = 0.0
@@ -52,7 +53,8 @@ class G3(SynFunc):
         f = -float(f)
         return f
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [(0.0, 1.0) for _ in range(self.dim)]
 
 
@@ -95,7 +97,8 @@ class G4(SynFunc):
             lambda x: w(x) - 25.0,  # g6
         ]
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         lb = [78.0, 33.0, 27.0, 27.0, 27.0]
         ub = [102.0, 45.0, 45.0, 45.0, 45.0]
         return [(lb[idx], ub[idx]) for idx in range(5)]
@@ -121,7 +124,8 @@ class G6(SynFunc):
             lambda x: (x[0] - 6) ** 2 + (x[1] - 5) ** 2 - 82.81,
         ]
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [(13.0, 100.0), (0.0, 100.0)]
 
     def __call__(self, x, **kwargs):
@@ -156,7 +160,8 @@ class G7(SynFunc):
             lambda x: -3 * x[0] + 6 * x[1] + 12 * (x[8] - 8) ** 2 - 7 * x[9],
         ]
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [(-10.0, 10.0) for _ in range(10)]
 
     def __call__(self, x, **kwargs):
@@ -194,7 +199,8 @@ class G10(SynFunc):
             lambda x: x[2] * x[4] - x[2] * x[7] - 2500 * x[4] + 1250000,
         ]
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         lb = [100.0, 1000.0, 1000.0, 10.0, 10.0, 10.0, 10.0, 10.0]
         ub = [10000.0, 10000.0, 10000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0]
         return [(lb[idx], ub[idx]) for idx in range(8)]
@@ -362,7 +368,8 @@ class Alkylation(SynFunc):
         model_core.update()
         return model_core
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         lb = [0.0, 0.0, 0.0, 0.0, 90.0, 0.01, 145.0]
         ub = [2000.0, 16000.0, 120.0, 5000.0, 95.0, 4.0, 162.0]
         return [(lb[idx], ub[idx]) for idx in range(7)]

@@ -22,7 +22,8 @@ class CatAckley(SynFunc):
             + x[0]
         )
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [[0, 4]] + [[-3.0, 3.0] for _ in range(5)]
 
 
@@ -88,7 +89,8 @@ class PressureVessel(SynFunc):
 
         return model_core
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         return [(1, 99), (1, 99), (10.0, 200.0), (10.0, 200.0)]
 
     @preprocess_data

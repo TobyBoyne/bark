@@ -3,14 +3,14 @@ import abc
 import numpy as np
 import skopt.space.space as skopt_space
 import torch
-from jaxtyping import Int, Shaped
+from jaxtyping import Float, Int, Shaped
 
 from ..optimizer.optimizer_utils import conv2list, get_opt_core, get_opt_sol
 from ..utils.space import Space
 
 
 def preprocess_data(call_func):
-    def _preprocess_data(self, x, *args, **kwargs):
+    def _preprocess_data(self: SynFunc, x, *args, **kwargs):
         # inverse trafo the inputs if one-hot encoding is active
         if issubclass(type(self), CatSynFunc):
             x = self.inv_trafo_inputs(x)
@@ -25,18 +25,48 @@ def preprocess_data(call_func):
     return _preprocess_data
 
 
-class SynFunc:
+class BaseFunc:
+    def __init__(self, seed):
+        self.cat_idx = []
+        self.int_idx = []
+        self.rng = np.random.default_rng(seed)
+
+    @property
+    @abc.abstractmethod
+    def bounds(self):
+        pass
+
+    @property
+    def space(self):
+        return Space(self.bounds, cat_idx=self.cat_idx, int_idx=self.int_idx)
+
+    @property
+    def skopt_space(self):
+        skopt_bnds = [
+            skopt_space.Categorical(d, transform="onehot")
+            if idx in self.cat_idx
+            else skopt_space.Integer(low=int(d[0]), high=int(d[1]))
+            if idx in self.int_idx
+            else skopt_space.Real(low=float(d[0]), high=float(d[1]))
+            for idx, d in enumerate(self.bounds)
+        ]
+        return skopt_space.Space(skopt_bnds)
+
+    def round_integers(self, x: Shaped[np.ndarray, "N D"]):
+        x_copy = x.copy()
+        x_copy[:, tuple({self.int_idx})] = np.round(x[:, tuple({self.int_idx})], 0)
+        return x_copy
+
+
+class SynFunc(BaseFunc):
     """base class for synthetic benchmark functions for which the optimum is known."""
 
     is_nonconvex = False
     is_vectorised = False
 
-    def __init__(self):
-        # define index sets for categorical and integer variables
-        self.cat_idx = set()
-        self.int_idx = set()
-
+    def __init__(self, seed: int):
         # define empty lists for inequality and equality constraints
+        super().__init__(seed)
         self.ineq_constr_funcs = []
         self.eq_constr_funcs = []
 
@@ -44,43 +74,12 @@ class SynFunc:
     def __call__(self, x):
         pass
 
-    @abc.abstractmethod
-    def get_bounds(self):
-        pass
-
-    def round_integers(self, x):
-        # rounds all integer features to integers
-        #   this function assumes the 'non hot-encoded' state of the x_vals
-        for idx in range(len(x)):
-            if idx in self.int_idx:
-                x[idx] = round(x[idx])
-
-    def get_space(self):
-        return Space(self.get_bounds(), int_idx=self.int_idx)
-
-    def get_skopt_space(self):
-        skopt_bnds = []
-        for idx, d in enumerate(self.get_bounds()):
-            if idx in self.cat_idx:
-                skopt_bnds.append(skopt_space.Categorical(d, transform="onehot"))
-            elif idx in self.int_idx:
-                skopt_bnds.append(skopt_space.Integer(low=int(d[0]), high=int(d[1])))
-            else:
-                skopt_bnds.append(skopt_space.Real(low=float(d[0]), high=float(d[1])))
-        return skopt_space.Space(skopt_bnds)
-
-    def get_lb(self):
-        return [b[0] for b in self.get_bounds()]
-
-    def get_ub(self):
-        return [b[1] for b in self.get_bounds()]
-
     def get_model_core(self):
         if not self.has_constr():
             return None
         else:
             # define model core
-            space = self.get_space()
+            space = self.space
             model_core = get_opt_core(space)
 
             # add equality constraints to model core
@@ -165,7 +164,7 @@ class SynFunc:
 
     def get_random_x(self, num_points, rnd_seed, eval_constr=True):
         # initial space
-        temp_space = self.get_skopt_space()
+        temp_space = self.skopt_space
         x_vals = []
 
         # generate rnd locations
@@ -200,8 +199,7 @@ class SynFunc:
                 model_core.optimize()
 
                 x_sol = [
-                    model_core._cont_var_dict[idx].x
-                    for idx in range(len(self.get_bounds()))
+                    model_core._cont_var_dict[idx].x for idx in range(len(self.bounds))
                 ]
                 proj_x_vals.append(x_sol)
 
@@ -313,13 +311,15 @@ class CatSynFunc(SynFunc):
         else:
             return conv2list(x)
 
-    def get_space(self):
+    @property
+    def space(self):
         if self._has_onehot_trafo:
-            return Space(self.get_bounds(), int_idx=self.int_idx)
+            return Space(self.bounds, int_idx=self.int_idx)
         else:
-            return Space(self.get_bounds(), int_idx=self.int_idx, cat_idx=self.cat_idx)
+            return Space(self.bounds, int_idx=self.int_idx, cat_idx=self.cat_idx)
 
-    def get_skopt_space(self):
+    @property
+    def skopt_space(self):
         skopt_bnds = []
         for idx, d in enumerate(self.bnds):
             skopt_bnds.append(
@@ -329,7 +329,8 @@ class CatSynFunc(SynFunc):
             )
         return skopt_space.Space(skopt_bnds)
 
-    def get_bounds(self):
+    @property
+    def bounds(self):
         if self._has_onehot_trafo:
             return self.cat_trafo.transformed_bounds
 
@@ -347,7 +348,7 @@ class CatSynFunc(SynFunc):
 
     def get_random_x(self, num_points, rnd_seed, eval_constr=True):
         # initial space
-        temp_space = self.get_skopt_space()
+        temp_space = self.skopt_space
         x_vals = []
 
         # generate rnd locations
@@ -447,3 +448,36 @@ class MFSynFunc(SynFunc):
             return torch.tensor(ys)
         else:
             return ys
+
+
+class RealFunc(BaseFunc):
+    """Base class for real data."""
+
+    def __init__(self, seed: int, train_percentage=0.8):
+        # define index sets for categorical and integer variables
+        super().__init__(seed)
+        self.permutation = self.rng.shuffle(np.arange(self.N))
+        self.train_percentage = train_percentage
+        self._data_cache = None
+
+    @property
+    def data(self) -> tuple[Shaped[np.ndarray, "N D"], Float[np.ndarray, "N"]]:
+        if self._data_cache is None:
+            self._data_cache = self._load_data()
+        return self._data_cache
+
+    @abc.abstractmethod
+    def _load_data(self) -> tuple[Shaped[np.ndarray, "N D"], Float[np.ndarray, "N"]]:
+        pass
+
+    @property
+    def N(self) -> int:
+        return self.data[0].shape[0]
+
+    def get_init_data(
+        self,
+    ) -> tuple[Shaped[np.ndarray, "train D"], Float[np.ndarray, "train"]]:
+        train_cutoff = int(self.N * self.train_percentage)
+        X, y = self.data
+        p = self.permutation[train_cutoff]
+        return X[p, :], y[p]

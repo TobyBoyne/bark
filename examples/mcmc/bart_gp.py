@@ -19,15 +19,15 @@ with install_import_hook("alfalfa", typechecker="beartype.beartype"):
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
 
-bb_func = map_benchmark("cat_ackley")
-# bb_func = get_func("himmelblau1d")
+# bb_func = map_benchmark("cat_ackley")
+bb_func = map_benchmark("himmelblau1d", seed=42)
 
 # True function is sin(2*pi*x) with Gaussian noise
 torch.manual_seed(42)
 np.random.seed(42)
 
 init_data = bb_func.get_init_data(100, rnd_seed=42)
-space = bb_func.get_space()
+space = bb_func.space
 X, y = init_data
 
 train_x, train_y = np.asarray(X), np.asarray(y)
