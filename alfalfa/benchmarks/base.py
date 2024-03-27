@@ -5,8 +5,19 @@ import skopt.space.space as skopt_space
 import torch
 from jaxtyping import Float, Int, Shaped
 
-from ..optimizer.optimizer_utils import conv2list, get_opt_core, get_opt_sol
+from ..optimizer.optimizer_utils import get_opt_core, get_opt_sol
 from ..utils.space import Space
+
+
+def conv2list(x):
+    def to_python_type(xi):
+        if isinstance(xi, np.int_):
+            return int(xi)
+        if isinstance(xi, np.str_):
+            return str(xi)
+        return xi
+
+    return list(map(to_python_type, x))
 
 
 def preprocess_data(call_func):

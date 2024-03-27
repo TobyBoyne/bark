@@ -1,21 +1,8 @@
 import gurobipy as gp
-import numpy as np
 from beartype.typing import Optional
 from gurobipy import GRB, quicksum
 
 from ..utils.space import Space
-
-
-def conv2list(x):
-    temp_x = []
-    for xi in x:
-        if isinstance(xi, np.int_):
-            temp_x.append(int(xi))
-        elif isinstance(xi, np.str_):
-            temp_x.append(str(xi))
-        else:
-            temp_x.append(xi)
-    return temp_x
 
 
 def get_opt_sol(space: Space, opt_model: gp.Model):
