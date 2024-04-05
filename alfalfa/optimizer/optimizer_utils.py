@@ -31,14 +31,13 @@ def get_opt_sol(space: Space, opt_model: gp.Model):
     return next_x
 
 
-def get_opt_core(space: Space, opt_core: Optional[gp.Model] = None):
+def get_opt_core(
+    space: Space, env: Optional[gp.Env] = None
+) -> gp.Model:  # , opt_core: Optional[gp.Model] = None):
     """creates the base optimization model"""
-    if opt_core is None:
-        model = gp.Model()
-        model._cont_var_dict = {}
-        model._cat_var_dict = {}
-    else:
-        return opt_core
+    model = gp.Model(env=env)
+    model._cont_var_dict = {}
+    model._cat_var_dict = {}
 
     for idx, d in enumerate(space.dims):
         var_name = "_".join(["x", str(idx)])

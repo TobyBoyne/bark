@@ -28,7 +28,6 @@ def build_opt_model(
     else:
         # copy model core in case there are constr given already
         opt_model = get_opt_core_copy(model_core)
-    opt_model = get_opt_core(space)
 
     # build tree model
     gbm_model_dict = {"1st_obj": gbm_model}

@@ -1,8 +1,10 @@
 import abc
 
+import gurobipy
 import numpy as np
 import skopt.space.space as skopt_space
 import torch
+from beartype.typing import Optional
 from jaxtyping import Float, Int, Shaped
 
 from ..optimizer.optimizer_utils import get_opt_core, get_opt_sol
@@ -85,14 +87,10 @@ class SynFunc(BaseFunc):
     def __call__(self, x):
         pass
 
-    def get_model_core(self):
-        if not self.has_constr():
-            return None
-        else:
-            # define model core
-            space = self.space
-            model_core = get_opt_core(space)
-
+    def get_model_core(self, env: Optional[gurobipy.Env] = None) -> gurobipy.Model:
+        space = self.space
+        model_core = get_opt_core(space, env=env)
+        if self.has_constr():
             # add equality constraints to model core
             for func in self.eq_constr_funcs:
                 model_core.addConstr(func(model_core._cont_var_dict) == 0.0)
@@ -107,7 +105,8 @@ class SynFunc(BaseFunc):
                 model_core.Params.NonConvex = 2
 
             model_core.update()
-            return model_core
+
+        return model_core
 
     def has_constr(self):
         return self.eq_constr_funcs or self.ineq_constr_funcs
