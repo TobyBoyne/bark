@@ -1,4 +1,5 @@
 import abc
+from abc import ABC
 
 import gurobipy
 import numpy as np
@@ -38,20 +39,53 @@ def preprocess_data(call_func):
     return _preprocess_data
 
 
-class BaseFunc:
+class BaseFunc(ABC):
+    space: Space
+
     def __init__(self, seed):
-        self.cat_idx = []
-        self.int_idx = []
         self.rng = np.random.default_rng(seed)
 
-    @property
-    @abc.abstractmethod
-    def bounds(self):
-        pass
+    def __init_subclass__(cls, /, skip_validation=False):
+        """Ensure that at least one of bounds or space is defined.
 
-    @property
-    def space(self):
-        return Space(self.bounds, cat_idx=self.cat_idx, int_idx=self.int_idx)
+        Note: sometimes, bounds may not be static (a function might take number of dimensions as an input). That's why we need
+        to define these properties as below."""
+        if skip_validation:
+            return
+
+        @property
+        def space(self: cls):
+            return Space.from_bounds(
+                self.bounds, cat_idx=self.cat_idx, int_idx=self.int_idx
+            )
+
+        @property
+        def bounds(self: cls):
+            return self.space.bounds
+
+        @property
+        def int_idx(self: cls):
+            return self.space.int_idx
+
+        @property
+        def cat_idx(self: cls):
+            return self.space.cat_idx
+
+        if hasattr(cls, "bounds"):
+            cls.int_idx = getattr(cls, "int_idx", [])
+            cls.cat_idx = getattr(cls, "cat_idx", [])
+            cls.space = space
+
+        elif hasattr(cls, "space"):
+            cls.bounds = bounds
+            cls.int_idx = int_idx
+            cls.cat_idx = cat_idx
+
+        else:
+            raise TypeError(
+                f"Can't instantiate class {cls.__name__} without "
+                "defining one of `space` or `bounds`."
+            )
 
     @property
     def skopt_space(self):
@@ -71,7 +105,7 @@ class BaseFunc:
         return x_copy
 
 
-class SynFunc(BaseFunc):
+class SynFunc(BaseFunc, skip_validation=True):
     """base class for synthetic benchmark functions for which the optimum is known."""
 
     is_nonconvex = False
@@ -228,7 +262,7 @@ class SynFunc(BaseFunc):
             return ys
 
 
-class CatSynFunc(SynFunc):
+class CatSynFunc(SynFunc, skip_validation=True):
     """class for synthetic benchmark functions for which the optimum is known that have
     one or more categorical vars."""
 
@@ -324,9 +358,11 @@ class CatSynFunc(SynFunc):
     @property
     def space(self):
         if self._has_onehot_trafo:
-            return Space(self.bounds, int_idx=self.int_idx)
+            return Space.from_bounds(self.bounds, int_idx=self.int_idx)
         else:
-            return Space(self.bounds, int_idx=self.int_idx, cat_idx=self.cat_idx)
+            return Space.from_bounds(
+                self.bounds, int_idx=self.int_idx, cat_idx=self.cat_idx
+            )
 
     @property
     def skopt_space(self):
@@ -424,7 +460,7 @@ class CatSynFunc(SynFunc):
             return proj_x_vals
 
 
-class MFSynFunc(SynFunc):
+class MFSynFunc(SynFunc, skip_validation=True):
     """Synthetic benchmarks with multiple fidelities."""
 
     @abc.abstractmethod
@@ -460,7 +496,7 @@ class MFSynFunc(SynFunc):
             return ys
 
 
-class RealFunc(BaseFunc):
+class RealFunc(BaseFunc, skip_validation=True):
     """Base class for real data."""
 
     def __init__(self, seed: int, train_percentage=0.8):

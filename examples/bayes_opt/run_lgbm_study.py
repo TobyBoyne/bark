@@ -11,7 +11,7 @@ from alfalfa.optimizer.gbm_model import GbmModel
 from alfalfa.tree_kernels import AlfalfaGP
 
 parser = ArgumentParser()
-parser.add_argument("-bb-func", type=str, default="g3")
+parser.add_argument("-bb-func", type=str, default="branin")
 parser.add_argument("-num-init", type=int, default=5)
 parser.add_argument("-num-itr", type=int, default=100)
 parser.add_argument("-rnd-seed", type=int, default=101)
@@ -26,8 +26,7 @@ np.random.seed(args.rnd_seed)
 torch.manual_seed((args.rnd_seed))
 
 # load black-box function to evaluate
-bb_func = map_benchmark(args.bb_func)
-
+bb_func = map_benchmark(args.bb_func, seed=42)
 # activate label encoding if categorical features are given
 if bb_func.cat_idx:
     bb_func.eval_label()
@@ -53,7 +52,8 @@ print("\n* * * start bo loop...")
 for itr in range(args.num_itr):
     booster = fit_lgbm_forest(X_train, y_train)
     forest = lgbm_to_alfalfa_forest(booster)
-    forest.initialise(bb_func.get_space())
+    space = bb_func.space
+    forest.initialise(space)
     likelihood = gpy.likelihoods.GaussianLikelihood()
     tree_gp = AlfalfaGP(
         torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest
@@ -62,14 +62,12 @@ for itr in range(args.num_itr):
 
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)
-    opt_model = build_opt_model(
-        bb_func.get_space(), gbm_model, tree_gp, 1.96, model_core=model_core
-    )
-    next_x = propose(bb_func.get_space(), opt_model, gbm_model, model_core)
+    opt_model = build_opt_model(space, gbm_model, tree_gp, 1.96, model_core=model_core)
+    next_x = propose(space, opt_model, gbm_model, model_core)
     next_y = bb_func(next_x)
 
     # update progress
-    X_train = np.concatenate(X_train, next_x)
-    y_train = np.concatenate(y_train, next_y)
+    X_train = np.concatenate((X_train, [next_x]))
+    y_train = np.concatenate((y_train, [next_y]))
 
     print(f"{itr}. min_val: {round(min(y_train), 5)}")
