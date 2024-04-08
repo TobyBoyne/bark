@@ -14,8 +14,8 @@ class Dimension(Generic[B]):
         self.bnds = bnds
         self.key = key
 
-    def __str__(self):
-        return f"({self.var_type}, {self.bnds})"
+    def __repr__(self):
+        return f"{self.__class__.__name__}(key={self.key!r}, bounds={self.bnds!r})"
 
 
 class ContinuousDimension(Dimension[float]):
@@ -95,8 +95,8 @@ class Space:
     def __getitem__(self, keys: str | list[str]):
         return self.key_to_idx(keys)
 
-    def __str__(self):
-        return str([str(d) for d in self.dims])
+    def __repr__(self):
+        return repr(self.dims)
 
     def __len__(self):
         return len(self.dims)

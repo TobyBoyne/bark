@@ -71,15 +71,15 @@ class BaseFunc(ABC):
         def cat_idx(self: cls):
             return self.space.cat_idx
 
-        if hasattr(cls, "bounds"):
-            cls.int_idx = getattr(cls, "int_idx", [])
-            cls.cat_idx = getattr(cls, "cat_idx", [])
-            cls.space = space
-
-        elif hasattr(cls, "space"):
+        if hasattr(cls, "space"):
             cls.bounds = bounds
             cls.int_idx = int_idx
             cls.cat_idx = cat_idx
+
+        elif hasattr(cls, "bounds"):
+            cls.int_idx = getattr(cls, "int_idx", [])
+            cls.cat_idx = getattr(cls, "cat_idx", [])
+            cls.space = space
 
         else:
             raise TypeError(
