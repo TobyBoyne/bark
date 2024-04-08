@@ -1,49 +1,71 @@
-from typing import Literal
-
 import numpy as np
 from beartype.cave import IntType
-from beartype.typing import Union
+from beartype.typing import Generic, Optional, TypeVar
 
-BoundType = Union[int, float, str]
+BoundType = int | float | str
+B = TypeVar("B", int, float, str)
 
 
-class Dimension:
-    def __init__(self, bnds: list[BoundType], var_type: Literal["int", "conti", "cat"]):
-        self.is_bin = var_type == "int" and bnds == [0, 1]
+class Dimension(Generic[B]):
+    var_type = ""
+    is_bin = False
 
-        self.var_type = var_type
+    def __init__(self, bnds: list[B]):
         self.bnds = bnds
 
     def __str__(self):
         return f"({self.var_type}, {self.bnds})"
 
+
+class ContinuousDimension(Dimension[float]):
+    var_type = "conti"
+
     def grid_sample(self, shape: IntType):
-        if self.var_type == "conti":
-            ub, lb = self.bnds
-            return np.linspace(ub, lb, shape)
-        else:
-            raise NotImplementedError()
+        ub, lb = self.bnds
+        return np.linspace(ub, lb, shape)
+
+
+class IntegerDimension(Dimension[int]):
+    var_type = "int"
+
+    @property
+    def is_bin(self):
+        return self.bnds == [0, 1]
+
+
+class CategoricalDimension(Dimension[BoundType]):
+    var_type = "cat"
 
 
 class Space:
-    def __init__(self, bnds: list[list[BoundType]], cat_idx=None, int_idx=None):
-        self.cat_idx = [] if cat_idx is None else cat_idx
-        self.int_idx = [] if int_idx is None else int_idx
+    def __init__(self, dims: list[Dimension]):
+        self.cat_idx = [isinstance(dim, CategoricalDimension) for dim in dims]
+        self.int_idx = [isinstance(dim, IntegerDimension) for dim in dims]
         self.cont_idx = [
-            idx
-            for idx in range(len(bnds))
-            if idx not in self.cat_idx and idx not in self.int_idx
+            idx for idx in range(len(dims)) if idx not in self.cat_idx + self.int_idx
         ]
+        self.dims = dims
 
-        # define dimensions
-        self.dims: list[Dimension] = []
+    @classmethod
+    def from_bounds(
+        cls,
+        bnds: list[list[BoundType]],
+        cat_idx: Optional[list[int]] = None,
+        int_idx: Optional[list[int]] = None,
+    ):
+        cat_idx = cat_idx or []
+        int_idx = int_idx or []
+
+        dims = []
         for idx, b in enumerate(bnds):
-            if idx in self.cont_idx:
-                self.dims.append(Dimension(b, "conti"))
-            elif idx in self.int_idx:
-                self.dims.append(Dimension(b, "int"))
-            elif idx in self.cat_idx:
-                self.dims.append(Dimension(b, "cat"))
+            if idx in cat_idx:
+                dims.append(CategoricalDimension(b))
+            elif idx in int_idx:
+                dims.append(IntegerDimension(b))
+            else:
+                dims.append(ContinuousDimension(b))
+
+        return cls(dims)
 
     @property
     def bounds(self):
