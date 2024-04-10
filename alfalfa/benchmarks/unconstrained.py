@@ -72,8 +72,8 @@ class Hartmann6D(SynFunc):
 
 class Rastrigin(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/non_cons.py
-    def __init__(self, dim=10):
-        super().__init__()
+    def __init__(self, seed, dim=10):
+        super().__init__(seed)
         self.dim = dim
 
     def __call__(self, x, **kwargs):
@@ -91,8 +91,8 @@ class Rastrigin(SynFunc):
 
 class StyblinskiTang(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/non_cons.py
-    def __init__(self, dim=10):
-        super().__init__()
+    def __init__(self, seed, dim=10):
+        super().__init__(seed)
         self.dim = dim
 
     def __call__(self, x, **kwargs):
@@ -113,8 +113,8 @@ class StyblinskiTang(SynFunc):
 
 class Schwefel(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/non_cons.py
-    def __init__(self, dim=10):
-        super().__init__()
+    def __init__(self, seed, dim=10):
+        super().__init__(seed)
         self.dim = dim
 
     def __call__(self, x, **kwargs):

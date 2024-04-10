@@ -1,7 +1,6 @@
 import gpytorch as gpy
 import matplotlib.pyplot as plt
 import scipy.stats as stats
-import torch
 from jaxtyping import install_import_hook
 
 with install_import_hook("alfalfa", "beartype.beartype"):
@@ -9,7 +8,6 @@ with install_import_hook("alfalfa", "beartype.beartype"):
     from alfalfa.forest import AlfalfaForest
     from alfalfa.tree_kernels import AlfalfaGP, AlfalfaSampledModel
     from alfalfa.utils.metrics import nlpd
-    from alfalfa.utils.plots import plot_gp_nd
 
 import problem
 
@@ -30,9 +28,10 @@ print(f"Initial loss={loss}")
 
 data = BARTData(space, problem.train_x_np)
 params = BARTTrainParams(
-    warmup_steps=10,
-    n_steps=10,
-    lag=1,
+    # alpha=0.95,
+    warmup_steps=500,
+    n_steps=500,
+    lag=5,
 )
 bart = BART(
     gp,
@@ -43,14 +42,11 @@ bart = BART(
 )
 logger = bart.run()
 
-output = gp(problem.train_x_torch)
-loss = -mll(output, problem.train_y_torch)
-print(f"Final train loss={loss}")
 gp.eval()
 
-output = gp(problem.test_x_torch)
+output = gp.likelihood(gp(problem.test_x_torch))
 test_loss = nlpd(output, problem.test_y_torch, diag=True)
-print(f"Final test loss={test_loss}")
+print(f"GP test loss={test_loss}")
 
 
 sampled_model = AlfalfaSampledModel(
@@ -61,21 +57,17 @@ sampled_model = AlfalfaSampledModel(
     sampling_seed=100,
 )
 
-output = sampled_model(problem.train_x_torch)
-loss = -mll(output, problem.train_y_torch)
-print(f"Final train loss={loss}")
-
-output = sampled_model(problem.test_x_torch)
+output = sampled_model(problem.test_x_torch, predict_y=True)
 test_loss = nlpd(output, problem.test_y_torch, diag=True)
-print(f"Final test loss={test_loss}")
+print(f"Sampled test loss={test_loss}")
 
 
-test_x = torch.meshgrid(
-    torch.linspace(0, 1, 25), torch.linspace(0, 1, 25), indexing="ij"
-)
+# test_x = torch.meshgrid(
+#     torch.linspace(0, 1, 25), torch.linspace(0, 1, 25), indexing="ij"
+# )
 
-plot_gp_nd(gp, test_x, target=problem.bb_func.vector_apply)
-plot_gp_nd(sampled_model, test_x, target=problem.bb_func.vector_apply)
+# plot_gp_nd(gp, test_x, target=problem.bb_func.vector_apply)
+# plot_gp_nd(sampled_model, test_x, target=problem.bb_func.vector_apply)
 
 fig, axs = plt.subplots(nrows=2)
 axs[0].plot(logger["noise"])

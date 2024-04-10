@@ -110,7 +110,7 @@ class AlfalfaSampledModel:
 
         self.lag = lag
 
-    def __call__(self, x, *args):
+    def __call__(self, x, *args, predict_y=False):
         function_samples = torch.zeros((len(self.samples), x.shape[0]))
         # fork rng allows us to draw consistent function samples
         with torch.random.fork_rng():
@@ -129,7 +129,9 @@ class AlfalfaSampledModel:
                 gp.tree_model.initialise(self.space)
                 gp.eval()
 
-                output = gp.likelihood(gp(x))
+                output = gp(x)
+                if predict_y:
+                    output = gp.likelihood(output)
                 function_samples[i, :] = output.sample()
 
         mean = function_samples.mean(dim=0)
