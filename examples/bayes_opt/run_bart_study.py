@@ -31,7 +31,8 @@ np.random.seed(args.rnd_seed)
 torch.manual_seed((args.rnd_seed))
 
 # load black-box function to evaluate
-bb_func = map_benchmark(args.bb_func)
+bb_func = map_benchmark(args.bb_func, seed=args.rnd_seed)
+space = bb_func.space
 
 # activate label encoding if categorical features are given
 if bb_func.cat_idx:
@@ -49,7 +50,7 @@ model_core = bb_func.get_model_core()
 # define trees outside of BO loop
 # allows for warm-up steps to be re-used across iterations
 forest = AlfalfaForest(height=0, num_trees=10)
-forest.initialise(bb_func.get_space())
+forest.initialise(space)
 
 
 # main bo loop
@@ -59,23 +60,22 @@ for itr in range(args.num_itr):
     tree_gp = AlfalfaGP(
         torch.from_numpy(X_train), torch.from_numpy(y_train), likelihood, forest
     )
-
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
     train_params = BARTTrainParams(warmup_steps=10 if itr == 0 else 10, n_steps=1)
-    data = BARTData(bb_func.get_space(), X_train)
+    data = BARTData(space, X_train)
     bart = BART(tree_gp, data, train_params, noise_prior=None, scale_prior=None)
     bart.run()
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)
     opt_model = build_opt_model(
-        bb_func.get_space(), gbm_model, tree_gp, kappa=1.96, model_core=model_core
+        space, gbm_model, tree_gp, kappa=1.96, model_core=model_core
     )
-    next_x = propose(bb_func.get_space(), opt_model, gbm_model, model_core)
+    next_x = propose(space, opt_model, gbm_model, model_core)
     next_y = bb_func(next_x)
 
     # update progress
-    X_train = np.concatenate(X_train, next_x)
-    y_train = np.concatenate(y_train, next_y)
+    X_train = np.concatenate((X_train, [next_x]))
+    y_train = np.concatenate((y_train, [next_y]))
 
     print(f"{itr}. min_val: {round(min(y_train), 5)}")
 

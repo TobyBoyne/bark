@@ -41,6 +41,7 @@ def preprocess_data(call_func):
 
 class BaseFunc(ABC):
     space: Space
+    bounds: list[list[int | float | str]]
 
     def __init__(self, seed):
         self.rng = np.random.default_rng(seed)
@@ -99,9 +100,9 @@ class BaseFunc(ABC):
         ]
         return skopt_space.Space(skopt_bnds)
 
-    def round_integers(self, x: Shaped[np.ndarray, "N D"]):
+    def round_integers(self, x: Shaped[np.ndarray, "N D"]) -> Shaped[np.ndarray, "N D"]:
         x_copy = x.copy()
-        x_copy[:, tuple({self.int_idx})] = np.round(x[:, tuple({self.int_idx})], 0)
+        x_copy[:, self.int_idx] = np.round(x[:, self.int_idx], 0)
         return x_copy
 
 
@@ -496,7 +497,7 @@ class MFSynFunc(SynFunc, skip_validation=True):
             return ys
 
 
-class RealFunc(BaseFunc, skip_validation=True):
+class DatasetFunc(BaseFunc, skip_validation=True):
     """Base class for real data."""
 
     def __init__(self, seed: int, train_percentage=0.8):
