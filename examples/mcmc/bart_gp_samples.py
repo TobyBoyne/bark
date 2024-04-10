@@ -11,7 +11,7 @@ from alfalfa.fitting.bart.bart import BART
 from alfalfa.fitting.bart.data import Data
 from alfalfa.fitting.bart.params import BARTTrainParams
 from alfalfa.forest import AlfalfaForest
-from alfalfa.tree_kernels import AlfalfaGP, AlfalfaMCMCModel
+from alfalfa.tree_kernels import AlfalfaGP, AlfalfaSampledModel
 
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])
@@ -47,7 +47,7 @@ bart = BART(
 
 logger = bart.run()
 
-sampled_gp = AlfalfaMCMCModel(
+sampled_gp = AlfalfaSampledModel(
     torch.tensor(train_x), torch.tensor(train_y), logger["samples"], space, seed=42
 )
 

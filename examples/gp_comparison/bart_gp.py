@@ -7,7 +7,7 @@ from jaxtyping import install_import_hook
 with install_import_hook("alfalfa", "beartype.beartype"):
     from alfalfa.fitting import BART, BARTData, BARTTrainParams
     from alfalfa.forest import AlfalfaForest
-    from alfalfa.tree_kernels import AlfalfaGP, AlfalfaMCMCModel
+    from alfalfa.tree_kernels import AlfalfaGP, AlfalfaSampledModel
     from alfalfa.utils.metrics import nlpd
     from alfalfa.utils.plots import plot_gp_nd
 
@@ -53,7 +53,7 @@ test_loss = nlpd(output, problem.test_y_torch, diag=True)
 print(f"Final test loss={test_loss}")
 
 
-sampled_model = AlfalfaMCMCModel(
+sampled_model = AlfalfaSampledModel(
     problem.train_x_torch,
     problem.train_y_torch,
     logger["samples"],
@@ -71,7 +71,7 @@ print(f"Final test loss={test_loss}")
 
 
 test_x = torch.meshgrid(
-    torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij"
+    torch.linspace(0, 1, 25), torch.linspace(0, 1, 25), indexing="ij"
 )
 
 plot_gp_nd(gp, test_x, target=problem.bb_func.vector_apply)
