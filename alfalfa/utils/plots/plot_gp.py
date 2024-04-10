@@ -1,13 +1,14 @@
 import warnings
 
-import gpytorch as gpy
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from beartype.typing import Callable, Optional
 
+from ...tree_kernels import AnyModel
 
-def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=None):
+
+def plot_gp_nd(model: AnyModel, test_x, target: Callable, ax=None, D=None):
     # infer dimension of input from train x
     if D is None:
         D = model.train_inputs[0].shape[-1]
@@ -21,7 +22,7 @@ def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=N
 
 
 def plot_gp_1d(
-    model: gpy.models.ExactGP,
+    model: AnyModel,
     test_x,
     target: Optional[Callable[[np.ndarray], np.ndarray]],
     ax=None,
@@ -61,7 +62,7 @@ def plot_gp_1d(
     return ax
 
 
-def plot_gp_2d(model: gpy.models.ExactGP, test_X, target: Callable):
+def plot_gp_2d(model: AnyModel, test_X, target: Callable):
     """Plot a GP with two input dimensions."""
     fig, axs = plt.subplots(ncols=3, figsize=(8, 3))
     axs: list[plt.Axes]
@@ -99,7 +100,7 @@ def plot_gp_2d(model: gpy.models.ExactGP, test_X, target: Callable):
     return fig, axs
 
 
-def plot_covar_matrix(model: gpy.models.ExactGP, test_x, ax=None):
+def plot_covar_matrix(model: AnyModel, test_x, ax=None):
     if ax is None:
         _, ax = plt.subplots()
     with torch.no_grad():

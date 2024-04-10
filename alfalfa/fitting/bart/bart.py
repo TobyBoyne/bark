@@ -60,7 +60,7 @@ class BART:
                     self.logger.checkpoint(self.model)
                     output = self.model(self.model.train_inputs[0])
                     likelihood = -mll(output, self.model.train_targets)
-                    self.logger.log(mll=likelihood)
+                    self.logger.log(mll=likelihood, squeeze=True)
 
         return self.logger
 

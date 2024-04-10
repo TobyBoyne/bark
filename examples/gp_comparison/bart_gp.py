@@ -8,6 +8,7 @@ with install_import_hook("alfalfa", "beartype.beartype"):
     from alfalfa.fitting import BART, BARTData, BARTTrainParams
     from alfalfa.forest import AlfalfaForest
     from alfalfa.tree_kernels import AlfalfaGP, AlfalfaMCMCModel
+    from alfalfa.utils.metrics import nlpd
     from alfalfa.utils.plots import plot_gp_nd
 
 import problem
@@ -29,7 +30,7 @@ print(f"Initial loss={loss}")
 
 data = BARTData(space, problem.train_x_np)
 params = BARTTrainParams(
-    warmup_steps=100,
+    warmup_steps=10,
     n_steps=10,
     lag=1,
 )
@@ -44,18 +45,37 @@ logger = bart.run()
 
 output = gp(problem.train_x_torch)
 loss = -mll(output, problem.train_y_torch)
-print(f"Final loss={loss}")
+print(f"Final train loss={loss}")
 gp.eval()
 
+output = gp(problem.test_x_torch)
+test_loss = nlpd(output, problem.test_y_torch, diag=True)
+print(f"Final test loss={test_loss}")
+
+
 sampled_model = AlfalfaMCMCModel(
-    problem.train_x_torch, problem.train_y_torch, logger["samples"], space, seed=100
+    problem.train_x_torch,
+    problem.train_y_torch,
+    logger["samples"],
+    space,
+    sampling_seed=100,
 )
+
+output = sampled_model(problem.train_x_torch)
+loss = -mll(output, problem.train_y_torch)
+print(f"Final train loss={loss}")
+
+output = sampled_model(problem.test_x_torch)
+test_loss = nlpd(output, problem.test_y_torch, diag=True)
+print(f"Final test loss={test_loss}")
+
 
 test_x = torch.meshgrid(
     torch.linspace(0, 1, 50), torch.linspace(0, 1, 50), indexing="ij"
 )
 
 plot_gp_nd(gp, test_x, target=problem.bb_func.vector_apply)
+plot_gp_nd(sampled_model, test_x, target=problem.bb_func.vector_apply)
 
 fig, axs = plt.subplots(nrows=2)
 axs[0].plot(logger["noise"])

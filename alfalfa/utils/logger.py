@@ -4,6 +4,7 @@ from copy import deepcopy
 from time import perf_counter
 
 import numpy as np
+import torch
 from beartype.typing import Callable
 from matplotlib.axes import Axes
 
@@ -49,8 +50,14 @@ class Logger:
     def __init__(self):
         self.logs: dict[str, list] = defaultdict(list)
 
-    def log(self, **kwargs):
+    def log(self, squeeze=False, **kwargs):
         for key, value in kwargs.items():
+            if (
+                squeeze
+                and isinstance(value, torch.Tensor)
+                and not torch.squeeze(value).shape
+            ):
+                value = value.item()
             self.logs[key].append(value)
 
     def __getitem__(self, key):
@@ -100,5 +107,5 @@ class BOLogger(Logger):
 class MCMCLogger(Logger):
     def checkpoint(self, model: AlfalfaGP):
         self.log(samples=deepcopy(model.state_dict()))
-        self.log(noise=model.likelihood.noise)
-        self.log(scale=model.covar_module.outputscale)
+        self.log(noise=model.likelihood.noise, squeeze=True)
+        self.log(scale=model.covar_module.outputscale, squeeze=True)

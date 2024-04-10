@@ -1,6 +1,6 @@
 import gpytorch as gpy
 import torch
-from beartype.typing import Any, Union
+from beartype.typing import Any, Optional, Union
 from gpytorch.distributions import MultivariateNormal, base_distributions
 from gpytorch.likelihoods.gaussian_likelihood import _GaussianLikelihoodBase
 from gpytorch.likelihoods.noise_models import MultitaskHomoskedasticNoise
@@ -13,7 +13,7 @@ from .utils.space import Space
 class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
     is_stationary = False
 
-    def __init__(self, tree_model: Union[AlfalfaTree, AlfalfaForest]):
+    def __init__(self, tree_model: Optional[AlfalfaForest]):
         super().__init__()
         self.tree_model = tree_model
 
@@ -29,10 +29,7 @@ class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
 
     def set_extra_state(self, state):
         d = state["tree_model"]
-        if d["tree_model_type"] == "tree":
-            self.tree_model = AlfalfaTree.from_dict(d)
-        elif d["tree_model_type"] == "forest":
-            self.tree_model = AlfalfaForest.from_dict(d)
+        self.tree_model = AlfalfaForest.from_dict(d)
 
 
 class AlfalfaGP(gpy.models.ExactGP):
@@ -41,7 +38,7 @@ class AlfalfaGP(gpy.models.ExactGP):
         train_inputs,
         train_targets,
         likelihood,
-        tree_model: Union[AlfalfaTree, AlfalfaForest],
+        tree_model: Optional[AlfalfaForest],
     ):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
@@ -89,7 +86,7 @@ class AlfalfaMOGP(AlfalfaGP):
         train_inputs,
         train_targets,
         likelihood,
-        tree_model: Union[AlfalfaTree, AlfalfaForest],
+        tree_model: Optional[AlfalfaForest],
         num_tasks: int = 2,
     ):
         super(AlfalfaGP, self).__init__(train_inputs, train_targets, likelihood)
@@ -114,34 +111,65 @@ class AlfalfaMOGP(AlfalfaGP):
 class AlfalfaMCMCModel:
     """A model generated from many MCMC samples of a GP"""
 
-    def __init__(self, train_inputs, train_targets, samples, space: Space, seed: int):
+    def __init__(
+        self,
+        train_inputs,
+        train_targets,
+        samples,
+        space: Space,
+        sampling_seed: int,
+        lag: int = 1,
+    ):
         # samples contains a list of GP hyperparameters
         # need to take function samples
         self.samples = samples
-        self.rng = torch.Generator().manual_seed(seed)
+        self.sampling_seed = sampling_seed
+
+        if train_inputs is not None and torch.is_tensor(train_inputs):
+            train_inputs = (train_inputs,)
 
         self.train_inputs = train_inputs
         self.train_targets = train_targets
         self.space = space
 
+        self.lag = lag
+
     def __call__(self, x, *args):
         function_samples = torch.zeros((len(self.samples), x.shape[0]))
-        for i, sample in enumerate(self.samples):
-            gp = AlfalfaGP(
-                self.train_inputs,
-                self.train_targets,
-                gpy.likelihoods.GaussianLikelihood(),
-                None,
-            )
-            gp.load_state_dict(sample)
-            gp.tree_model.initialise(self.space)
-            gp.eval()
-            output = gp.likelihood(gp(x))
-            function_samples[i, :] = output.sample()
+        # fork rng allows us to draw consistent function samples
+        with torch.random.fork_rng():
+            torch.random.manual_seed(self.sampling_seed)
+            for i, sample in enumerate(self.samples):
+                if i % self.lag != 0:
+                    continue
+
+                gp = AlfalfaGP(
+                    self.train_inputs,
+                    self.train_targets,
+                    gpy.likelihoods.GaussianLikelihood(),
+                    None,
+                )
+                gp.load_state_dict(sample)
+                gp.tree_model.initialise(self.space)
+                gp.eval()
+
+                output = gp.likelihood(gp(x))
+                function_samples[i, :] = output.sample()
 
         mean = function_samples.mean(dim=0)
         var = DiagLinearOperator(function_samples.var(dim=0))
         return gpy.distributions.MultivariateNormal(mean, var)
+
+    @property
+    def likelihood(self):
+        # likelihood returns the identity functions, so that this works nicely with plots
+        return lambda x: x
+
+    def state_dict(self):
+        return self.samples
+
+    def load_state_dict(self, state):
+        self.samples = state
 
 
 class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
@@ -217,3 +245,6 @@ class MultitaskGaussianLikelihood(_GaussianLikelihoodBase):
         noise_covar = self._shaped_noise_covar(mean.shape, *params, **kwargs).squeeze(0)
         full_covar = covar + noise_covar
         return function_dist.__class__(mean, full_covar)
+
+
+AnyModel = gpy.models.ExactGP | AlfalfaMCMCModel
