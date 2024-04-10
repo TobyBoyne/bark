@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from beartype.typing import Callable, Optional
-from jaxtyping import Shaped
 
 
 def plot_gp_nd(model: gpy.models.ExactGP, test_x, target: Callable, ax=None, D=None):
@@ -62,15 +61,10 @@ def plot_gp_1d(
     return ax
 
 
-def plot_gp_2d(
-    model: gpy.models.ExactGP, test_X: Shaped[torch.Tensor, "N D"], target: Callable
-):
+def plot_gp_2d(model: gpy.models.ExactGP, test_X, target: Callable):
     """Plot a GP with two input dimensions."""
     fig, axs = plt.subplots(ncols=3, figsize=(8, 3))
     axs: list[plt.Axes]
-    raise NotImplementedError(
-        "This currently doesn't work due to test_X not being a meshgrid."
-    )
     likelihood = model.likelihood
     train_x = model.train_inputs[0]
     with torch.no_grad():
