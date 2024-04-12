@@ -31,7 +31,7 @@ params = BARTTrainParams(
     # alpha=0.95,
     warmup_steps=500,
     n_steps=500,
-    lag=5,
+    lag=20,
 )
 bart = BART(
     gp,

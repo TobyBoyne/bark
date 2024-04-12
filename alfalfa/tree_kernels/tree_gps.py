@@ -1,7 +1,7 @@
 import gpytorch as gpy
 import torch
 from beartype.typing import Optional, Union
-from linear_operator.operators import DiagLinearOperator
+from gpytorch.distributions import MultivariateNormal
 
 from ..forest import AlfalfaForest, AlfalfaTree
 from ..utils.space import Space
@@ -94,7 +94,6 @@ class AlfalfaSampledModel:
         samples,
         space: Space,
         sampling_seed: int,
-        lag: int = 1,
     ):
         # samples contains a list of GP hyperparameters
         # need to take function samples
@@ -108,35 +107,31 @@ class AlfalfaSampledModel:
         self.train_targets = train_targets
         self.space = space
 
-        self.lag = lag
-
     def __call__(self, x, *args, predict_y=False):
-        function_samples = torch.zeros((len(self.samples), x.shape[0]))
-        # fork rng allows us to draw consistent function samples
-        with torch.random.fork_rng():
-            torch.random.manual_seed(self.sampling_seed)
-            for i, sample in enumerate(self.samples):
-                if i % self.lag != 0:
-                    continue
+        f_mean = torch.zeros((len(self.samples), x.shape[0]))
+        f_var = torch.zeros((len(self.samples), x.shape[0], x.shape[0]))
+        gp = AlfalfaGP(
+            self.train_inputs,
+            self.train_targets,
+            gpy.likelihoods.GaussianLikelihood(),
+            None,
+        )
 
-                gp = AlfalfaGP(
-                    self.train_inputs,
-                    self.train_targets,
-                    gpy.likelihoods.GaussianLikelihood(),
-                    None,
-                )
-                gp.load_state_dict(sample)
-                gp.tree_model.initialise(self.space)
-                gp.eval()
+        for i, sample in enumerate(self.samples):
+            gp.load_state_dict(sample)
+            gp.tree_model.initialise(self.space)
+            gp.eval()
 
-                output = gp(x)
-                if predict_y:
-                    output = gp.likelihood(output)
-                function_samples[i, :] = output.sample()
+            output = gp(x)
+            if predict_y:
+                output = gp.likelihood(output)
 
-        mean = function_samples.mean(dim=0)
-        var = DiagLinearOperator(function_samples.var(dim=0))
-        return gpy.distributions.MultivariateNormal(mean, var)
+            f_mean[i, :] = output.loc
+            f_var[i, :, :] = output.covariance_matrix
+
+        output_mean = torch.mean(f_mean, dim=0)
+        output_var = torch.mean(f_var, dim=0)
+        return MultivariateNormal(output_mean, output_var)
 
     @property
     def likelihood(self):
