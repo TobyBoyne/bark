@@ -31,6 +31,30 @@ class Branin(SynFunc):
         return [[0.0, 1.0], [0.0, 1.0]]
 
 
+class Friedman(SynFunc):
+    """
+
+    Multivariate adaptive regression splines (1999)"""
+
+    is_vectorised = True
+
+    def __init__(self, seed, dim=10):
+        super().__init__(seed)
+        self.dim = dim
+
+    def __call__(self, x):
+        return (
+            10 * np.sin(np.pi * x[:, 0] * x[:, 1])
+            + 20 * (x[:, 2] - 0.5) ** 2
+            + 10 * x[:, 3]
+            + 5 * x[:, 4]
+        )
+
+    @property
+    def bounds(self):
+        return [[0.0, 1.0] for _ in range(self.dim)]
+
+
 class Hartmann6D(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/non_cons.py
 

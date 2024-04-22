@@ -6,6 +6,7 @@ from .mixed import CatAckley, PressureVessel, VAESmall
 from .multi_fidelity import CurrinExp2D
 from .unconstrained import (
     Branin,
+    Friedman,
     Hartmann6D,
     Himmelblau1D,
     Rastrigin,
@@ -18,6 +19,7 @@ BENCHMARK_MAP = {
     "hartmann6d": Hartmann6D,
     "himmelblau1d": Himmelblau1D,
     "branin": Branin,
+    "friedman": Friedman,
     "rastrigin": Rastrigin,
     "styblinski_tang": StyblinskiTang,
     "schwefel": Schwefel,
