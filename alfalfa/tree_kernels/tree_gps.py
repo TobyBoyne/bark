@@ -1,7 +1,7 @@
 import gpytorch as gpy
 import torch
 from beartype.typing import Optional, Union
-from gpytorch.distributions import MultivariateNormal
+from torch.distributions import Categorical, MixtureSameFamily
 
 from ..forest import AlfalfaForest, AlfalfaTree
 from ..utils.space import Space
@@ -84,8 +84,10 @@ class AlfalfaMOGP(AlfalfaGP):
         return self.covar_module.tree_model
 
 
-class AlfalfaSampledModel:
-    """A model generated from many MCMC samples of a GP"""
+class AlfalfaMixtureModel:
+    """A model generated from many MCMC samples of a GP.
+
+    The posterior is a mixture of Gaussians."""
 
     def __init__(
         self,
@@ -129,9 +131,9 @@ class AlfalfaSampledModel:
             f_mean[i, :] = output.loc
             f_var[i, :, :] = output.covariance_matrix
 
-        output_mean = torch.mean(f_mean, dim=0)
-        output_var = torch.mean(f_var, dim=0)
-        return MultivariateNormal(output_mean, output_var)
+        mix = Categorical(probs=torch.ones((len(self.samples),)))
+        comp = torch.distributions.MultivariateNormal(f_mean, f_var)
+        return MixtureSameFamily(mix, comp)
 
     @property
     def likelihood(self):

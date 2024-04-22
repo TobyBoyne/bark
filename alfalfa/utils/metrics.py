@@ -4,7 +4,7 @@ from gpytorch.distributions import MultivariateNormal
 from linear_operator.operators import DiagLinearOperator
 
 
-def nlpd(pred_dist: MultivariateNormal, test_y: torch.Tensor, diag=True):
+def nlpd(pred_dist: torch.distributions.Distribution, test_y: torch.Tensor, diag=False):
     """Compute the negative log predictive density of a distribution.
 
     Args:

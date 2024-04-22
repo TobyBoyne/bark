@@ -6,7 +6,7 @@ from jaxtyping import install_import_hook
 with install_import_hook("alfalfa", "beartype.beartype"):
     from alfalfa.fitting import BART, BARTData, BARTTrainParams
     from alfalfa.forest import AlfalfaForest
-    from alfalfa.tree_kernels import AlfalfaGP, AlfalfaSampledModel
+    from alfalfa.tree_kernels import AlfalfaGP, AlfalfaMixtureModel
     from alfalfa.utils.metrics import nlpd
 
 import problem
@@ -45,11 +45,11 @@ logger = bart.run()
 gp.eval()
 
 output = gp.likelihood(gp(problem.test_x_torch))
-test_loss = nlpd(output, problem.test_y_torch, diag=True)
+test_loss = nlpd(output, problem.test_y_torch, diag=False)
 print(f"GP test loss={test_loss}")
 
 
-sampled_model = AlfalfaSampledModel(
+sampled_model = AlfalfaMixtureModel(
     problem.train_x_torch,
     problem.train_y_torch,
     logger["samples"],
@@ -58,7 +58,7 @@ sampled_model = AlfalfaSampledModel(
 )
 
 output = sampled_model(problem.test_x_torch, predict_y=True)
-test_loss = nlpd(output, problem.test_y_torch, diag=True)
+test_loss = nlpd(output, problem.test_y_torch, diag=False)
 print(f"Sampled test loss={test_loss}")
 
 

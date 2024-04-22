@@ -13,7 +13,7 @@ np.random.seed(42)
 NOISE_VAR = 0.01
 
 bb_func = Hartmann6D(seed=42)
-train_x_np, train_f_np = bb_func.get_init_data(500, rnd_seed=42)
+train_x_np, train_f_np = bb_func.get_init_data(50, rnd_seed=42)
 train_y_np = train_f_np + np.random.randn(*train_f_np.shape) * NOISE_VAR**0.5
 
 train_x_torch, train_f_torch, train_y_torch = map(
