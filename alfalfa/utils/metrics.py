@@ -17,3 +17,9 @@ def nlpd(pred_dist: torch.distributions.Distribution, test_y: torch.Tensor, diag
         )
 
     return gpytorch.metrics.negative_log_predictive_density(pred_dist, test_y)
+
+
+def mse(pred_dist: torch.distributions.Distribution, test_y: torch.Tensor):
+    """Compute the mean squared error of the prediction"""
+
+    return gpytorch.metrics.mean_squared_error(pred_dist, test_y)
