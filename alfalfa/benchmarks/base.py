@@ -503,9 +503,9 @@ class DatasetFunc(BaseFunc, skip_validation=True):
     def __init__(self, seed: int, train_percentage=0.8):
         # define index sets for categorical and integer variables
         super().__init__(seed)
-        self.permutation = self.rng.shuffle(np.arange(self.N))
-        self.train_percentage = train_percentage
         self._data_cache = None
+        self.permutation = self.rng.permutation(np.arange(self.N))
+        self.train_percentage = train_percentage
 
     @property
     def data(self) -> tuple[Shaped[np.ndarray, "N D"], Float[np.ndarray, "N"]]:
@@ -521,10 +521,13 @@ class DatasetFunc(BaseFunc, skip_validation=True):
     def N(self) -> int:
         return self.data[0].shape[0]
 
-    def get_init_data(
-        self,
-    ) -> tuple[Shaped[np.ndarray, "train D"], Float[np.ndarray, "train"]]:
+    def get_data(
+        self, train: bool
+    ) -> tuple[Shaped[np.ndarray, "Npoints D"], Float[np.ndarray, "Npoints"]]:
         train_cutoff = int(self.N * self.train_percentage)
         X, y = self.data
-        p = self.permutation[train_cutoff]
+        if train:
+            p = self.permutation[:train_cutoff]
+        else:
+            p = self.permutation[train_cutoff:]
         return X[p, :], y[p]

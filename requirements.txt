@@ -497,9 +497,9 @@ pillow==10.3.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:f0d0591a0aeaefdaf9a5e545e7485f89910c977087e7de2b6c388aec32011e9f \
     --hash=sha256:fdcbb4068117dfd9ce0138d068ac512843c52295ed996ae6dd1faf537b6dbc27 \
     --hash=sha256:ff61bfd9253c3915e6d41c651d5f962da23eda633cf02262990094a18a55371a
-pyaml==23.12.0 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:90407d74c95a55d9b41d3860fcc1759640444d2795df748a328d077bc4f58393 \
-    --hash=sha256:ce6f648efdfb1b3a5579f8cedb04facf0fa1e8f64846b639309b585bb322b4e5
+pyaml==24.4.0 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:0e483d9289010e747a325dc43171bcc39d6562dd1dd4719e8cc7e7c96c99fce6 \
+    --hash=sha256:acc2b39c55cb0cbe4f694a6d3886f89ad3d2a5b3efcece526202f8de9a6b27de
 pyparsing==3.1.2 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:a1bac0ce561155ecc3ed78ca94d3c9378656ad4c94c1270de543f621420f94ad \
     --hash=sha256:f9db75911801ed778fe61bb643079ff86601aca99fcae6345aa67292038fb742
@@ -666,3 +666,6 @@ typeguard==2.13.3 ; python_version >= "3.10" and python_version < "4.0" \
 typing-extensions==4.11.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:83f085bd5ca59c80295fc2a82ab5dac679cbe02b9f33f7d83af68e241bea51b0 \
     --hash=sha256:c1f94d72897edaf4ce775bb7558d5b79d8126906a14ea5ed1635921406c0387a
+ucimlrepo==0.0.6 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:16d1310a120ad5e362b1c83429e99560cfc1dc270407f74f77435edf50f24ec4 \
+    --hash=sha256:2488d85f249ca9aad39b2a2b6f915d3d25cda37543de7ab389c1ba042b2e9c61

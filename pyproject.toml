@@ -26,6 +26,7 @@ gurobipy = "10.0.3"
 lightgbm = "^4.3.0"
 botorch = "^0.9.5"
 beartype = "^0.17.2"
+ucimlrepo = "^0.0.6"
 
 
 [tool.poetry.group.dev.dependencies]
