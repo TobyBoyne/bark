@@ -32,11 +32,13 @@ class AutoMPG(UCIDatasetFunc):
     @property
     def space(self):
         return Space(
-            ContinuousDimension(key="displacement", bnds=[0.0, 500.0]),
-            IntegerDimension(key="cylinders", bnds=[3, 8]),
-            ContinuousDimension(key="horsepower", bnds=[0.0, 500.0]),
-            ContinuousDimension(key="weight", bnds=[0.0, 7000.0]),
-            ContinuousDimension(key="acceleration", bnds=[0.0, 30.0]),
-            IntegerDimension(key="model_year", bnds=[70, 82]),
-            IntegerDimension(key="origin", bnds=[1, 3]),
+            [
+                ContinuousDimension(key="displacement", bnds=[0.0, 500.0]),
+                IntegerDimension(key="cylinders", bnds=[3, 8]),
+                ContinuousDimension(key="horsepower", bnds=[0.0, 500.0]),
+                ContinuousDimension(key="weight", bnds=[0.0, 7000.0]),
+                ContinuousDimension(key="acceleration", bnds=[0.0, 30.0]),
+                IntegerDimension(key="model_year", bnds=[70, 82]),
+                IntegerDimension(key="origin", bnds=[1, 3]),
+            ]
         )

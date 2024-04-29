@@ -2,6 +2,7 @@ from beartype.typing import Union
 
 from .base import CatSynFunc, SynFunc
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
+from .dataset import AutoMPG
 from .mixed import CatAckley, PressureVessel, VAESmall
 from .multi_fidelity import CurrinExp2D
 from .unconstrained import (
@@ -37,6 +38,8 @@ BENCHMARK_MAP = {
     "cat_ackley": CatAckley,
     # multi-fidelity
     "currin": CurrinExp2D,
+    # datasets
+    "auto_mpg": AutoMPG,
 }
 
 
