@@ -1,8 +1,8 @@
 from beartype.typing import Union
 
-from .base import CatSynFunc, SynFunc
+from .base import CatSynFunc, DatasetFunc, SynFunc
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
-from .dataset import AutoMPG
+from .dataset import Abalone, AutoMPG, ConcreteCompressive, StudentPerformance
 from .mixed import CatAckley, PressureVessel, VAESmall
 from .multi_fidelity import CurrinExp2D
 from .unconstrained import (
@@ -40,10 +40,13 @@ BENCHMARK_MAP = {
     "currin": CurrinExp2D,
     # datasets
     "auto_mpg": AutoMPG,
+    "student_performance": StudentPerformance,
+    "abalone": Abalone,
+    "concrete": ConcreteCompressive,
 }
 
 
-def map_benchmark(name: str, **kwargs) -> Union[SynFunc, CatSynFunc]:
+def map_benchmark(name: str, **kwargs) -> Union[SynFunc, CatSynFunc, DatasetFunc]:
     """Map a benchmark name to a function that generates the benchmark
 
     Args:
@@ -51,6 +54,6 @@ def map_benchmark(name: str, **kwargs) -> Union[SynFunc, CatSynFunc]:
         **kwargs: additional arguments to pass to the benchmark function
 
     Returns:
-        Union[SynFunc, CatSynFunc]: the benchmark function
+        Union[SynFunc, CatSynFunc, DatasetFunc]: the benchmark function
     """
     return BENCHMARK_MAP[name](**kwargs)
