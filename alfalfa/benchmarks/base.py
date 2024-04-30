@@ -6,7 +6,7 @@ import numpy as np
 import skopt.space.space as skopt_space
 import torch
 from beartype.typing import Optional
-from jaxtyping import Float, Int, Shaped
+from jaxtyping import Float, Shaped
 
 from ..optimizer.optimizer_utils import get_opt_core, get_opt_sol
 from ..utils.space import Space
@@ -202,21 +202,6 @@ class SynFunc(BaseFunc, skip_validation=True):
         ys = self.vector_apply(xs, **kwargs)
 
         return (xs, ys)
-
-    def grid_sample(
-        self, shape: Int[np.ndarray, "D"]
-    ) -> tuple[
-        Shaped[np.ndarray, "{shape.prod()} D"], Shaped[np.ndarray, "{shape.prod()}"]  # pyright: ignore[reportUndefinedVariable]
-    ]:
-        """Return data sampled on a grid"""
-        space = self.space
-        xs = [dim.grid_sample(s) for s, dim in zip(shape, space.dims)]
-        test_x_mgrid = np.meshgrid(*xs, indexing="ij")
-        flats = [x.flatten() for x in test_x_mgrid]
-        test_x = np.stack(flats, axis=-1)
-        test_y = self.vector_apply(test_x)
-
-        return (test_x, test_y)
 
     def get_random_x(self, num_points, rnd_seed, eval_constr=True):
         # initial space

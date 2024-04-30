@@ -11,15 +11,17 @@ class CatAckley(SynFunc):
     int_idx = {
         0,
     }
+    is_vectorised = True
 
     def __call__(self, x, **kwargs):
-        z = x[1:] + x[0]
+        x = np.atleast_2d(x)
+        z = x[:, 1:] + x[:, :1]
         return (
             -20 * np.exp(-0.2 * np.sqrt(0.2 * np.sum(z**2)))
             - np.exp(0.2 * np.sum(np.cos(2 * np.pi * z)))
             + 20
             + np.exp(1)
-            + x[0]
+            + x[:, 0]
         )
 
     @property

@@ -1,6 +1,6 @@
 import numpy as np
 from beartype.cave import IntType
-from beartype.typing import Generic, Optional, TypeVar
+from beartype.typing import Generic, Optional, Sequence, TypeVar
 from jaxtyping import Int, Shaped
 
 BoundType = int | float | str
@@ -18,6 +18,9 @@ class Dimension(Generic[B]):
     def transform(self, x: Shaped[np.ndarray, "N"]) -> Shaped[np.ndarray, "N"]:
         return x
 
+    def grid(self, _shape: IntType):
+        return np.array(self.bnds)
+
     def __repr__(self):
         return f"{self.__class__.__name__}(key={self.key!r}, bounds={self.bnds!r})"
 
@@ -25,7 +28,7 @@ class Dimension(Generic[B]):
 class ContinuousDimension(Dimension[float]):
     var_type = "conti"
 
-    def grid_sample(self, shape: IntType):
+    def grid(self, shape: IntType):
         ub, lb = self.bnds
         return np.linspace(ub, lb, shape)
 
@@ -104,6 +107,22 @@ class Space:
         for i, dim in enumerate(self.dims):
             x_transform[:, i] = dim.transform(x[:, i])
         return x_transform.astype(float)
+
+    def grid(
+        self, shape: Sequence[IntType] | IntType
+    ) -> tuple[Shaped[np.ndarray, "N D"]]:
+        """Return data sampled on a grid"""
+        if isinstance(shape, IntType):
+            shape = [shape] * len(self.dims)
+
+        assert len(shape) == len(self.dims), "Shape must match number of dimensions"
+
+        xs = [dim.grid(s) for s, dim in zip(shape, self.dims)]
+        test_x_mgrid = np.meshgrid(*xs, indexing="ij")
+        flats = [x.flatten() for x in test_x_mgrid]
+        test_x = np.stack(flats, axis=-1)
+
+        return test_x
 
     def __getitem__(self, keys: str | list[str]):
         return self.key_to_idx(keys)
