@@ -39,6 +39,17 @@ def preprocess_data(call_func):
     return _preprocess_data
 
 
+def standardise(
+    y: Float[np.ndarray, "N"], y_train: Optional[Float[np.ndarray, "M"]] = None
+) -> Float[np.ndarray, "N"]:
+    """Standardise the target with respect to the training data."""
+    if y_train is None:
+        y_train = y
+    y_mean = np.mean(y_train)
+    y_std = np.std(y_train)
+    return (y - y_mean) / y_std
+
+
 class BaseFunc(ABC):
     space: Space
     bounds: list[list[int | float | str]]
@@ -504,7 +515,7 @@ class DatasetFunc(BaseFunc, skip_validation=True):
         # define index sets for categorical and integer variables
         super().__init__(seed)
         self._data_cache = None
-        self.permutation = self.rng.permutation(np.arange(self.N))
+        self.permutation = self.rng.permutation(np.arange(self.num_data))
         self.train_percentage = train_percentage
 
     @property
@@ -518,16 +529,17 @@ class DatasetFunc(BaseFunc, skip_validation=True):
         pass
 
     @property
-    def N(self) -> int:
+    def num_data(self) -> int:
         return self.data[0].shape[0]
 
     def get_data(
         self, train: bool
-    ) -> tuple[Shaped[np.ndarray, "Npoints D"], Float[np.ndarray, "Npoints"]]:
-        train_cutoff = int(self.N * self.train_percentage)
+    ) -> tuple[Shaped[np.ndarray, "N D"], Float[np.ndarray, "N"]]:
+        train_cutoff = int(self.num_data * self.train_percentage)
         X, y = self.data
+        train_p = self.permutation[:train_cutoff]
+        test_p = self.permutation[train_cutoff:]
         if train:
-            p = self.permutation[:train_cutoff]
+            return X[train_p, :], standardise(y[train_p])
         else:
-            p = self.permutation[train_cutoff:]
-        return X[p, :], y[p]
+            return X[test_p, :], standardise(y[test_p], y_train=y[train_p])
