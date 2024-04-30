@@ -539,7 +539,11 @@ class DatasetFunc(BaseFunc, skip_validation=True):
         X, y = self.data
         train_p = self.permutation[:train_cutoff]
         test_p = self.permutation[train_cutoff:]
-        if train:
-            return X[train_p, :], standardise(y[train_p])
-        else:
-            return X[test_p, :], standardise(y[test_p], y_train=y[train_p])
+
+        y_train = y[train_p]
+        p = train_p if train else test_p
+
+        return (
+            self.space.transform(X[p, :]),
+            standardise(y[p], y_train=y_train),
+        )

@@ -56,7 +56,7 @@ class StudentPerformance(UCIDatasetFunc):
         return Space(
             [
                 CategoricalDimension(key="school", bnds=["GP", "MS"]),
-                CategoricalDimension(key="sex", bnds=["M" "F"]),
+                CategoricalDimension(key="sex", bnds=["M", "F"]),
                 IntegerDimension(key="age", bnds=[15, 22]),
                 CategoricalDimension(key="address", bnds=["U", "R"]),
                 CategoricalDimension(key="famsize", bnds=["LE3", "GT3"]),

@@ -59,7 +59,7 @@ class Data:
         """
         x_index is shape (N,), where it is true if the x value reaches a leaf"""
         x = self.X[x_index, var_idx]
-        if x_index in self.space.cat_idx:
+        if var_idx in self.space.cat_idx:
             return np.unique(x)
         else:
             return np.unique(x)[1:]

@@ -1,6 +1,7 @@
 import numpy as np
 from beartype.cave import IntType
 from beartype.typing import Generic, Optional, TypeVar
+from jaxtyping import Int, Shaped
 
 BoundType = int | float | str
 B = TypeVar("B", int, float, str)
@@ -13,6 +14,9 @@ class Dimension(Generic[B]):
     def __init__(self, bnds: list[B], key: str):
         self.bnds = bnds
         self.key = key
+
+    def transform(self, x: Shaped[np.ndarray, "N"]) -> Shaped[np.ndarray, "N"]:
+        return x
 
     def __repr__(self):
         return f"{self.__class__.__name__}(key={self.key!r}, bounds={self.bnds!r})"
@@ -36,6 +40,9 @@ class IntegerDimension(Dimension[int]):
 
 class CategoricalDimension(Dimension[BoundType]):
     var_type = "cat"
+
+    def transform(self, x: Shaped[np.ndarray, "N"]) -> Int[np.ndarray, "N"]:
+        return np.array([self.bnds.index(xi) for xi in x])
 
 
 class Space:
@@ -91,6 +98,12 @@ class Space:
             return self._key_to_idx[keys]
         else:
             return [self._key_to_idx[k] for k in keys]
+
+    def transform(self, x: Shaped[np.ndarray, "N D"]) -> Shaped[np.ndarray, "N D"]:
+        x_transform = np.zeros_like(x)
+        for i, dim in enumerate(self.dims):
+            x_transform[:, i] = dim.transform(x[:, i])
+        return x_transform.astype(float)
 
     def __getitem__(self, keys: str | list[str]):
         return self.key_to_idx(keys)
