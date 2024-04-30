@@ -1,6 +1,6 @@
 from beartype.typing import Union
 
-from .base import CatSynFunc, DatasetFunc, SynFunc
+from .base import CatSynFunc, DatasetFunc, SynFunc, standardise
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
 from .dataset import Abalone, AutoMPG, ConcreteCompressive, StudentPerformance
 from .mixed import CatAckley, PressureVessel, VAESmall
