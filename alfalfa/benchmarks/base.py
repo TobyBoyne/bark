@@ -195,6 +195,24 @@ class SynFunc(BaseFunc, skip_validation=True):
             feas_penalty += vals**2
         return feas_penalty
 
+    def sample(
+        self, n: int, noise_std: float = 0.0
+    ) -> tuple[Shaped[np.ndarray, "{n} D"], Float[np.ndarray, "{n}"]]:
+        """Sample data and target values from the function (with optional noise).
+
+        TODO: This is intended to deprecate get_init_data.
+
+        Args:
+            n (int): Number of samples to generate.
+            noise_std (float): Standard deviation of the noise. Defaults to 0.0.
+
+        Returns:
+            X, y (tuple): Tuple containing the input data and target values."""
+        x = self.space.sample(n, self.rng)
+        f = self.vector_apply(x)
+        y = f + self.rng.normal(0, noise_std, n)
+        return (x, y)
+
     def get_init_data(self, num_init, rnd_seed, eval_constr=True, **kwargs):
         x_init = self.get_random_x(num_init, rnd_seed, eval_constr=eval_constr)
 

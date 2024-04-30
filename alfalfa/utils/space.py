@@ -18,6 +18,9 @@ class Dimension(Generic[B]):
     def transform(self, x: Shaped[np.ndarray, "N"]) -> Shaped[np.ndarray, "N"]:
         return x
 
+    def sample(self, n: int, rng: np.random.Generator) -> Shaped[np.ndarray, "N"]:
+        pass
+
     def grid(self, _shape: IntType):
         return np.array(self.bnds)
 
@@ -28,9 +31,11 @@ class Dimension(Generic[B]):
 class ContinuousDimension(Dimension[float]):
     var_type = "conti"
 
+    def sample(self, n: int, rng: np.random.Generator) -> Shaped[np.ndarray, "N"]:
+        return rng.uniform(*self.bnds, size=n)
+
     def grid(self, shape: IntType):
-        ub, lb = self.bnds
-        return np.linspace(ub, lb, shape)
+        return np.linspace(*self.bnds, shape)
 
 
 class IntegerDimension(Dimension[int]):
@@ -40,12 +45,18 @@ class IntegerDimension(Dimension[int]):
     def is_bin(self):
         return self.bnds == [0, 1]
 
+    def sample(self, n: int, rng: np.random.Generator) -> Shaped[np.ndarray, "N"]:
+        return rng.integers(*self.bnds, size=n, endpoint=True)
+
 
 class CategoricalDimension(Dimension[BoundType]):
     var_type = "cat"
 
     def transform(self, x: Shaped[np.ndarray, "N"]) -> Int[np.ndarray, "N"]:
         return np.array([self.bnds.index(xi) for xi in x])
+
+    def sample(self, n: int, rng: np.random.Generator) -> Shaped[np.ndarray, "N"]:
+        return rng.choice(self.bnds, size=n, replace=True)
 
 
 class Space:
@@ -107,6 +118,9 @@ class Space:
         for i, dim in enumerate(self.dims):
             x_transform[:, i] = dim.transform(x[:, i])
         return x_transform.astype(float)
+
+    def sample(self, n: int, rng: np.random.Generator) -> Shaped[np.ndarray, "N D"]:
+        return np.stack([dim.sample(n, rng) for dim in self.dims], axis=-1)
 
     def grid(
         self, shape: Sequence[IntType] | IntType
