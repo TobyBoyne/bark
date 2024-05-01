@@ -31,30 +31,6 @@ class AlfalfaGP(gpy.models.ExactGP):
     def tree_model(self) -> Union[AlfalfaTree, AlfalfaForest]:
         return self.covar_module.base_kernel.tree_model
 
-    @classmethod
-    def from_mcmc_samples(cls, model: "AlfalfaGP", samples):
-        likelihood = gpy.likelihoods.GaussianLikelihood()
-        all_trees = {"tree_model_type": "forest", "trees": []}
-        for sample in samples:
-            forest_dict = sample["covar_module.base_kernel._extra_state"]["tree_model"]
-            all_trees["trees"] += forest_dict["trees"]
-
-        tree_model = AlfalfaForest.from_dict(all_trees)
-        tree_model.initialise(model.tree_model.space)
-        gp = cls(model.train_inputs[0], model.train_targets, likelihood, tree_model)
-
-        avg_noise = torch.mean(
-            torch.tensor([s["likelihood.noise_covar.raw_noise"] for s in samples])
-        )
-        likelihood.noise = torch.nn.Softplus(avg_noise)
-
-        avg_scale = torch.mean(
-            torch.tensor([s["covar_module.raw_outputscale"] for s in samples])
-        )
-        gp.covar_module.outputscale = torch.nn.Softplus(avg_scale)
-
-        return gp
-
 
 class AlfalfaMOGP(AlfalfaGP):
     def __init__(
@@ -95,10 +71,9 @@ class AlfalfaMixtureModel:
         train_targets,
         samples,
         space: Space,
-        sampling_seed: int,
+        sampling_seed: int = None,
     ):
         # samples contains a list of GP hyperparameters
-        # need to take function samples
         self.samples = samples
         self.sampling_seed = sampling_seed
 
@@ -112,18 +87,8 @@ class AlfalfaMixtureModel:
     def __call__(self, x, *args, predict_y=False):
         f_mean = torch.zeros((len(self.samples), x.shape[0]))
         f_var = torch.zeros((len(self.samples), x.shape[0], x.shape[0]))
-        gp = AlfalfaGP(
-            self.train_inputs,
-            self.train_targets,
-            gpy.likelihoods.GaussianLikelihood(),
-            None,
-        )
 
-        for i, sample in enumerate(self.samples):
-            gp.load_state_dict(sample)
-            gp.tree_model.initialise(self.space)
-            gp.eval()
-
+        for i, gp in enumerate(self.gp_samples_iter()):
             output = gp(x)
             if predict_y:
                 output = gp.likelihood(output)
@@ -131,9 +96,32 @@ class AlfalfaMixtureModel:
             f_mean[i, :] = output.loc
             f_var[i, :, :] = output.covariance_matrix
 
+        # add jitter
+        f_var += 1e-6 * torch.eye(f_var.shape[-1])
+
         mix = Categorical(probs=torch.ones((len(self.samples),)))
         comp = torch.distributions.MultivariateNormal(f_mean, f_var)
         return MixtureSameFamily(mix, comp)
+
+    def gp_samples_iter(self, likelihood=None):
+        """Return an iterator over the GP samples.
+
+        Note that the GP is the same underlying object, so saving a reference
+        to the GP will result in identical samples."""
+        if likelihood is not None:
+            raise NotImplementedError()
+
+        gp = AlfalfaGP(
+            self.train_inputs,
+            self.train_targets,
+            gpy.likelihoods.GaussianLikelihood(),
+            None,
+        )
+        gp.eval()
+        for sample in self.samples:
+            gp.load_state_dict(sample)
+            gp.tree_model.initialise(self.space)
+            yield gp
 
     @property
     def likelihood(self):
