@@ -174,7 +174,7 @@ class DecisionNode(AlfalfaNode):
             # continuous - check if value is less than threshold
             # TODO: confirm that this `lt` sign shouldn't be `le`
             return np.where(
-                var < self.threshold,
+                var <= self.threshold,
                 self.left(x),
                 self.right(x),
             )

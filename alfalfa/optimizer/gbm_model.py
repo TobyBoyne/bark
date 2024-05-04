@@ -38,11 +38,19 @@ class GbmModel:
 
         return GbmNode(split_var=split_var, split_code_pred=split_code_pred, node=node)
 
+    def _build_null_tree(self, tree: AlfalfaTree) -> "GbmNode":
+        """Build a tree with a single leaf node."""
+        ub = tree.space.dims[0].bnds[-1]
+        null_tree = AlfalfaTree(root=DecisionNode(var_idx=0, threshold=ub))
+        null_tree.root.left.leaf_id = tree.root.leaf_id
+        return GbmNode(split_var=0, split_code_pred=ub, node=null_tree.root)
+
     def load_forest(self, forest: AlfalfaForest):
         self.trees = [
             self._build_tree(tree)
+            if isinstance(tree.root, DecisionNode)
+            else self._build_null_tree(tree)
             for tree in forest.trees
-            if not isinstance(tree.root, AlfalfaLeafNode)
         ]
 
         self.n_trees = len(self.trees)

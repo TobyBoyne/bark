@@ -62,4 +62,4 @@ class Data:
         if var_idx in self.space.cat_idx:
             return np.unique(x)
         else:
-            return np.unique(x)[1:]
+            return np.unique(x)[:-1]
