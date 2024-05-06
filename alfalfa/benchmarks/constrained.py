@@ -6,8 +6,8 @@ from .base import SynFunc
 
 class G1(SynFunc):
     # adapted from: http://www-optima.amp.i.kyoto-u.ac.jp/member/student/hedar/Hedar_files/TestGO_files/Page506.htm
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         self.ineq_constr_funcs = [
             lambda x: 2 * x[0] + 2 * x[1] + x[9] + x[10] - 10,  # g1
             lambda x: 2 * x[0] + 2 * x[2] + x[9] + x[11] - 10,  # g2
@@ -40,8 +40,8 @@ class G1(SynFunc):
 
 class G3(SynFunc):
     # adapted from: http://www-optima.amp.i.kyoto-u.ac.jp/member/student/hedar/Hedar_files/TestGO_files/Page2613.htm
-    def __init__(self, dim=5):
-        super().__init__()
+    def __init__(self, seed: int, dim=5):
+        super().__init__(seed)
         self.dim = dim
         self.is_nonconvex = True
         self.eq_constr_funcs = [
@@ -60,8 +60,8 @@ class G3(SynFunc):
 
 class G4(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/cons.py
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         self.is_nonconvex = True
 
         def u(x):
@@ -115,8 +115,8 @@ class G4(SynFunc):
 
 class G6(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/cons.py
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         self.is_nonconvex = True
 
         self.ineq_constr_funcs = [
@@ -135,8 +135,8 @@ class G6(SynFunc):
 
 class G7(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/cons.py
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         self.ineq_constr_funcs = [
             lambda x: 4 * x[0] + 5 * x[1] - 3 * x[6] + 9 * x[7] - 105,
             lambda x: 10 * x[0] - 8 * x[1] - 17 * x[6] + 2 * x[7],
@@ -186,8 +186,8 @@ class G7(SynFunc):
 
 class G10(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/cons.py
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         self.is_nonconvex = True
 
         self.ineq_constr_funcs = [
@@ -216,8 +216,8 @@ class Alkylation(SynFunc):
     #                  Petrol. Refiner. 43,8492 (1964).
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/cons.py
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         self.is_nonconvex = True
 
         def X1(x):
