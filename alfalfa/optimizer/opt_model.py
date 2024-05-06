@@ -115,7 +115,6 @@ def build_opt_model(
     ## add linear objective
     opt_model._sub_z_obj = MVar(sub_k.values() + [opt_model._var])
 
-    # why multiply by kernel var here?
     lin_term = kernel_var * (inv_ks @ y_vals)
 
     lin_obj = np.concatenate((lin_term, [-kappa]))

@@ -14,6 +14,11 @@ class Himmelblau1D(SynFunc):
     def bounds(self):
         return [[0.0, 1.0]]
 
+    @property
+    def optimum(self):
+        # at x = 0.763
+        return -1.2278
+
 
 class Branin(SynFunc):
     # branin, rescaled to [0.0, 1.0]
@@ -93,6 +98,11 @@ class Hartmann6D(SynFunc):
     def bounds(self):
         return [[0.0, 1.0] for _ in range(6)]
 
+    @property
+    def optimum(self):
+        # at x = [0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573]
+        return -3.32237
+
 
 class Rastrigin(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/non_cons.py
@@ -115,24 +125,24 @@ class Rastrigin(SynFunc):
 
 class StyblinskiTang(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/non_cons.py
+    is_vectorised = True
+
     def __init__(self, seed, dim=10):
         super().__init__(seed)
         self.dim = dim
 
     def __call__(self, x, **kwargs):
-        d = self.dim
-        sum = 0
-        for ii in range(1, d + 1):
-            xi = x[ii - 1]
-            new = xi**4 - 16 * xi**2 + 5 * xi
-            sum = sum + new
-
-        y = sum / 2.0
-        return y
+        x = np.atleast_2d(x)
+        return 0.5 * np.sum(x**4 - 16 * x**2 + 5 * x, axis=1)
 
     @property
     def bounds(self):
         return [[-5.0, 5.0] for _ in range(self.dim)]
+
+    @property
+    def optimum(self):
+        # at x = [-2.903534, ... , -2.903534]
+        return -39.16616 * self.dim
 
 
 class Schwefel(SynFunc):

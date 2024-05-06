@@ -133,6 +133,10 @@ class SynFunc(BaseFunc, skip_validation=True):
     def __call__(self, x):
         pass
 
+    @property
+    def optimum(self) -> float | None:
+        return None
+
     def get_model_core(self, env: Optional[gurobipy.Env] = None) -> gurobipy.Model:
         space = self.space
         model_core = get_opt_core(space, env=env)
