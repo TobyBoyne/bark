@@ -9,13 +9,21 @@ from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode, LeafNode
 def fit_lgbm_forest(
     train_x: np.ndarray, train_y: np.ndarray, params: Optional[dict] = None
 ) -> lgb.Booster:
-    if params is None:
-        params = {"max_depth": 3, "min_data_in_leaf": 1, "verbose": -1}
+    default_params = {
+        "max_depth": 3,
+        "min_data_in_leaf": 1,
+        "verbose": -1,
+        "num_boost_round": 50,
+    }
+    if params is not None:
+        params = {**default_params, **params}
+    else:
+        params = default_params
 
     return lgb.train(
         params,
         lgb.Dataset(train_x, train_y),
-        num_boost_round=50,
+        num_boost_round=params["num_boost_round"],
     )
 
 

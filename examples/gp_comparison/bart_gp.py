@@ -29,8 +29,8 @@ print(f"Initial loss={loss}")
 data = BARTData(space, problem.train_x_np)
 params = BARTTrainParams(
     # alpha=0.95,
-    warmup_steps=500,
-    n_steps=500,
+    warmup_steps=100,
+    n_steps=200,
     lag=20,
 )
 bart = BART(
@@ -60,6 +60,11 @@ sampled_model = AlfalfaMixtureModel(
 output = sampled_model(problem.test_x_torch, predict_y=True)
 test_loss = nlpd(output, problem.test_y_torch, diag=False)
 print(f"Sampled test loss={test_loss}")
+
+for gp in sampled_model.gp_samples_iter():
+    output = gp.likelihood(gp(problem.test_x_torch))
+    test_loss = nlpd(output, problem.test_y_torch, diag=False)
+    print(f"Sampled test loss={test_loss}")
 
 
 # test_x = torch.meshgrid(

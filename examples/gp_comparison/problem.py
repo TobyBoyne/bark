@@ -20,7 +20,7 @@ train_x_torch, train_f_torch, train_y_torch = map(
     torch.as_tensor, (train_x_np, train_f_np, train_y_np)
 )
 
-test_x_np, test_f_np = bb_func.get_init_data(100, rnd_seed=42)
+test_x_np, test_f_np = bb_func.get_init_data(100, rnd_seed=52)
 test_y_np = test_f_np + np.random.randn(*test_f_np.shape) * NOISE_VAR**0.5
 
 test_x_torch, test_f_torch, test_y_torch = map(

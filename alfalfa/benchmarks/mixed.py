@@ -31,11 +31,11 @@ class CatAckley(SynFunc):
 
 class PressureVessel(SynFunc):
     # adapted from: https://www.scielo.br/j/lajss/a/ZsdRkGWRVtDdHJP8WTDFFpB/?format=pdf&lang=en
+    is_nonconvex = True
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         self.int_idx = {0, 1}
-        self.is_nonconvex = True
 
         def X0(x):
             return x[0] * 0.0625
@@ -53,7 +53,7 @@ class PressureVessel(SynFunc):
 
     def get_model_core(self):
         # define model core
-        space = self.get_space()
+        space = self.space
         model_core = get_opt_core(space)
 
         # add helper vars
@@ -71,7 +71,7 @@ class PressureVessel(SynFunc):
         model_core.addConstr(-X1 + 0.00954 * x[3] <= 0)
 
         # add helper for cubic var
-        lb2, ub2 = self.get_bounds()[2]
+        lb2, ub2 = self.bounds[2]
         x2_squ = model_core.addVar(lb=lb2**2, ub=ub2**2)
         model_core.addConstr(x2_squ == x[2] * x[2])
 
@@ -117,8 +117,8 @@ class VAESmall(CatSynFunc):
     # adapted from: https://arxiv.org/pdf/1907.01329.pdf
     # and: https://debuggercafe.com/convolutional-variational-autoencoder-in-pytorch-on-mnist-dataset/
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         # keep track of y for pe
         self.y = []
 
@@ -175,11 +175,9 @@ class VAESmall(CatSynFunc):
 
         self.bnds = [bnd for key, bnd in self._var_keys]
 
-        # from leaf_gp.vae_nas_utils import get_test_loss
+        from .vae_nas_utils import get_test_loss  # noqa
 
-        # self._func = get_test_loss
-
-        raise NotImplementedError
+        self._func = get_test_loss
 
     def is_feas(self, x):
         return True

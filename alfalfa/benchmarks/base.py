@@ -111,10 +111,14 @@ class BaseFunc(ABC):
         ]
         return skopt_space.Space(skopt_bnds)
 
-    def round_integers(self, x: Shaped[np.ndarray, "N D"]) -> Shaped[np.ndarray, "N D"]:
-        x_copy = x.copy()
-        x_copy[:, self.int_idx] = np.round(x[:, self.int_idx], 0)
-        return x_copy
+    def round_integers(
+        self, x: Shaped[np.ndarray, "*N D"]
+    ) -> Shaped[np.ndarray, "*N D"]:
+        x_shape = np.array(x).shape
+        x_copy = np.atleast_2d(x.copy())
+        int_idx = list(self.int_idx)
+        x_copy[:, int_idx] = np.round(x_copy[:, int_idx], 0)
+        return x_copy.reshape(x_shape)
 
 
 class SynFunc(BaseFunc, skip_validation=True):
