@@ -289,8 +289,8 @@ class CatSynFunc(SynFunc, skip_validation=True):
     """class for synthetic benchmark functions for which the optimum is known that have
     one or more categorical vars."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed: int):
+        super().__init__(seed)
         self.bnds = []
         self._has_onehot_trafo = False
         self._has_label_trafo = False
@@ -378,14 +378,14 @@ class CatSynFunc(SynFunc, skip_validation=True):
         else:
             return conv2list(x)
 
-    @property
-    def space(self):
-        if self._has_onehot_trafo:
-            return Space.from_bounds(self.bounds, int_idx=self.int_idx)
-        else:
-            return Space.from_bounds(
-                self.bounds, int_idx=self.int_idx, cat_idx=self.cat_idx
-            )
+    # @property
+    # def space(self):
+    #     if self._has_onehot_trafo:
+    #         return Space.from_bounds(self.bounds, int_idx=self.int_idx)
+    #     else:
+    #         return Space.from_bounds(
+    #             self.bounds, int_idx=self.int_idx, cat_idx=self.cat_idx
+    #         )
 
     @property
     def skopt_space(self):

@@ -112,6 +112,10 @@ class PressureVessel(SynFunc):
         )
         return f
 
+    @property
+    def optimum(self):
+        return 6059.715
+
 
 class VAESmall(CatSynFunc):
     # adapted from: https://arxiv.org/pdf/1907.01329.pdf

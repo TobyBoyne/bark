@@ -37,6 +37,11 @@ class G1(SynFunc):
         )
         return f
 
+    @property
+    def optimum(self):
+        # at x* = [1,...,1,3,3,3,1]
+        return -15.0
+
 
 class G3(SynFunc):
     # adapted from: http://www-optima.amp.i.kyoto-u.ac.jp/member/student/hedar/Hedar_files/TestGO_files/Page2613.htm
@@ -56,6 +61,11 @@ class G3(SynFunc):
     @property
     def bounds(self):
         return [(0.0, 1.0) for _ in range(self.dim)]
+
+    @property
+    def optimum(self):
+        # at x* = [1/sqrt(dim),...,1/sqrt(dim)]
+        return -1.0
 
 
 class G4(SynFunc):
@@ -111,6 +121,10 @@ class G4(SynFunc):
             - 40792.141
         )
         return f
+
+    @property
+    def optimum(self):
+        return -30665.539
 
 
 class G6(SynFunc):
@@ -311,13 +325,13 @@ class Alkylation(SynFunc):
 
     def get_model_core(self):
         # define model core
-        space = self.get_space()
+        space = self.space
         model_core = get_opt_core(space)
 
         # add helper vars
         x = model_core._cont_var_dict
 
-        lb, ub = self.get_lb(), self.get_ub()
+        lb, ub = zip(*self.bounds)
 
         # add x5 constr
         x5 = model_core.addVar(lb=0.0, ub=2000.0)
@@ -383,3 +397,7 @@ class Alkylation(SynFunc):
         x5 = 1.22 * X4 - X1
         f = -(0.063 * X4 * X5 - 5.04 * X1 - 0.035 * X2 - 10.0 * X3 - 3.36 * x5)
         return f
+
+    @property
+    def optimum(self):
+        return -1768.75
