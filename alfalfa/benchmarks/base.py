@@ -111,14 +111,12 @@ class BaseFunc(ABC):
         ]
         return skopt_space.Space(skopt_bnds)
 
-    def round_integers(
-        self, x: Shaped[np.ndarray, "*N D"]
-    ) -> Shaped[np.ndarray, "*N D"]:
-        x_shape = np.array(x).shape
-        x_copy = np.atleast_2d(x.copy())
-        int_idx = list(self.int_idx)
-        x_copy[:, int_idx] = np.round(x_copy[:, int_idx], 0)
-        return x_copy.reshape(x_shape)
+    def round_integers(self, x: list) -> None:
+        # rounds all integer features to integers
+        #   this function assumes the 'non hot-encoded' state of the x_vals
+        for idx in range(len(x)):
+            if idx in self.int_idx:
+                x[idx] = round(x[idx])
 
 
 class SynFunc(BaseFunc, skip_validation=True):
@@ -472,7 +470,7 @@ class CatSynFunc(SynFunc, skip_validation=True):
 
                 model_core.optimize()
 
-                x_sol = get_opt_sol(self.get_space(), model_core)
+                x_sol = get_opt_sol(self.space, model_core)
                 proj_x_vals.append(self.inv_trafo_inputs(x_sol))
 
             # recover curr_trafo_state

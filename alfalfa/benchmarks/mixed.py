@@ -202,7 +202,7 @@ class VAESmall(CatSynFunc):
 
     def _get_base_constr_model(self):
         # define model core
-        space = self.get_space()
+        space = self.space
         model_core = get_opt_core(space)
 
         # add helper vars
