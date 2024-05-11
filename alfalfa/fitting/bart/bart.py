@@ -1,3 +1,5 @@
+from multiprocessing import Pool
+
 import gpytorch as gpy
 import numpy as np
 import scipy.stats as stats
@@ -63,6 +65,36 @@ class BART:
                     self.logger.log(mll=likelihood, squeeze=True)
 
         return self.logger
+
+    def run_multichain(self, n_chains: int):
+        model_copies = [
+            AlfalfaGP(
+                self.model.train_inputs,
+                self.model.train_targets,
+                gpy.likelihoods.GaussianLikelihood(
+                    noise_constraint=gpy.constraints.Positive()
+                ),
+                None,
+            )
+            for _ in range(n_chains)
+        ]
+        for model in model_copies:
+            model.load_state_dict(self.model.state_dict())
+            model.tree_model.initialise(self.data.space)
+
+        bart_copies = [
+            BART(
+                model,
+                self.data,
+                self.params,
+                self.noise_prior,
+                self.scale_prior,
+            )
+            for model in model_copies
+        ]
+
+        with Pool(n_chains) as pool:
+            return pool.map(lambda i: bart_copies[i].run(), range(n_chains))
 
     def step(self):
         if isinstance(self.model.tree_model, AlfalfaTree):
