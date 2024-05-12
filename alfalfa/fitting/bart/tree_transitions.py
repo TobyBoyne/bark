@@ -19,17 +19,17 @@ tree_timer = Timer()
 
 
 def propose_transition(
-    data: Data, tree: AlfalfaTree, params: BARTTrainParams
+    data: Data, tree: AlfalfaTree, params: BARTTrainParams, rng: np.random.Generator
 ) -> "Transition":
-    step_idx = np.random.choice(len(params.step_weights), p=params.step_weights)
+    step_idx = rng.choice(len(params.step_weights), p=params.step_weights)
 
     if step_idx == TransitionEnum.GROW.value:
         leaf_nodes = terminal_nodes(tree)
         if not leaf_nodes:
             return
-        cur_node = np.random.choice(leaf_nodes)
+        cur_node = rng.choice(leaf_nodes)
 
-        new_node_data = data.sample_splitting_rule(tree, cur_node)
+        new_node_data = data.sample_splitting_rule(tree, cur_node, rng)
         if new_node_data is None:
             return
 
@@ -40,7 +40,7 @@ def propose_transition(
         internal_nodes = singly_internal_nodes(tree)
         if not internal_nodes:
             return
-        cur_node = np.random.choice(internal_nodes)
+        cur_node = rng.choice(internal_nodes)
 
         return PruneTransition(tree, cur_node)
 
@@ -48,8 +48,8 @@ def propose_transition(
         internal_nodes = singly_internal_nodes(tree)
         if not internal_nodes:
             return
-        cur_node = np.random.choice(internal_nodes)
-        new_node_data = data.sample_splitting_rule(tree, cur_node)
+        cur_node = rng.choice(internal_nodes)
+        new_node_data = data.sample_splitting_rule(tree, cur_node, rng)
         if new_node_data is None:
             return
 

@@ -21,7 +21,7 @@ def log_q_ratio_lognorm(cur_val, new_val):
 
 
 def propose_positive_transition(
-    cur_value: float, step_size: float = STEP_SIZE
+    cur_value: float, rng: np.random.Generator, step_size: float = STEP_SIZE
 ) -> float:
     """Propose a new value for a hyperparameter that is positive.
 
@@ -35,7 +35,7 @@ def propose_positive_transition(
         float: proposed value
     """
     cur_log_value = np.log(cur_value + 1e-30)
-    new_log_value = cur_log_value + np.random.randn() * step_size
+    new_log_value = cur_log_value + rng.normal() * step_size
     new_value = np.exp(new_log_value)
     return new_value
 

@@ -197,6 +197,10 @@ class G7(SynFunc):
         )
         return f
 
+    @property
+    def optimum(self):
+        return 24.3062091
+
 
 class G10(SynFunc):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/cons.py
