@@ -76,7 +76,7 @@ class BART:
 
         return self.logger
 
-    def run_multichain(self, n_chains: int):
+    def run_multichain(self, n_chains: int, initial_states: None | list[dict] = None):
         model_copies = [
             AlfalfaGP(
                 self.model.train_inputs,
@@ -88,8 +88,11 @@ class BART:
             )
             for _ in range(n_chains)
         ]
-        for model in model_copies:
-            model.load_state_dict(self.model.state_dict())
+        if initial_states is None:
+            initial_states = [self.model.state_dict() for _ in range(n_chains)]
+
+        for model, state in zip(model_copies, initial_states):
+            model.load_state_dict(state)
             model.tree_model.initialise(self.data.space)
 
         # TODO: in numpy 1.25, you can spawn a new RNG with rng.spawn()

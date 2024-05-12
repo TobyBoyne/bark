@@ -66,6 +66,12 @@ if __name__ == "__main__":
         test_loss = nlpd(output, problem.test_y_torch, diag=False)
         print(f"Sampled test loss={test_loss}")
 
+    # continue chain
+    num_samples = len(logger["samples"])
+    step = num_samples // 4
+    states = logger["samples"][step - 1 :: step]
+    logger = bart.run_multichain(n_chains=4, initial_states=states)
+
     # test_x = torch.meshgrid(
     #     torch.linspace(0, 1, 25), torch.linspace(0, 1, 25), indexing="ij"
     # )
