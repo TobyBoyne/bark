@@ -56,15 +56,17 @@ class BART:
         )
         self.rng = np.random.default_rng(self._seed_seq)
 
-    def run(self, verbose=False):
+    def run(self):
         # create mll for logging only
         mll = gpy.mlls.ExactMarginalLogLikelihood(self.model.likelihood, self.model)
 
         with torch.no_grad():
-            for _ in tqdm(range(self.params.warmup_steps), disable=not verbose):
+            for _ in tqdm(
+                range(self.params.warmup_steps), disable=not self.params.verbose
+            ):
                 self.step()
 
-            for i in tqdm(range(self.params.n_steps), disable=not verbose):
+            for i in tqdm(range(self.params.n_steps), disable=not self.params.verbose):
                 self.step()
                 if i % self.params.lag == 0:
                     self.logger.checkpoint(self.model)

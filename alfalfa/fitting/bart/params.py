@@ -25,6 +25,8 @@ class BARTTrainParams:
     grow_prune_weight: float = 0.5
     change_weight: float = 1.0
 
+    verbose: bool = True
+
     @property
     def step_weights(self):
         p = np.array(
