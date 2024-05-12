@@ -22,18 +22,18 @@ class Data:
         return _prior
 
     def sample_splitting_rule(
-        self, tree: AlfalfaTree, node: AlfalfaNode
+        self, tree: AlfalfaTree, node: AlfalfaNode, rng: np.random.Generator
     ) -> Optional[tuple[IntType, Any]]:
         x_index = self.get_x_index(tree, node)
         valid_features = self.valid_split_features(x_index)
         if not valid_features.size:
             # no valid splits to be made
             return
-        var_idx = np.random.choice(valid_features)
+        var_idx = rng.choice(valid_features)
 
         valid_values = self.unique_split_values(x_index, var_idx)
         # TODO: should endpoints be excluded for continuous variables?
-        threshold = np.random.choice(valid_values)
+        threshold = rng.choice(valid_values)
         return var_idx, threshold
 
     def get_x_index(
