@@ -19,7 +19,7 @@ class BARTTrainParams:
 
     # node depth prior
     alpha: float = 0.95
-    beta: float = 2
+    beta: float = 2.0
 
     # transition type probabilities
     grow_prune_weight: float = 0.5

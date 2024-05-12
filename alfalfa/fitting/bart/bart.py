@@ -48,15 +48,15 @@ class BART:
         self.noise_prior = default_noise_prior() if noise_prior is None else noise_prior
         self.scale_prior = default_scale_prior() if scale_prior is None else scale_prior
 
-    def run(self):
+    def run(self, verbose=False):
         # create mll for logging only
         mll = gpy.mlls.ExactMarginalLogLikelihood(self.model.likelihood, self.model)
 
         with torch.no_grad():
-            for _ in tqdm(range(self.params.warmup_steps)):
+            for _ in tqdm(range(self.params.warmup_steps), disable=not verbose):
                 self.step()
 
-            for i in tqdm(range(self.params.n_steps)):
+            for i in tqdm(range(self.params.n_steps), disable=not verbose):
                 self.step()
                 if i % self.params.lag == 0:
                     self.logger.checkpoint(self.model)
@@ -94,7 +94,13 @@ class BART:
         ]
 
         with Pool(n_chains) as pool:
-            return pool.map(lambda i: bart_copies[i].run(), range(n_chains))
+            loggers = pool.map(BART.run, bart_copies)
+
+        combined = MCMCLogger()
+        combined.logs["samples"] = [
+            sample for logger in loggers for sample in logger["samples"]
+        ]
+        return combined
 
     def step(self):
         if isinstance(self.model.tree_model, AlfalfaTree):
