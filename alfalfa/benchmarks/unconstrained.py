@@ -163,3 +163,61 @@ class Schwefel(SynFunc):
     @property
     def bounds(self):
         return [[-500.0, 500.0] for _ in range(self.dim)]
+
+
+class CombinationFunc2(SynFunc):
+    """Linear combination of 3 synthetic functions - Rosenbrock, 6-Hump Camel,
+    and Beale
+
+    Adapted from: https://arxiv.org/pdf/1906.08878
+    Bayesian Optimisation over Multiple Continuous and Categorical Inputs
+    """
+
+    cat_idx = [0, 1]
+
+    @property
+    def bounds(self):
+        return [
+            [0, 1, 2],  # ["ros", "cam", "bea"],
+            [0, 1, 2],  # ["ros", "cam", "bea"],
+            [-1.0, 1.0],
+            [-1.0, 1.0],
+        ]
+
+    def _rosenbrock(self, x: np.ndarray):
+        return np.sum(
+            100 * (x[:, 1:] - x[:, :-1] ** 2) ** 2 + (1 - x[:, :-1]) ** 2, axis=1
+        )
+
+    def _camel(self, x: np.ndarray):
+        return (
+            4 * x[:, 0] ** 2
+            - 2.1 * x[:, 0] ** 4
+            + x[:, 0] ** 6 / 3
+            + x[:, 0] * x[:, 1]
+            - 4 * x[:, 1] ** 2
+            + 4 * x[:, 1] ** 4
+        )
+
+    def _beale(self, x: np.ndarray):
+        return (
+            (1.5 - x[:, 0] + x[:, 0] * x[:, 1]) ** 2
+            + (2.25 - x[:, 0] + x[:, 0] * x[:, 1] ** 2) ** 2
+            + (2.625 - x[:, 0] + x[:, 0] * x[:, 1] ** 3) ** 2
+        )
+
+    def __call__(self, x, **kwargs):
+        # funcs = {
+        #     "ros": self._rosenbrock,
+        #     "cam": self._camel,
+        #     "bea": self._beale,
+        # }
+        funcs = [
+            self._rosenbrock,
+            self._camel,
+            self._beale,
+        ]
+        cont_x = np.atleast_2d(x)[:, 2:].astype(float)
+        f1 = funcs[int(x[0])]
+        f2 = funcs[int(x[1])]
+        return (f1(cont_x) + f2(cont_x)).item()

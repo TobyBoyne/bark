@@ -2,6 +2,7 @@ import numpy as np
 from beartype.cave import IntType
 from beartype.typing import Generic, Optional, Sequence, TypeVar
 from jaxtyping import Int, Shaped
+from torch.quasirandom import SobolEngine
 
 BoundType = int | float | str
 B = TypeVar("B", int, float, str)
@@ -137,6 +138,28 @@ class Space:
         test_x = np.stack(flats, axis=-1)
 
         return test_x
+
+    def sobol(self, n: int, seed: Optional[int] = None) -> Shaped[np.ndarray, "{n} D"]:
+        """Generate Sobol points in the space.
+
+        Args:
+            n: Number of points to generate
+            seed: Random seed for Sobol and for sampling the space
+        """
+
+        engine = SobolEngine(dimension=len(self.cont_idx), seed=seed, scramble=True)
+        cont_bounds = [self.bounds[i] for i in self.cont_idx]
+
+        sobol_points_unit = engine.draw(n).numpy()
+        lb, ub = map(np.asarray, zip(*cont_bounds))
+        sobol_points = lb + sobol_points_unit * (ub - lb)
+
+        out = np.zeros((n, len(self.dims)))
+        out[:, self.cont_idx] = sobol_points
+        uniform = self.sample(n, np.random.default_rng(seed))
+        out[:, self.cat_idx + self.int_idx] = uniform[:, self.cat_idx + self.int_idx]
+
+        return out
 
     def __getitem__(self, keys: str | list[str]):
         return self.key_to_idx(keys)

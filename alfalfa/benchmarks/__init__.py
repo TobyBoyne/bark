@@ -7,6 +7,7 @@ from .mixed import CatAckley, PressureVessel, VAESmall
 from .multi_fidelity import CurrinExp2D
 from .unconstrained import (
     Branin,
+    CombinationFunc2,
     Friedman,
     Hartmann6D,
     Himmelblau1D,
@@ -24,6 +25,7 @@ BENCHMARK_MAP = {
     "rastrigin": Rastrigin,
     "styblinski_tang": StyblinskiTang,
     "schwefel": Schwefel,
+    "combination_func2": CombinationFunc2,
     # constrained spaces
     "g1": G1,
     "g3": G3,
