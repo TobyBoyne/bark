@@ -2,7 +2,13 @@ from beartype.typing import Union
 
 from .base import CatSynFunc, DatasetFunc, SynFunc, standardise
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
-from .dataset import Abalone, AutoMPG, ConcreteCompressive, StudentPerformance
+from .dataset import (
+    Abalone,
+    AutoMPG,
+    ConcreteCompressive,
+    JsonDatasetFunc,
+    StudentPerformance,
+)
 from .mixed import CatAckley, PressureVessel, VAESmall
 from .multi_fidelity import CurrinExp2D
 from .unconstrained import (
@@ -45,6 +51,7 @@ BENCHMARK_MAP = {
     "student_performance": StudentPerformance,
     "abalone": Abalone,
     "concrete": ConcreteCompressive,
+    "json": JsonDatasetFunc,
 }
 
 

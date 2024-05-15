@@ -1,8 +1,11 @@
 """Real datasets
 
 Many obtained from https://archive.ics.uci.edu/"""
+import json
+import os
 
 import numpy as np
+import pandas as pd
 from jaxtyping import Float, Shaped
 from ucimlrepo import fetch_ucirepo
 
@@ -13,6 +16,62 @@ from ..utils.space import (
     Space,
 )
 from .base import DatasetFunc
+
+
+class JsonDatasetFunc(DatasetFunc):
+    """Json dataset, used for BO.
+
+    Data should take the form
+        ```json
+        {
+            "target": str
+            "features": [
+                {"key": str, "type": str, "bnds": [...]}
+            ]
+            "data": [
+                {
+                    key: value,
+                    ...
+                }
+            ]
+        }
+        ```"""
+
+    def __init__(self, seed: int, path: os.PathLike):
+        with open(path, "r") as f:
+            self._data_meta = json.load(f)
+
+        super().__init__(seed)
+
+    @property
+    def space(self):
+        dims = []
+        for feature in self._data_meta["features"]:
+            key = feature["key"]
+            bnds = feature["bnds"]
+            if feature["type"] == "cat":
+                dims.append(CategoricalDimension(key=key, bnds=bnds))
+            elif feature["type"] == "int":
+                dims.append(IntegerDimension(key=key, bnds=bnds))
+            elif feature["type"] == "conti":
+                dims.append(ContinuousDimension(key=key, bnds=bnds))
+        return Space(dims)
+
+    def _load_data(self) -> tuple[np.ndarray, np.ndarray]:
+        data = self._data_meta["data"]
+        df = pd.DataFrame.from_dict(data)
+        X = df.drop(columns=[self._data_meta["target"]]).to_numpy()
+        y = df[self._data_meta["target"]].to_numpy().reshape(-1)
+        return X, y
+
+    def __call__(self, x):
+        X = self.space.transform(self.data[0])
+        idx = np.argwhere(np.all(X == x, axis=1)).item()
+        return self.data[1][idx]
+
+    @property
+    def optimum(self):
+        return self.data[1].min()
 
 
 class UCIDatasetFunc(DatasetFunc, skip_validation=True):

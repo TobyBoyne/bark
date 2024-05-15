@@ -221,3 +221,7 @@ class CombinationFunc2(SynFunc):
         f1 = funcs[int(x[0])]
         f2 = funcs[int(x[1])]
         return (f1(cont_x) + f2(cont_x)).item()
+
+    @property
+    def optimum(self):
+        return -1.0316 * 2

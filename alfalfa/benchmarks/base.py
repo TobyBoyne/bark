@@ -270,6 +270,38 @@ class SynFunc(BaseFunc, skip_validation=True):
 
             return proj_x_vals
 
+    def project_feasible(self, x_vals: list):
+        """Project a point onto a feasible region"""
+        if not self.has_constr():
+            return x_vals
+
+        proj_x_vals = []
+
+        for x in x_vals:
+            # project init point into feasible region
+            model_core = self.get_model_core()
+            expr = [
+                (xi - model_core._cont_var_dict[idx]) ** 2 for idx, xi in enumerate(x)
+            ]
+
+            model_core.setObjective(expr=sum(expr))
+
+            model_core.Params.LogToConsole = 0
+            model_core.Params.TimeLimit = 5
+
+            # add nonconvex parameters if constr make problem nonconvex
+            if self.is_nonconvex:
+                model_core.Params.NonConvex = 2
+
+            model_core.optimize()
+
+            x_sol = [
+                model_core._cont_var_dict[idx].x for idx in range(len(self.bounds))
+            ]
+            proj_x_vals.append(x_sol)
+
+        return proj_x_vals
+
     def vector_apply(self, x, **kwargs):
         if self.is_vectorised:
             return self(x)
@@ -542,17 +574,23 @@ class DatasetFunc(BaseFunc, skip_validation=True):
         return self.data[0].shape[0]
 
     def get_data(
-        self, train: bool
+        self, train: bool | None = None, standardise_obs: bool = True
     ) -> tuple[Shaped[np.ndarray, "N D"], Float[np.ndarray, "N"]]:
-        train_cutoff = int(self.num_data * self.train_percentage)
         X, y = self.data
+        if train is None:
+            p = self.permutation
+            yp = standardise(y[p]) if standardise_obs else y[p]
+            return self.space.transform(X[p, :]), yp
+
+        train_cutoff = int(self.num_data * self.train_percentage)
         train_p = self.permutation[:train_cutoff]
         test_p = self.permutation[train_cutoff:]
 
         y_train = y[train_p]
         p = train_p if train else test_p
 
+        yp = standardise(y[p], y_train=y_train) if standardise_obs else y[p]
         return (
             self.space.transform(X[p, :]),
-            standardise(y[p], y_train=y_train),
+            yp,
         )
