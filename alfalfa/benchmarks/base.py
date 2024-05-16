@@ -56,6 +56,7 @@ class BaseFunc(ABC):
 
     def __init__(self, seed):
         self.rng = np.random.default_rng(seed)
+        self.seed = seed
 
     def __init_subclass__(cls, /, skip_validation=False):
         """Ensure that at least one of bounds or space is defined.
@@ -222,7 +223,7 @@ class SynFunc(BaseFunc, skip_validation=True):
     def get_init_data(self, num_init, rnd_seed, eval_constr=True, **kwargs):
         x_init = self.get_random_x(num_init, rnd_seed, eval_constr=eval_constr)
 
-        xs = np.asarray(x_init)
+        xs = self.space.transform(np.asarray(x_init))
         ys = self.vector_apply(xs, **kwargs)
 
         return (xs, ys)

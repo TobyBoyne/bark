@@ -11,6 +11,7 @@ from .dataset import (
 )
 from .mixed import CatAckley, PressureVessel, VAESmall
 from .multi_fidelity import CurrinExp2D
+from .pest import PestControl
 from .unconstrained import (
     Branin,
     CombinationFunc2,
@@ -41,6 +42,7 @@ BENCHMARK_MAP = {
     "g10": G10,
     "alkylation": Alkylation,
     # mixed spaces
+    "pest": PestControl,
     "pressure_vessel": PressureVessel,
     "vae_nas": VAESmall,
     "cat_ackley": CatAckley,
