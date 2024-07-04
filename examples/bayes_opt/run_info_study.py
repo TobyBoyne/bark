@@ -31,15 +31,16 @@ torch.manual_seed((args.rnd_seed))
 torch.set_default_dtype(torch.float64)
 
 # load black-box function to evaluate
-bb_func = CurrinExp2D()
+bb_func = CurrinExp2D(seed=42)
 
 # activate label encoding if categorical features are given
 if bb_func.cat_idx:
     bb_func.eval_label()
 
 # generate initial data points
-init_data = bb_func.get_init_data([2, 2], args.rnd_seed)
+init_data = bb_func.get_init_data([10, 10], args.rnd_seed)
 X_train, i_train, y_train = init_data
+space = bb_func.space
 
 print("* * * initial data targets:")
 print("\n".join(f"  val: {yi:.4f}" for yi in y_train))
@@ -49,7 +50,7 @@ model_core = bb_func.get_model_core()
 
 # modify tree model hyperparameters
 if not args.has_larger_model:
-    tree_params = {"boosting_rounds": 50, "max_depth": 3, "min_data_in_leaf": 1}
+    tree_params = {"boosting_rounds": 20, "max_depth": 3, "min_data_in_leaf": 1}
 else:
     tree_params = {"boosting_rounds": 100, "max_depth": 5, "min_data_in_leaf": 1}
 
@@ -59,7 +60,7 @@ print("\n* * * start bo loop...")
 for itr in range(args.num_itr):
     booster = fit_lgbm_forest(X_train, y_train)
     forest = lgbm_to_alfalfa_forest(booster)
-    forest.initialise(bb_func.get_space())
+    forest.initialise(space)
     likelihood = MultitaskGaussianLikelihood(num_tasks=2)
 
     tree_gp = AlfalfaMOGP(
@@ -69,14 +70,12 @@ for itr in range(args.num_itr):
         forest,
         num_tasks=2,
     )
-    fit_gp_adam(tree_gp)
+    fit_gp_adam(tree_gp, verbose=True)
 
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)
-    opt_model = build_opt_model(
-        bb_func.get_space(), gbm_model, tree_gp, 1.96, model_core=model_core
-    )
-    next_x = propose(bb_func.get_space(), opt_model, gbm_model, model_core)
+    opt_model = build_opt_model(space, gbm_model, tree_gp, 1.96, model_core=model_core)
+    next_x = propose(space, opt_model, gbm_model, model_core)
     next_x_torch = torch.tensor(next_x).reshape(1, -1)
     next_i = propose_fidelity_information_based(
         tree_gp, next_x_torch, costs=bb_func.costs

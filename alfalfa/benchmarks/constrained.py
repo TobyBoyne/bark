@@ -227,6 +227,10 @@ class G10(SynFunc):
         f = x[0] + x[1] + x[2]
         return f
 
+    @property
+    def optimum(self):
+        return 7049.3308
+
 
 class Alkylation(SynFunc):
     # original source: R. N. Sauer, A. R. Colville and C. W. Bunvick,
