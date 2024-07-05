@@ -3,9 +3,11 @@ import abc
 import numpy as np
 from beartype.cave import IntType
 from beartype.typing import Callable, Optional, Sequence
+from bofire.data_models.domain.api import Domain
+from bofire.data_models.features.api import AnyInput, CategoricalInput
 from jaxtyping import Float, Int, Shaped
 
-from .utils.space import Space
+from alfalfa.utils.domain import get_feature_by_index, get_index_by_feature_key
 
 InitFuncType = Optional[Callable[["DecisionNode"], None]]
 
@@ -42,8 +44,8 @@ class AlfalfaNode:
         return []
 
     @property
-    def space(self):
-        return self.tree.space
+    def domain(self):
+        return self.tree.domain
 
     def initialise(self, depth, *args):
         self.depth = depth
@@ -103,13 +105,14 @@ class LeafNode(AlfalfaNode):
 class DecisionNode(AlfalfaNode):
     def __init__(
         self,
-        var_idx=None,
+        var_idx: Optional[int] = None,
         threshold: Optional[float | Shaped[np.ndarray, "T"]] = None,
         left: Optional["AlfalfaNode"] = None,
         right: Optional["AlfalfaNode"] = None,
     ):
         super().__init__()
-        self.var_idx = None if var_idx is None else var_idx
+        self.var_key: str | None = None
+        # self.var_idx: int | None = None if var_idx is None else var_idx
         self.threshold = None if threshold is None else threshold
 
         self._left: AlfalfaNode = None
@@ -117,6 +120,18 @@ class DecisionNode(AlfalfaNode):
 
         self.left = LeafNode() if left is None else left
         self.right = LeafNode() if right is None else right
+
+    @property
+    def var_idx(self):
+        return get_index_by_feature_key(self.domain.inputs, self.var_key)
+
+    @var_idx.setter
+    def var_idx(self, index):
+        self.var_key = get_feature_by_index(self.domain.inputs, index).key
+
+    @property
+    def var_feat(self) -> AnyInput:
+        return self.domain.inputs.get_by_key(self.var_key)
 
     # Structural methods
     @property
@@ -166,7 +181,7 @@ class DecisionNode(AlfalfaNode):
 
         var = x[:, self.var_idx]
 
-        if self.var_idx in self.space.cat_idx:
+        if isinstance(self.var_feat, CategoricalInput):
             # categorical - check if value is in subset
             # TODO: implement subset
             return np.where(np.equal(var, self.threshold), self.left(x), self.right(x))
@@ -239,10 +254,10 @@ class AlfalfaTree:
             self.root._set_child_data(self.root.left)
             self.root._set_child_data(self.root.right)
 
-        self.space: Optional[Space] = None
+        self.domain: Optional[Domain] = None
 
-    def initialise(self, space: Space, init_func: InitFuncType = None):
-        self.space = space
+    def initialise(self, domain: Domain, init_func: InitFuncType = None):
+        self.domain = domain
         self.root.initialise(0, init_func)
 
     def _get_nodes_by_depth(self) -> dict[int, list[AlfalfaNode]]:
@@ -307,10 +322,10 @@ class AlfalfaForest:
         else:
             self.trees = [AlfalfaTree(height) for _ in range(num_trees)]
 
-    def initialise(self, space: Space, init_func: InitFuncType = None):
-        self.space = space
+    def initialise(self, domain: Domain, init_func: InitFuncType = None):
+        self.domain = domain
         for tree in self.trees:
-            tree.initialise(space, init_func)
+            tree.initialise(domain, init_func)
 
     def gram_matrix(
         self, x1: Shaped[np.ndarray, "N D"], x2: Shaped[np.ndarray, "M D"]
