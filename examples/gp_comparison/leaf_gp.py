@@ -1,33 +1,44 @@
 import gpytorch as gpy
-import lightgbm as lgb
 import matplotlib.pyplot as plt
-import problem
 import scienceplots  # noqa: F401
+import torch
+from bofire.benchmarks.api import Himmelblau
+from bofire.data_models.features.api import CategoricalInput
 
-from alfalfa.fitting import fit_gp_adam, lgbm_to_alfalfa_forest
+from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
 from alfalfa.tree_kernels import AlfalfaGP
 from alfalfa.utils.metrics import nlpd
 
 plt.style.use(["science", "no-latex", "grid"])
 
 
-space = problem.bb_func.space
-tree_model = lgb.train(
-    {"max_depth": 3, "min_data_in_leaf": 1},
-    lgb.Dataset(problem.train_x_np, problem.train_y_np),
-    num_boost_round=50,
-)
+benchmark = Himmelblau()
+train_x = benchmark.domain.inputs.sample(10)
+train_y = benchmark.f(train_x).drop("valid_y", axis="columns")
+cat = benchmark.domain.inputs.get_keys(includes=CategoricalInput)
+
+params = {}
+tree_model = fit_lgbm_forest(train_x, train_y, benchmark.domain, params)
 
 forest = lgbm_to_alfalfa_forest(tree_model)
-forest.initialise(space)
+forest.initialise(benchmark.domain)
 likelihood = gpy.likelihoods.GaussianLikelihood()
 
-gp = AlfalfaGP(problem.train_x_torch, problem.train_y_torch, likelihood, forest)
+gp = AlfalfaGP(
+    torch.from_numpy(train_x.to_numpy()),
+    torch.from_numpy(train_y.to_numpy()).reshape(-1),
+    likelihood,
+    forest,
+)
 fit_gp_adam(gp)
 gp.eval()
 
-output = gp.likelihood(gp(problem.test_x_torch))
-test_loss = nlpd(output, problem.test_y_torch, diag=False)
+test_x = benchmark.domain.inputs.sample(100)
+test_y = benchmark.f(test_x).drop("valid_y", axis="columns")
+
+
+output = gp.likelihood(gp(torch.from_numpy(test_x.to_numpy())))
+test_loss = nlpd(output, torch.from_numpy(test_y.to_numpy()).reshape(-1), diag=False)
 print(f"GP test loss={test_loss}")
 
 # torch.save(gp.state_dict(), "models/branin_leaf_gp.pt")

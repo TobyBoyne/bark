@@ -105,15 +105,14 @@ class LeafNode(AlfalfaNode):
 class DecisionNode(AlfalfaNode):
     def __init__(
         self,
-        var_idx: Optional[int] = None,
+        var_key: Optional[str] = None,
         threshold: Optional[float | Shaped[np.ndarray, "T"]] = None,
         left: Optional["AlfalfaNode"] = None,
         right: Optional["AlfalfaNode"] = None,
     ):
         super().__init__()
-        self.var_key: str | None = None
-        # self.var_idx: int | None = None if var_idx is None else var_idx
-        self.threshold = None if threshold is None else threshold
+        self.var_key = var_key
+        self.threshold = threshold
 
         self._left: AlfalfaNode = None
         self._right: AlfalfaNode = None
@@ -314,13 +313,20 @@ class AlfalfaTree:
 
 class AlfalfaForest:
     def __init__(
-        self, height=None, num_trees=None, trees: Optional[list[AlfalfaTree]] = None
+        self,
+        height=None,
+        num_trees=None,
+        trees: Optional[list[AlfalfaTree]] = None,
+        frozen: bool = False,
     ):
         self.trees: Sequence[AlfalfaTree]
         if trees:
             self.trees = trees
         else:
             self.trees = [AlfalfaTree(height) for _ in range(num_trees)]
+
+        self._cache: dict[tuple[bytes, bytes], np.ndarray] = {}
+        self.frozen = frozen
 
     def initialise(self, domain: Domain, init_func: InitFuncType = None):
         self.domain = domain
@@ -330,11 +336,16 @@ class AlfalfaForest:
     def gram_matrix(
         self, x1: Shaped[np.ndarray, "N D"], x2: Shaped[np.ndarray, "M D"]
     ) -> Float[np.ndarray, "N M"]:
+        input_key = (x1.tobytes(), x2.tobytes())
+        if self.frozen and input_key in self._cache:
+            return self._cache[input_key]
         x1_leaves = np.stack([tree(x1) for tree in self.trees], axis=-1)
         x2_leaves = np.stack([tree(x2) for tree in self.trees], axis=-1)
 
         sim_mat = np.equal(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
         sim_mat = 1 / len(self.trees) * np.sum(sim_mat, axis=-1)
+        if self.frozen:
+            self._cache[input_key] = sim_mat
         return sim_mat
 
     def structure_eq(self, other: "AlfalfaForest"):

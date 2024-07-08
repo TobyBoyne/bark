@@ -1,13 +1,18 @@
 """Convert an LGBM tree to an instance of Alternating Tree for comparison"""
 import lightgbm as lgb
-import numpy as np
+import pandas as pd
 from beartype.typing import Optional
+from bofire.data_models.domain.api import Domain
+from bofire.data_models.features.api import CategoricalInput
 
 from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode, LeafNode
 
 
 def fit_lgbm_forest(
-    train_x: np.ndarray, train_y: np.ndarray, params: Optional[dict] = None
+    train_x: pd.DataFrame,
+    train_y: pd.DataFrame,
+    domain: Domain,
+    params: Optional[dict] = None,
 ) -> lgb.Booster:
     default_params = {
         "max_depth": 3,
@@ -16,14 +21,16 @@ def fit_lgbm_forest(
         "num_boost_round": 50,
     }
     if params is not None:
-        params = {**default_params, **params}
-    else:
-        params = default_params
+        params = {}
+
+    params = {**default_params, **params}
+
+    cat = domain.inputs.get_keys(includes=CategoricalInput)
+    dataset = lgb.Dataset(train_x, train_y, categorical_feature=cat)
 
     return lgb.train(
         params,
-        lgb.Dataset(train_x, train_y),
-        num_boost_round=params["num_boost_round"],
+        dataset,
     )
 
 
@@ -35,9 +42,10 @@ def lgbm_to_alfalfa_forest(tree_model: lgb.Booster) -> AlfalfaForest:
             return LeafNode()
         else:
             var_idx = node_dict["split_feature"]
+            var_key = tree_model.feature_name()[var_idx]
             threshold = node_dict["threshold"]
             return DecisionNode(
-                var_idx=var_idx,
+                var_key=var_key,
                 threshold=threshold,
                 left=get_subtree(node_dict["left_child"]),
                 right=get_subtree(node_dict["right_child"]),
@@ -47,5 +55,5 @@ def lgbm_to_alfalfa_forest(tree_model: lgb.Booster) -> AlfalfaForest:
         AlfalfaTree(root=get_subtree(tree_dict["tree_structure"]))
         for tree_dict in all_trees
     ]
-    forest = AlfalfaForest(trees=trees)
+    forest = AlfalfaForest(trees=trees, frozen=True)
     return forest
