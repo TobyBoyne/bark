@@ -4,34 +4,38 @@ import gurobipy as gp
 import numpy as np
 import torch
 from beartype.typing import Optional
+from bofire.data_models.domain.api import Domain
+from bofire.data_models.features.api import CategoricalInput
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 
 from ..tree_kernels import AlfalfaGP, AlfalfaMOGP
-from ..utils.space import Space
 from .gbm_model import GbmModel
-from .optimizer_utils import add_gbm_to_opt_model, get_opt_core
+from .optimizer_utils import add_gbm_to_opt_model, get_opt_core, get_opt_core_copy
 
 
 def build_opt_model(
-    space: Space,
+    domain: Domain,
     gbm_model: GbmModel,
     tree_gp: AlfalfaGP,
     kappa: float,
-    model_core: Optional[gp.Model],
+    model_core: Optional[gp.Model] = None,
 ):
     # build opt_model core
 
     # check if there's already a model core with extra constraints
     if model_core is None:
-        opt_model = get_opt_core(space)
+        opt_model = get_opt_core(domain)
     else:
         # copy model core in case there are constr given already
         opt_model = get_opt_core_copy(model_core)
 
     # build tree model
     gbm_model_dict = {"1st_obj": gbm_model}
-    add_gbm_to_opt_model(space, gbm_model_dict, opt_model)
+    cat_idx = {
+        i for i, feat in domain.inputs.get() if isinstance(feat, CategoricalInput)
+    }
+    add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
 
     if isinstance(tree_gp, AlfalfaMOGP):
         # multi-fidelity case - evaluate for highest fidelity
@@ -130,29 +134,30 @@ def build_opt_model(
     return opt_model
 
 
-def get_opt_core_copy(opt_core: gp.Model):
-    """creates the copy of an optimization model"""
-    new_opt_core = opt_core.copy()
-    new_opt_core._n_feat = opt_core._n_feat
+# def get_opt_core_copy(opt_core: gp.Model):
+#     """creates the copy of an optimization model"""
+#     raise DeprecationWarning("This is a duplicated function!")
+#     new_opt_core = opt_core.copy()
+#     new_opt_core._n_feat = opt_core._n_feat
 
-    # transfer var dicts
-    new_opt_core._cont_var_dict = {}
-    new_opt_core._cat_var_dict = {}
+#     # transfer var dicts
+#     new_opt_core._cont_var_dict = {}
+#     new_opt_core._cat_var_dict = {}
 
-    ## transfer cont_var_dict
-    for var in opt_core._cont_var_dict.keys():
-        var_name = opt_core._cont_var_dict[var].VarName
+#     ## transfer cont_var_dict
+#     for var in opt_core._cont_var_dict.keys():
+#         var_name = opt_core._cont_var_dict[var].VarName
 
-        new_opt_core._cont_var_dict[var] = new_opt_core.getVarByName(var_name)
+#         new_opt_core._cont_var_dict[var] = new_opt_core.getVarByName(var_name)
 
-    ## transfer cat_var_dict
-    for var in opt_core._cat_var_dict.keys():
-        for cat in opt_core._cat_var_dict[var].keys():
-            var_name = opt_core._cat_var_dict[var][cat].VarName
+#     ## transfer cat_var_dict
+#     for var in opt_core._cat_var_dict.keys():
+#         for cat in opt_core._cat_var_dict[var].keys():
+#             var_name = opt_core._cat_var_dict[var][cat].VarName
 
-            if var not in new_opt_core._cat_var_dict.keys():
-                new_opt_core._cat_var_dict[var] = {}
+#             if var not in new_opt_core._cat_var_dict.keys():
+#                 new_opt_core._cat_var_dict[var] = {}
 
-            new_opt_core._cat_var_dict[var][cat] = new_opt_core.getVarByName(var_name)
+#             new_opt_core._cat_var_dict[var][cat] = new_opt_core.getVarByName(var_name)
 
-    return new_opt_core
+#     return new_opt_core

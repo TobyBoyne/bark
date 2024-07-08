@@ -1,19 +1,23 @@
 import gurobipy as gp
 from beartype.typing import Optional
+from bofire.data_models.domain.api import Domain
+from bofire.data_models.features.api import (
+    CategoricalInput,
+    ContinuousInput,
+    DiscreteInput,
+    NumericalInput,
+)
 from gurobipy import GRB, quicksum
 
-from ..utils.space import Space
 
-
-def get_opt_sol(space: Space, opt_model: gp.Model):
+def get_opt_sol(domain: Domain, opt_model: gp.Model):
     # get optimal solution from gurobi model
     next_x = []
-    for idx in range(len(space.dims)):
+    for idx, feat in enumerate(domain.inputs.get()):
         x_val = None
-        if idx in space.cat_idx:
+        if isinstance(feat, CategoricalInput):
             # check which category is active
-            cat_set = set(space.dims[idx].bnds)
-            for cat in cat_set:
+            for cat in feat.categories:
                 if opt_model._cat_var_dict[idx][cat].x > 0.5:
                     x_val = cat
         else:
@@ -32,46 +36,40 @@ def get_opt_sol(space: Space, opt_model: gp.Model):
 
 
 def get_opt_core(
-    space: Space, env: Optional[gp.Env] = None
+    domain: Domain, env: Optional[gp.Env] = None
 ) -> gp.Model:  # , opt_core: Optional[gp.Model] = None):
     """creates the base optimization model"""
     model = gp.Model(env=env)
     model._cont_var_dict = {}
     model._cat_var_dict = {}
 
-    for idx, d in enumerate(space.dims):
-        var_name = "_".join(["x", str(idx)])
+    for idx, feat in enumerate(domain.inputs.get()):
+        var_name = feat.key
 
-        if idx in space.cont_idx or idx in space.int_idx:
-            lb = d.bnds[0]
-            ub = d.bnds[1]
-
-            if d.var_type == "int":
-                if d.is_bin:
-                    # define binary vars
-                    model._cont_var_dict[idx] = model.addVar(name=var_name, vtype="B")
-                else:
-                    # define integer vars
-                    model._cont_var_dict[idx] = model.addVar(
-                        lb=lb, ub=ub, name=var_name, vtype="I"
-                    )
-            else:
-                # define continuous vars
-                model._cont_var_dict[idx] = model.addVar(
-                    lb=lb, ub=ub, name=var_name, vtype="C"
-                )
-
-        elif idx in space.cat_idx:
-            # define categorical vars
+        if isinstance(feat, CategoricalInput):
             model._cat_var_dict[idx] = {}
 
-            for cat in d.bnds:
+            for cat in feat.categories:
                 model._cat_var_dict[idx][cat] = model.addVar(
                     name=f"{var_name}_{cat}", vtype=GRB.BINARY
                 )
 
             # constr vars need to add up to one
-            model.addConstr(sum([model._cat_var_dict[idx][cat] for cat in d.bnds]) == 1)
+            model.addConstr(
+                sum([model._cat_var_dict[idx][cat] for cat in feat.categories]) == 1
+            )
+
+        elif isinstance(feat, NumericalInput):
+            if isinstance(feat, ContinuousInput):
+                lb, ub = feat.bounds
+                vtype = "C"
+            elif isinstance(feat, DiscreteInput):
+                lb, ub = feat.lower_bound, feat.upper_bound
+                vtype = "B" if (lb, ub) == (0, 1) else "I"
+
+            model._cont_var_dict[idx] = model.addVar(
+                lb=lb, ub=ub, name=var_name, vtype=vtype
+            )
 
     model._n_feat = len(model._cont_var_dict) + len(model._cat_var_dict)
 
@@ -105,6 +103,29 @@ def get_opt_core_copy(opt_core: gp.Model):
             new_opt_core._cat_var_dict[var][cat] = new_opt_core.getVarByName(var_name)
 
     return new_opt_core
+
+
+def get_opt_core_from_domain(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
+    model_core = get_opt_core(domain, env=env)
+    return model_core
+    # TODO: Constraints!
+    if self.has_constr():
+        # add equality constraints to model core
+        for func in self.eq_constr_funcs:
+            model_core.addConstr(func(model_core._cont_var_dict) == 0.0)
+
+        # add inequality constraints to model core
+        for func in self.ineq_constr_funcs:
+            model_core.addConstr(func(model_core._cont_var_dict) <= 0.0)
+
+        # set solver parameter if function is nonconvex
+        model_core.Params.LogToConsole = 0
+        if self.is_nonconvex:
+            model_core.Params.NonConvex = 2
+
+        model_core.update()
+
+    return model_core
 
 
 ### GBT HANDLER
@@ -163,10 +184,10 @@ def alt_interval_index(model):
 alt_interval_index.dimen = 2
 
 
-def add_gbm_to_opt_model(space: Space, gbm_model_dict: dict, model: gp.Model):
-    add_gbm_parameters(space.cat_idx, gbm_model_dict, model)
+def add_gbm_to_opt_model(cat_idx: set[int], gbm_model_dict: dict, model: gp.Model):
+    add_gbm_parameters(cat_idx, gbm_model_dict, model)
     add_gbm_variables(model)
-    add_gbm_constraints(space.cat_idx, model)
+    add_gbm_constraints(cat_idx, model)
 
 
 def add_gbm_parameters(cat_idx, gbm_model_dict, model):

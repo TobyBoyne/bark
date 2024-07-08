@@ -1,7 +1,10 @@
 import gurobipy as gp
 import numpy as np
 from beartype.typing import Optional
+from bofire.data_models.domain.api import Domain
 from gurobipy import GRB
+
+from alfalfa.utils.domain import get_feature_bounds
 
 from ..utils.space import Space
 from .gbm_model import GbmModel
@@ -13,13 +16,13 @@ from .optimizer_utils import (
 
 
 def propose(
-    space: Space,
+    domain: Domain,
     opt_model: gp.Model,
     gbm_model: GbmModel,
     model_core: Optional[gp.Model] = None,
 ):
     next_x_area, next_val, curr_mean, curr_var = get_global_sol(
-        space, opt_model, gbm_model
+        domain, opt_model, gbm_model
     )
 
     # add epsilon if input constr. exist
@@ -40,7 +43,7 @@ def propose(
     return next_center
 
 
-def get_global_sol(space: Space, opt_model: gp.Model, gbm_model: GbmModel):
+def get_global_sol(domain: Domain, opt_model: gp.Model, gbm_model: GbmModel):
     # provides global solution to the optimization problem
 
     # build main model
@@ -55,7 +58,7 @@ def get_global_sol(space: Space, opt_model: gp.Model, gbm_model: GbmModel):
 
     # get active leaf area
     label = "1st_obj"
-    var_bnds = [d.bnds for d in space.dims]
+    var_bnds = [get_feature_bounds(feat) for feat in domain.inputs.get()]
 
     active_enc = [
         (tree_id, leaf_enc)
@@ -65,7 +68,7 @@ def get_global_sol(space: Space, opt_model: gp.Model, gbm_model: GbmModel):
     gbm_model.update_var_bounds(active_enc, var_bnds)
 
     # reading x_val
-    next_x = get_opt_sol(space, opt_model)
+    next_x = get_opt_sol(domain, opt_model)
 
     # extract variance and mean
     curr_var = opt_model._var.x
