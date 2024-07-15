@@ -1,12 +1,12 @@
 import gurobipy as gp
 import numpy as np
 from beartype.typing import Optional
-from bofire.data_models.domain.api import Domain
+from bofire.data_models.domain.api import Domain, Inputs
+from bofire.data_models.features.api import DiscreteInput
 from gurobipy import GRB
 
-from alfalfa.utils.domain import get_feature_bounds
+from alfalfa.utils.domain import get_cat_idx_from_domain, get_feature_bounds
 
-from ..utils.space import Space
 from .gbm_model import GbmModel
 from .optimizer_utils import (
     get_opt_core_copy,
@@ -21,29 +21,36 @@ def propose(
     gbm_model: GbmModel,
     model_core: Optional[gp.Model] = None,
 ):
-    next_x_area, next_val, curr_mean, curr_var = get_global_sol(
-        domain, opt_model, gbm_model
+    cat_idx = get_cat_idx_from_domain(domain)
+    input_features = domain.inputs.get()
+
+    next_x_area, next_val, curr_mean, curr_var = _get_global_sol(
+        input_features, cat_idx, opt_model, gbm_model
     )
 
     # add epsilon if input constr. exist
     # i.e. tree splits are rounded to the 5th decimal when adding them to the model,
     # and this may make optimization problems infeasible if the feasible region is very small
     if model_core is not None:
-        _add_epsilon_to_bnds(next_x_area, space)
+        _add_epsilon_to_bnds(next_x_area, input_features, cat_idx)
 
         while True:
             try:
-                next_center = _get_leaf_min_center_dist(next_x_area, space, model_core)
+                next_center = _get_leaf_min_center_dist(
+                    next_x_area, input_features, cat_idx, model_core
+                )
                 break
             except ValueError:
-                _add_epsilon_to_bnds(next_x_area, space)
+                _add_epsilon_to_bnds(next_x_area, input_features, cat_idx)
     else:
-        next_center = _get_leaf_center(next_x_area, space)
+        next_center = _get_leaf_center(next_x_area, input_features, cat_idx)
 
     return next_center
 
 
-def get_global_sol(domain: Domain, opt_model: gp.Model, gbm_model: GbmModel):
+def _get_global_sol(
+    input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model, gbm_model: GbmModel
+):
     # provides global solution to the optimization problem
 
     # build main model
@@ -58,7 +65,7 @@ def get_global_sol(domain: Domain, opt_model: gp.Model, gbm_model: GbmModel):
 
     # get active leaf area
     label = "1st_obj"
-    var_bnds = [get_feature_bounds(feat) for feat in domain.inputs.get()]
+    var_bnds = [get_feature_bounds(feat) for feat in input_feats]
 
     active_enc = [
         (tree_id, leaf_enc)
@@ -68,7 +75,7 @@ def get_global_sol(domain: Domain, opt_model: gp.Model, gbm_model: GbmModel):
     gbm_model.update_var_bounds(active_enc, var_bnds)
 
     # reading x_val
-    next_x = get_opt_sol(domain, opt_model)
+    next_x = get_opt_sol(input_feats, cat_idx, opt_model)
 
     # extract variance and mean
     curr_var = opt_model._var.x
@@ -82,44 +89,49 @@ def get_global_sol(domain: Domain, opt_model: gp.Model, gbm_model: GbmModel):
     return var_bnds, next_x, curr_mean, curr_var
 
 
-def _get_leaf_center(x_area, space: Space):
+def _get_leaf_center(x_area, input_feats: Inputs, cat_idx: set[int]):
     """returns the center of x_area"""
     next_x = []
-    for idx in range(len(x_area)):
-        if idx in space.cat_idx:
+    for idx, feat in enumerate(input_feats):
+        if idx in cat_idx:
             # for cat vars
             xi = int(np.random.choice(list(x_area[idx]), size=1)[0])
         else:
             lb, ub = x_area[idx]
+            xi = lb + (ub - lb) / 2
+            if isinstance(feat, DiscreteInput):
+                xi = int(xi)
 
-            if space.dims[idx].is_bin:
-                # for bin vars
-                if lb == 0 and ub == 1:
-                    xi = int(np.random.randint(0, 2))
-                elif lb <= 0.1:
-                    xi = 0
-                elif ub >= 0.9:
-                    xi = 1
-                else:
-                    raise ValueError(
-                        "problem with binary split, go to 'get_leaf_center'"
-                    )
+            # TODO: address binary variables
+            # if space.dims[idx].is_bin:
+            #     # for bin vars
+            #     if lb == 0 and ub == 1:
+            #         xi = int(np.random.randint(0, 2))
+            #     elif lb <= 0.1:
+            #         xi = 0
+            #     elif ub >= 0.9:
+            #         xi = 1
+            #     else:
+            #         raise ValueError(
+            #             "problem with binary split, go to 'get_leaf_center'"
+            #         )
 
-            elif idx in space.int_idx:
-                # for int vars
-                lb, ub = round(lb), round(ub)
-                m = lb + (ub - lb) / 2
-                xi = int(np.random.choice([int(m), round(m)], size=1)[0])
+            # if idx in space.int_idx:
+            #     # for int vars
+            #     lb, ub = round(lb), round(ub)
+            #     m = lb + (ub - lb) / 2
+            #     xi = int(np.random.choice([int(m), round(m)], size=1)[0])
 
-            else:
-                # for conti vars
-                xi = float(lb + (ub - lb) / 2)
+            # else:
+            #     # for conti vars
 
         next_x.append(xi)
     return next_x
 
 
-def _get_leaf_min_center_dist(x_area, space: Space, model_core: gp.Model):
+def _get_leaf_min_center_dist(
+    x_area, input_feats: Inputs, cat_idx: set[int], model_core: gp.Model
+):
     """returns the feasible point closest to the x_area center"""
     # build opt_model core
 
@@ -129,12 +141,10 @@ def _get_leaf_min_center_dist(x_area, space: Space, model_core: gp.Model):
     opt_model._alpha = opt_model.addVar(lb=0.0, ub=GRB.INFINITY, name="alpha")
 
     # update bounds for all variables
-    for idx in range(len(space.dims)):
-        if idx in space.cat_idx:
+    for idx, feat in enumerate(input_feats):
+        if idx in cat_idx:
             # add constr for cat vars
-            cat_set = set(space.dims[idx].bnds)
-
-            for cat in cat_set:
+            for cat in feat.categories:
                 # cat is fixed to what is valid with respect to x_area[idx]
                 if cat not in x_area[idx]:
                     opt_model.addConstr(opt_model._cat_var_dict[idx][cat] == 0)
@@ -144,18 +154,16 @@ def _get_leaf_min_center_dist(x_area, space: Space, model_core: gp.Model):
             opt_model.addConstr(opt_model._cont_var_dict[idx] >= lb)
 
     # add constraints for every data point
-    x_center = _get_leaf_center(x_area, space)
+    x_center = _get_leaf_center(x_area, input_feats, cat_idx)
 
     for x in [x_center]:
         expr = []
 
         # add dist for all dimensions
-        for idx in range(len(space.dims)):
-            if idx in space.cat_idx:
+        for idx, feat in enumerate(input_feats):
+            if idx in cat_idx:
                 # add constr for cat vars
-                cat_set = set(space.dims[idx].bnds)
-
-                for cat in cat_set:
+                for cat in feat.categories:
                     # distance increases by one if cat is different from x[idx]
                     if cat != x[idx]:
                         expr.append(opt_model._cat_var_dict[idx][cat])
@@ -173,15 +181,16 @@ def _get_leaf_min_center_dist(x_area, space: Space, model_core: gp.Model):
     opt_model.setObjective(expr=opt_model._alpha)
     opt_model.optimize()
 
-    return get_opt_sol(space, opt_model)
+    return get_opt_sol(input_feats, cat_idx, opt_model)
 
 
-def _add_epsilon_to_bnds(x_area, space: Space):
+def _add_epsilon_to_bnds(x_area, input_feats: Inputs, cat_idx: set[int]):
     # adds a 1e-5 error to the bounds of area
     eps = 1e-5
-    for idx in range(len(space.dims)):
-        if idx not in space.cat_idx:
+    for idx, feat in enumerate(input_feats):
+        if idx not in cat_idx:
             lb, ub = x_area[idx]
-            new_lb = max(lb - eps, space.dims[idx].bnds[0])
-            new_ub = min(ub + eps, space.dims[idx].bnds[1])
+            feat_lb, feat_ub = get_feature_bounds(feat)
+            new_lb = max(lb - eps, feat_lb)
+            new_ub = min(ub + eps, feat_ub)
             x_area[idx] = (new_lb, new_ub)

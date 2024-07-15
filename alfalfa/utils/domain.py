@@ -1,6 +1,6 @@
 """Utils for working with Bofire domains"""
 
-from bofire.data_models.domain.api import Features
+from bofire.data_models.domain.api import Domain, Features
 from bofire.data_models.features.api import (
     AnyFeature,
     CategoricalInput,
@@ -26,3 +26,12 @@ def get_feature_bounds(feature: AnyFeature) -> tuple[float, float] | list[str]:
         return feature.bounds
 
     raise TypeError(f"Cannot get bounds for feature of type {feature.type}")
+
+
+def get_cat_idx_from_domain(domain: Domain) -> set[int]:
+    """Get the indices of categorical features"""
+    return {
+        i
+        for i, feat in enumerate(domain.inputs.get())
+        if isinstance(feat, CategoricalInput)
+    }

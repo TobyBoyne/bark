@@ -5,9 +5,10 @@ import numpy as np
 import torch
 from beartype.typing import Optional
 from bofire.data_models.domain.api import Domain
-from bofire.data_models.features.api import CategoricalInput
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
+
+from alfalfa.utils.domain import get_cat_idx_from_domain
 
 from ..tree_kernels import AlfalfaGP, AlfalfaMOGP
 from .gbm_model import GbmModel
@@ -32,9 +33,7 @@ def build_opt_model(
 
     # build tree model
     gbm_model_dict = {"1st_obj": gbm_model}
-    cat_idx = {
-        i for i, feat in domain.inputs.get() if isinstance(feat, CategoricalInput)
-    }
+    cat_idx = get_cat_idx_from_domain(domain)
     add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
 
     if isinstance(tree_gp, AlfalfaMOGP):
@@ -82,6 +81,7 @@ def build_opt_model(
 
     # add tree_gp logic to opt_model
 
+    train_x: torch.Tensor
     act_leave_vars = gbm_model.get_active_leaf_vars(
         train_x.numpy(), opt_model, "1st_obj"
     )

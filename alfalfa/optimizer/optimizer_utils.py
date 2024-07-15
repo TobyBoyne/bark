@@ -1,6 +1,6 @@
 import gurobipy as gp
 from beartype.typing import Optional
-from bofire.data_models.domain.api import Domain
+from bofire.data_models.domain.api import Domain, Inputs
 from bofire.data_models.features.api import (
     CategoricalInput,
     ContinuousInput,
@@ -10,12 +10,12 @@ from bofire.data_models.features.api import (
 from gurobipy import GRB, quicksum
 
 
-def get_opt_sol(domain: Domain, opt_model: gp.Model):
+def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
     # get optimal solution from gurobi model
     next_x = []
-    for idx, feat in enumerate(domain.inputs.get()):
+    for idx, feat in enumerate(input_feats):
         x_val = None
-        if isinstance(feat, CategoricalInput):
+        if idx in cat_idx:
             # check which category is active
             for cat in feat.categories:
                 if opt_model._cat_var_dict[idx][cat].x > 0.5:

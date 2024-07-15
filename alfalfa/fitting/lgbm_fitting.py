@@ -20,7 +20,7 @@ def fit_lgbm_forest(
         "verbose": -1,
         "num_boost_round": 50,
     }
-    if params is not None:
+    if params is None:
         params = {}
 
     params = {**default_params, **params}
