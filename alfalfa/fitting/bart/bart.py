@@ -9,7 +9,7 @@ from tqdm import tqdm
 from ...forest import AlfalfaTree
 from ...tree_kernels import AlfalfaGP
 from ...utils.logger import MCMCLogger
-from .data import Data
+from .data import BARKData
 from .noise_scale_transitions import (
     noise_acceptance_probability,
     propose_positive_transition,
@@ -35,7 +35,7 @@ class BART:
     def __init__(
         self,
         model: AlfalfaGP,
-        data: Data,
+        data: BARKData,
         params: BARTTrainParams,
         noise_prior=None,
         scale_prior=None,
@@ -93,7 +93,7 @@ class BART:
 
         for model, state in zip(model_copies, initial_states):
             model.load_state_dict(state)
-            model.tree_model.initialise(self.data.space)
+            model.tree_model.initialise(self.data.domain)
 
         # TODO: in numpy 1.25, you can spawn a new RNG with rng.spawn()
         bart_copies = [

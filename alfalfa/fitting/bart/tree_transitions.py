@@ -11,7 +11,7 @@ from alfalfa.fitting.bart.quick_inverse import QuickInverter
 from ...forest import AlfalfaTree, DecisionNode, LeafNode
 from ...tree_kernels import AlfalfaGP
 from ...utils.logger import Timer
-from .data import Data
+from .data import BARKData
 from .params import BARTTrainParams, TransitionEnum
 from .tree_traversal import singly_internal_nodes, terminal_nodes
 
@@ -19,7 +19,7 @@ tree_timer = Timer()
 
 
 def propose_transition(
-    data: Data, tree: AlfalfaTree, params: BARTTrainParams, rng: np.random.Generator
+    data: BARKData, tree: AlfalfaTree, params: BARTTrainParams, rng: np.random.Generator
 ) -> "Transition":
     step_idx = rng.choice(len(params.step_weights), p=params.step_weights)
 
@@ -60,7 +60,7 @@ def propose_transition(
 
 
 def tree_acceptance_probability(
-    data: Data,
+    data: BARKData,
     model: AlfalfaGP,
     transition: "Transition",
     params: BARTTrainParams,
@@ -150,7 +150,7 @@ class GrowTransition(Transition):
     def inverse(self):
         return PruneTransition(self.tree, self.new_node, self.cur_node)
 
-    def log_q_ratio(self, data: Data):
+    def log_q_ratio(self, data: BARKData):
         b = len(terminal_nodes(self.tree))
         x_index = data.get_x_index(self.tree, self.cur_node)
 
@@ -161,7 +161,7 @@ class GrowTransition(Transition):
 
         return np.log(b * p_adj * n_adj) - np.log(w_star)
 
-    def log_prior_ratio(self, data: Data, alpha, beta):
+    def log_prior_ratio(self, data: BARKData, alpha, beta):
         depth = self.cur_node.depth
 
         leaf = self.cur_node
@@ -194,7 +194,7 @@ class PruneTransition(Transition):
     def inverse(self):
         return GrowTransition(self.tree, self.new_node, self.cur_node)
 
-    def log_q_ratio(self, data: Data):
+    def log_q_ratio(self, data: BARKData):
         b = len(terminal_nodes(self.tree))
 
         w = len(singly_internal_nodes(self.tree))
@@ -207,7 +207,7 @@ class PruneTransition(Transition):
         # return np.log((b-1) * p_adj * n_adj / w_star)
         return np.log(w) - np.log((b - 1) * p_adj_star * n_adj_star)
 
-    def log_prior_ratio(self, data: Data, alpha, beta):
+    def log_prior_ratio(self, data: BARKData, alpha, beta):
         with self:
             grow_prior_ratio = self.inverse.log_prior_ratio(data, alpha, beta)
         return -grow_prior_ratio
@@ -248,7 +248,7 @@ class ChangeTransition(Transition):
             self.new_threshold,
         )
 
-    def log_q_ratio(self, data: Data):
+    def log_q_ratio(self, data: BARKData):
         return 0
         # x_index = data.get_x_index(self.tree, self.node)
 
