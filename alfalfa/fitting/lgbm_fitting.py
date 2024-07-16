@@ -42,10 +42,10 @@ def lgbm_to_alfalfa_forest(tree_model: lgb.Booster) -> AlfalfaForest:
             return LeafNode()
         else:
             var_idx = node_dict["split_feature"]
-            var_key = tree_model.feature_name()[var_idx]
+            # var_key = tree_model.feature_name()[var_idx]
             threshold = node_dict["threshold"]
             return DecisionNode(
-                var_key=var_key,
+                var_idx=var_idx,
                 threshold=threshold,
                 left=get_subtree(node_dict["left_child"]),
                 right=get_subtree(node_dict["right_child"]),

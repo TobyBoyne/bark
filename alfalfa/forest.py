@@ -7,7 +7,7 @@ from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import AnyInput, CategoricalInput
 from jaxtyping import Float, Int, Shaped
 
-from alfalfa.utils.domain import get_feature_by_index, get_index_by_feature_key
+from alfalfa.utils.domain import get_feature_by_index
 
 InitFuncType = Optional[Callable[["DecisionNode"], None]]
 
@@ -105,13 +105,13 @@ class LeafNode(AlfalfaNode):
 class DecisionNode(AlfalfaNode):
     def __init__(
         self,
-        var_key: Optional[str] = None,
+        var_idx: Optional[int] = None,
         threshold: Optional[float | Shaped[np.ndarray, "T"]] = None,
         left: Optional["AlfalfaNode"] = None,
         right: Optional["AlfalfaNode"] = None,
     ):
         super().__init__()
-        self.var_key = var_key
+        self.var_idx = var_idx
         self.threshold = threshold
 
         self._left: AlfalfaNode = None
@@ -121,16 +121,12 @@ class DecisionNode(AlfalfaNode):
         self.right = LeafNode() if right is None else right
 
     @property
-    def var_idx(self):
-        return get_index_by_feature_key(self.domain.inputs, self.var_key)
-
-    @var_idx.setter
-    def var_idx(self, index):
-        self.var_key = get_feature_by_index(self.domain.inputs, index).key
+    def var_key(self):
+        return get_feature_by_index(self.domain.inputs, self.var_idx).key
 
     @property
     def var_feat(self) -> AnyInput:
-        return self.domain.inputs.get_by_key(self.var_key)
+        return get_feature_by_index(self.domain.inputs, self.var_idx)
 
     # Structural methods
     @property
@@ -194,7 +190,7 @@ class DecisionNode(AlfalfaNode):
             )
 
     def __repr__(self):
-        return f"N{self.var_idx}({self.left}), ({self.right})"
+        return f"N{self.var_key}({self.left}), ({self.right})"
 
     @classmethod
     def create_of_height(cls, d):
