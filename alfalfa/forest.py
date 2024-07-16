@@ -8,6 +8,7 @@ from bofire.data_models.features.api import AnyInput, CategoricalInput
 from jaxtyping import Float, Int, Shaped
 
 from alfalfa.utils.domain import get_feature_by_index
+from alfalfa.utils.logger import Timer
 
 InitFuncType = Optional[Callable[["DecisionNode"], None]]
 
@@ -323,6 +324,7 @@ class AlfalfaForest:
 
         self._cache: dict[tuple[bytes, bytes], np.ndarray] = {}
         self.frozen = frozen
+        self.timer = Timer()
 
     def initialise(self, domain: Domain, init_func: InitFuncType = None):
         self.domain = domain
@@ -335,11 +337,12 @@ class AlfalfaForest:
         input_key = (x1.tobytes(), x2.tobytes())
         if self.frozen and input_key in self._cache:
             return self._cache[input_key]
-        x1_leaves = np.stack([tree(x1) for tree in self.trees], axis=-1)
-        x2_leaves = np.stack([tree(x2) for tree in self.trees], axis=-1)
+        with self.timer("gram_matrix"):
+            x1_leaves = np.stack([tree(x1) for tree in self.trees], axis=-1)
+            x2_leaves = np.stack([tree(x2) for tree in self.trees], axis=-1)
 
-        sim_mat = np.equal(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
-        sim_mat = 1 / len(self.trees) * np.sum(sim_mat, axis=-1)
+            sim_mat = np.equal(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
+            sim_mat = 1 / len(self.trees) * np.sum(sim_mat, axis=-1)
         if self.frozen:
             self._cache[input_key] = sim_mat
         return sim_mat

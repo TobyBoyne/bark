@@ -32,7 +32,7 @@ def fit_gp_adam(model: gpy.models.ExactGP, verbose: bool = False) -> None:
     # "Loss" for GPs - the marginal log likelihood
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
-    for i in tqdm(range(training_iter := 500)):
+    for i in tqdm(range(training_iter := 500), desc="Fitting GP"):
         # Zero gradients from previous iteration
         optimizer.zero_grad()
         # Output from model

@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from ...forest import AlfalfaTree
 from ...tree_kernels import AlfalfaGP
-from ...utils.logger import MCMCLogger
+from ...utils.logger import MCMCLogger, Timer
 from .data import BARKData
 from .noise_scale_transitions import (
     noise_acceptance_probability,
@@ -49,6 +49,8 @@ class BART:
         self.noise_prior = default_noise_prior() if noise_prior is None else noise_prior
         self.scale_prior = default_scale_prior() if scale_prior is None else scale_prior
 
+        self.timer = Timer()
+
         self._seed_seq = (
             seed
             if isinstance(seed, np.random.SeedSequence)
@@ -62,11 +64,17 @@ class BART:
 
         with torch.no_grad():
             for _ in tqdm(
-                range(self.params.warmup_steps), disable=not self.params.verbose
+                range(self.params.warmup_steps),
+                disable=not self.params.verbose,
+                desc="Warmup sampler",
             ):
                 self.step()
 
-            for i in tqdm(range(self.params.n_steps), disable=not self.params.verbose):
+            for i in tqdm(
+                range(self.params.n_steps),
+                disable=not self.params.verbose,
+                desc="Sampling trees",
+            ):
                 self.step()
                 if i % self.params.lag == 0:
                     self.logger.checkpoint(self.model)
@@ -118,6 +126,7 @@ class BART:
         return combined
 
     def step(self):
+        # with self.timer("trees"):
         if isinstance(self.model.tree_model, AlfalfaTree):
             self._transition_tree(self.model.tree_model)
         else:
@@ -125,21 +134,23 @@ class BART:
             for tree in self.model.tree_model.trees:
                 self._transition_tree(tree, quick_inverter)
 
-        self._transition_noise()
-        self._transition_scale()
+        with self.timer("GP hyper"):
+            self._transition_noise()
+            self._transition_scale()
 
     def _accept_transition(self, log_alpha):
         return np.log(self.rng.random()) <= log_alpha
 
     def _transition_tree(self, tree: AlfalfaTree, quick_inverter: QuickInverter):
-        transition = propose_transition(self.data, tree, self.params, self.rng)
+        with self.timer("tree propose"):
+            transition = propose_transition(self.data, tree, self.params, self.rng)
         if transition is None:
             # not a valid transition
             return
-
-        log_alpha = tree_acceptance_probability(
-            self.data, self.model, transition, self.params, quick_inverter
-        )
+        with self.timer("tree acceptance"):
+            log_alpha = tree_acceptance_probability(
+                self.data, self.model, transition, self.params, quick_inverter
+            )
         if self._accept_transition(log_alpha):
             transition.apply()
             quick_inverter.cache_proposal()

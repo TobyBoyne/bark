@@ -1,4 +1,6 @@
 """Convert an LGBM tree to an instance of Alternating Tree for comparison"""
+import warnings
+
 import lightgbm as lgb
 import pandas as pd
 from beartype.typing import Optional
@@ -28,10 +30,14 @@ def fit_lgbm_forest(
     cat = domain.inputs.get_keys(includes=CategoricalInput)
     dataset = lgb.Dataset(train_x, train_y, categorical_feature=cat)
 
-    return lgb.train(
-        params,
-        dataset,
-    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        booster = lgb.train(
+            params,
+            dataset,
+        )
+
+    return booster
 
 
 def lgbm_to_alfalfa_forest(tree_model: lgb.Booster) -> AlfalfaForest:

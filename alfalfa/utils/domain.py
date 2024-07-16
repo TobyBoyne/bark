@@ -35,3 +35,9 @@ def get_cat_idx_from_domain(domain: Domain) -> set[int]:
         for i, feat in enumerate(domain.inputs.get())
         if isinstance(feat, CategoricalInput)
     }
+
+
+def build_integer_input(*, key: str, unit: str | None = None, bounds: tuple[int, int]):
+    lb, ub = bounds
+    values = list(range(lb, ub + 1))
+    return DiscreteInput(key=key, unit=unit, values=values)

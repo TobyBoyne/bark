@@ -28,11 +28,11 @@ model_core = get_opt_core_from_domain(domain)
 # main bo loop
 
 bark_data = BARKData(domain, train_x.values)
-bark_params = BARKTrainParams()
+bark_params = BARKTrainParams(warmup_steps=50)
 
 print("\n* * * start bo loop...")
-for itr in range(100):
-    forest = AlfalfaForest(height=0, num_trees=10)
+for itr in range(10):
+    forest = AlfalfaForest(height=0, num_trees=50)
     forest.initialise(domain)
     likelihood = gpy.likelihoods.GaussianLikelihood()
     train_torch = map(lambda x: torch.from_numpy(x.to_numpy()), (train_x, train_y))
@@ -45,6 +45,7 @@ for itr in range(100):
     )
 
     bark_sampler.run()
+    bark_params.warmup_steps = 50
 
     # get new proposal and evaluate bb_func
     gbm_model = GbmModel(forest)
