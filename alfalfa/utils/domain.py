@@ -1,5 +1,10 @@
 """Utils for working with Bofire domains"""
-
+import gurobipy
+from bofire.data_models.constraints.api import (
+    AnyConstraint,
+    EqalityConstraint,
+    LinearConstraint,
+)
 from bofire.data_models.domain.api import Domain, Features
 from bofire.data_models.features.api import (
     AnyFeature,
@@ -41,3 +46,22 @@ def build_integer_input(*, key: str, unit: str | None = None, bounds: tuple[int,
     lb, ub = bounds
     values = list(range(lb, ub + 1))
     return DiscreteInput(key=key, unit=unit, values=values)
+
+
+def apply_constraint_to_model(
+    constraint: AnyConstraint, model_core: gurobipy.Model
+) -> gurobipy.GenExpr:
+    if isinstance(constraint, (LinearConstraint)):
+        expr = gurobipy.quicksum(
+            (
+                model_core.getVarByName(key) * coeff
+                for key, coeff in zip(constraint.features, constraint.coefficients)
+            )
+        )
+        rhs = constraint.rhs
+        gur_constr = (
+            (expr == rhs)
+            if isinstance(constraint, EqalityConstraint)
+            else (expr <= rhs)
+        )
+        return model_core.addConstr(gur_constr)
