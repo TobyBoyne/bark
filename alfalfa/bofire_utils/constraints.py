@@ -9,6 +9,7 @@ from bofire.data_models.constraints.api import (
     InequalityConstraint,
     IntrapointConstraint,
     LinearConstraint,
+    NonlinearConstraint,
 )
 from bofire.data_models.types import make_unique_validator
 from pydantic import AfterValidator, Field, model_validator
@@ -56,18 +57,19 @@ class QuadraticConstraint(IntrapointConstraint):
         raise NotImplementedError()
 
 
-class FunctionalConstraint(IntrapointConstraint):
+class FunctionalConstraint(NonlinearConstraint):
     """Arbitrary constraint that takes any functional form."""
 
     type: Literal["FunctionalConstraint"] = "FunctionalConstraint"
     func: Callable[[list[float | gurobipy.Var], gurobipy.Model | None], float]
     rhs: float
+    expression: str = ""
 
     def __call__(self, experiments: pd.DataFrame) -> pd.Series:
         exp_as_idx_cols = experiments.rename(
             columns={col: i for i, col in enumerate(experiments.columns)}
         )
-        return exp_as_idx_cols.apply(self.func)
+        return exp_as_idx_cols.apply(self.func, axis="columns")
 
     def jacobian(self, experiments: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError()

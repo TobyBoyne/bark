@@ -109,9 +109,12 @@ def get_opt_core_copy(opt_core: gp.Model):
 
 def get_opt_core_from_domain(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
     model_core = get_opt_core(domain, env=env)
-    # TODO: Constraints!
     for constraint in domain.constraints:
         apply_constraint_to_model(constraint, model_core)
+
+    model_core.Params.LogToConsole = 0
+    model_core.Params.NonConvex = 2
+
     model_core.update()
     return model_core
     # add equality constraints to model core

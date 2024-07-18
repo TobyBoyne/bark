@@ -48,10 +48,10 @@ class PressureVessel(Benchmark):
                     # LinearInequalityConstraint(features=["x_0", "x_2"], coefficients=[0.0625, 0.0193], rhs=0.0),
                     # LinearInequalityConstraint(features=["x_1", "x_3"], coefficients=[0.0625, 0.00954], rhs=0.0),
                     FunctionalInequalityConstraint(
-                        func=lambda x, mc: x[0] * 0.0625 + x[2] * 0.0193, rhs=0.0
+                        func=lambda x, mc=None: -x[0] * 0.0625 + x[2] * 0.0193, rhs=0.0
                     ),
                     FunctionalInequalityConstraint(
-                        func=lambda x, mc: x[1] * 0.0625 + x[3] * 0.00954, rhs=0.0
+                        func=lambda x, mc=None: -x[1] * 0.0625 + x[3] * 0.00954, rhs=0.0
                     ),
                     FunctionalInequalityConstraint(func=_pv_func, rhs=-1_296_000),
                 ]
@@ -59,12 +59,13 @@ class PressureVessel(Benchmark):
         )
 
     def _f(self, X: DataFrame) -> DataFrame:
-        return (
+        y = (
             0.6224 * X["x_0"] * X["x_2"] * X["x_3"]
             + 1.7781 * (0.0625 * X["x_1"]) * X["x_2"] ** 2
             + 3.1661 * X["x_3"] * (0.0625 * X["x_0"]) ** 2
             + 19.84 * X["x_2"] * (0.0625 * X["x_0"]) ** 2
         )
+        return pd.DataFrame(data=y, columns=self.domain.outputs.get_keys())
 
     def get_optima(self) -> DataFrame:
         return pd.DataFrame(

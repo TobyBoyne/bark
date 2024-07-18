@@ -1,12 +1,14 @@
 import bofire.strategies.api as strategies
 import gpytorch as gpy
 import pandas as pd
+import pydantic
 import torch
 from bofire.benchmarks.detergent import Detergent
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 
 from alfalfa.benchmarks.mixed_bofire import PressureVessel
+from alfalfa.bofire_utils.sampling import sample_projected
 from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
 from alfalfa.optimizer import build_opt_model, propose
 from alfalfa.optimizer.gbm_model import GbmModel
@@ -18,9 +20,12 @@ benchmark = PressureVessel()
 domain = benchmark.domain
 
 # sample initial points
-sampler = strategies.map(RandomStrategy(domain=domain, seed=42))
-train_x = sampler.ask(10)
-train_y = benchmark.f(train_x)["y1"]  # .drop("valid_y", axis="columns")
+try:
+    sampler = strategies.map(RandomStrategy(domain=domain, seed=42))
+    train_x = sampler.ask(10)
+except pydantic.ValidationError:
+    train_x = sample_projected(domain, n=10, seed=42)
+train_y = benchmark.f(train_x)["y"]  # .drop("valid_y", axis="columns")
 cat = benchmark.domain.inputs.get_keys(includes=CategoricalInput)
 
 # add model_core with constraints if problem has constraints
@@ -43,7 +48,7 @@ for itr in range(10):
     )
     next_x = propose(benchmark.domain, opt_model, gbm_model, model_core)
     candidate = pd.DataFrame(data=[next_x], columns=domain.inputs.get_keys())
-    next_y = benchmark.f(candidate)["y1"]
+    next_y = benchmark.f(candidate)["y"]
 
     # update progress
     train_x = pd.concat((train_x, candidate), ignore_index=True)
