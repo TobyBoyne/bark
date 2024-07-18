@@ -6,6 +6,7 @@ from bofire.benchmarks.detergent import Detergent
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 
+from alfalfa.benchmarks.mixed_bofire import PressureVessel
 from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
 from alfalfa.optimizer import build_opt_model, propose
 from alfalfa.optimizer.gbm_model import GbmModel
@@ -13,6 +14,7 @@ from alfalfa.optimizer.optimizer_utils import get_opt_core_from_domain
 from alfalfa.tree_kernels import AlfalfaGP
 
 benchmark = Detergent()
+benchmark = PressureVessel()
 domain = benchmark.domain
 
 # sample initial points
@@ -23,7 +25,6 @@ cat = benchmark.domain.inputs.get_keys(includes=CategoricalInput)
 
 # add model_core with constraints if problem has constraints
 model_core = get_opt_core_from_domain(domain)
-
 # main bo loop
 print("\n* * * start bo loop...")
 for itr in range(10):

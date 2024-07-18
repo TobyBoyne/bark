@@ -9,7 +9,7 @@ from bofire.data_models.features.api import (
 )
 from gurobipy import GRB, quicksum
 
-from alfalfa.utils.domain import apply_constraint_to_model
+from alfalfa.bofire_utils.constraints import apply_constraint_to_model
 
 
 def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
