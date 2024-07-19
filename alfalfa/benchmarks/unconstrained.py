@@ -3,45 +3,10 @@ import numpy as np
 from .base import SynFunc
 
 
-class Himmelblau1D(SynFunc):
-    def __call__(self, x, **kwargs):
-        f = (x[0] ** 2 - 0.5) ** 2
-        # output should be N(f_bar; 0, 1)
-        f_bar = (f - 7 / 60) * np.sqrt(525 / 4)
-        return f_bar * np.sin(10.0 * x[0])
-
-    @property
-    def bounds(self):
-        return [[0.0, 1.0]]
-
-    @property
-    def optimum(self):
-        # at x = 0.763
-        return -1.2278
-
-
-class Branin(SynFunc):
-    # branin, rescaled to [0.0, 1.0]
-    def __call__(self, x, **kwargs):
-        x1 = x[0]
-        x2 = x[1]
-        x1_b = 15 * x1 - 5
-        x2_b = 15 * x2
-        A = (x2_b - (5.1 / (4 * np.pi**2)) * x1_b**2 + (5 / np.pi) * x1_b - 6) ** 2
-        B = 10 * (1 - 1 / (8 * np.pi)) * np.cos(x1_b) - 44.81
-        return -(A + B) / 51.95
-
-    @property
-    def bounds(self):
-        return [[0.0, 1.0], [0.0, 1.0]]
-
-
 class Friedman(SynFunc):
     """
 
     Multivariate adaptive regression splines (1999)"""
-
-    is_vectorised = True
 
     def __init__(self, seed, dim=10):
         super().__init__(seed)

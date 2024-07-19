@@ -13,11 +13,9 @@ from .mixed import CatAckley, PressureVessel, VAESmall
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
 from .unconstrained import (
-    Branin,
     CombinationFunc2,
     Friedman,
     Hartmann6D,
-    Himmelblau1D,
     Rastrigin,
     Schwefel,
     StyblinskiTang,
@@ -26,8 +24,6 @@ from .unconstrained import (
 BENCHMARK_MAP = {
     # unconstrained spaces
     "hartmann6d": Hartmann6D,
-    "himmelblau1d": Himmelblau1D,
-    "branin": Branin,
     "friedman": Friedman,
     "rastrigin": Rastrigin,
     "styblinski_tang": StyblinskiTang,

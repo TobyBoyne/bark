@@ -3,12 +3,51 @@ import numpy as np
 import pandas as pd
 from bofire.benchmarks.api import Benchmark
 from bofire.data_models.domain.api import Constraints, Domain, Inputs, Outputs
-from bofire.data_models.features.api import ContinuousInput, ContinuousOutput
+from bofire.data_models.features.api import (
+    CategoricalInput,
+    ContinuousInput,
+    ContinuousOutput,
+)
 from bofire.data_models.objectives.api import MinimizeObjective
 from pandas import DataFrame
 
 from alfalfa.bofire_utils.constraints import FunctionalInequalityConstraint
 from alfalfa.utils.domain import build_integer_input
+
+
+class CatAckley(Benchmark):
+    """
+    adapted from: https://arxiv.org/pdf/1911.12473.pdf"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._domain = Domain(
+            inputs=Inputs(
+                features=[
+                    build_integer_input(key="x_0", bounds=(0, 4)),
+                    *(
+                        ContinuousInput(key=f"x_{i+1}", bounds=(-3.0, 3.0))
+                        for i in range(5)
+                    ),
+                ]
+            ),
+            outputs=Outputs(
+                features=[ContinuousOutput(key="y", objective=MinimizeObjective())]
+            ),
+        )
+
+    def _f(self, X: DataFrame) -> DataFrame:
+        x_cont = X[self.domain.inputs.get_keys(includes=ContinuousInput)].to_numpy()
+        x_int = X["x_0"].to_numpy()
+        z = x_cont + x_int[:, None]
+        y = (
+            -20 * np.exp(-0.2 * np.sqrt(0.2 * np.sum(z**2, axis=1)))
+            - np.exp(0.2 * np.sum(np.cos(2 * np.pi * z), axis=1))
+            + 20
+            + np.exp(1)
+            + x_int
+        )[:, None]
+        return pd.DataFrame(data=y, columns=self.domain.outputs.get_keys())
 
 
 def _pv_func(x: list[float | gurobipy.Var], model_core: gurobipy.Model | None = None):
@@ -60,7 +99,7 @@ class PressureVessel(Benchmark):
 
     def _f(self, X: DataFrame) -> DataFrame:
         y = (
-            0.6224 * X["x_0"] * X["x_2"] * X["x_3"]
+            0.6224 * (0.0625 * X["x_0"]) * X["x_2"] * X["x_3"]
             + 1.7781 * (0.0625 * X["x_1"]) * X["x_2"] ** 2
             + 3.1661 * X["x_3"] * (0.0625 * X["x_0"]) ** 2
             + 19.84 * X["x_2"] * (0.0625 * X["x_0"]) ** 2
@@ -69,6 +108,89 @@ class PressureVessel(Benchmark):
 
     def get_optima(self) -> DataFrame:
         return pd.DataFrame(
-            data=[13, 7, 42.09127, 176.7466, 6061.0778],
-            columns=self.domain.inputs.get_keys() + self.domain.outputs.get_keys(),
+            data=[[13, 7, 42.09127, 176.7466, 6061.0778]],
+            columns=["x_0", "x_1", "x_2", "x_3"] + self.domain.outputs.get_keys(),
         )
+
+
+class CombinationFunc2(Benchmark):
+    """Linear combination of 3 synthetic functions - Rosenbrock, 6-Hump Camel,
+    and Beale
+
+    Adapted from: https://arxiv.org/pdf/1906.08878
+    Bayesian Optimisation over Multiple Continuous and Categorical Inputs
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._domain = Domain(
+            inputs=Inputs(
+                features=[
+                    CategoricalInput(
+                        key="func_0", categories=["ros", "cam", "bea"]
+                    ),  # ["ros", "cam", "bea"]
+                    CategoricalInput(
+                        key="func_1", categories=["ros", "cam", "bea"]
+                    ),  # ["ros", "cam", "bea"]
+                    ContinuousInput(key="x_0", bounds=(-1.0, 1.0)),
+                    ContinuousInput(key="x_1", bounds=(-1.0, 1.0)),
+                ]
+            ),
+            outputs=Outputs(
+                features=[ContinuousOutput(key="y", objective=MinimizeObjective())]
+            ),
+        )
+
+    def _rosenbrock(self, x: np.ndarray):
+        return np.sum(
+            100 * (x[:, 1:] - x[:, :-1] ** 2) ** 2 + (1 - x[:, :-1]) ** 2, axis=1
+        )
+
+    def _camel(self, x: np.ndarray):
+        return (
+            4 * x[:, 0] ** 2
+            - 2.1 * x[:, 0] ** 4
+            + x[:, 0] ** 6 / 3
+            + x[:, 0] * x[:, 1]
+            - 4 * x[:, 1] ** 2
+            + 4 * x[:, 1] ** 4
+        )
+
+    def _beale(self, x: np.ndarray):
+        return (
+            (1.5 - x[:, 0] + x[:, 0] * x[:, 1]) ** 2
+            + (2.25 - x[:, 0] + x[:, 0] * x[:, 1] ** 2) ** 2
+            + (2.625 - x[:, 0] + x[:, 0] * x[:, 1] ** 3) ** 2
+        )
+
+    def _f(self, X: pd.DataFrame) -> pd.DataFrame:
+        x = X[self.domain.inputs.get_keys(includes=ContinuousInput)].to_numpy()
+        functions = pd.DataFrame(
+            data=np.transpose([self._rosenbrock(x), self._camel(x), self._beale(x)]),
+            columns=["ros", "cam", "bea"],
+        )
+
+        idx, cols = pd.factorize(X["func_0"])
+        f0 = functions.reindex(cols, axis=1).to_numpy()[np.arange(len(functions)), idx]
+
+        idx, cols = pd.factorize(X["func_1"])
+        f1 = functions.reindex(cols, axis=1).to_numpy()[np.arange(len(functions)), idx]
+
+        y = (f0 + f1)[:, None]
+        return pd.DataFrame(data=y, columns=self.domain.outputs.get_keys())
+
+    # def __call__(self, x, **kwargs):
+
+    #     funcs = [
+    #         self._rosenbrock,
+    #         self._camel,
+    #         self._beale,
+    #     ]
+    #     cont_x = np.atleast_2d(x)[:, 2:].astype(float)
+    #     f1 = funcs[int(x[0])]
+    #     f2 = funcs[int(x[1])]
+    #     return (f1(cont_x) + f2(cont_x)).item()
+
+    def get_optima(self) -> DataFrame:
+        # TODO: get position of optima, y= -1.0316 * 2
+        return
