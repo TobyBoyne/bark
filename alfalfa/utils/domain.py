@@ -16,9 +16,12 @@ def get_index_by_feature_key(features: Features, key: str) -> int:
     return features.get().features.index(features.get_by_key(key))
 
 
-def get_feature_bounds(feature: AnyFeature) -> tuple[float, float] | list[str]:
+def get_feature_bounds(
+    feature: AnyFeature, ordinal_encoding: bool = False
+) -> tuple[float, float] | list[str]:
     if isinstance(feature, CategoricalInput):
-        return feature.categories
+        cats = feature.categories
+        return list(range(len(cats))) if ordinal_encoding else cats
     elif isinstance(feature, DiscreteInput):
         return (feature.lower_bound, feature.upper_bound)
     elif isinstance(feature, ContinuousInput):

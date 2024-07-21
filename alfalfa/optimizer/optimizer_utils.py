@@ -19,9 +19,9 @@ def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
         x_val = None
         if idx in cat_idx:
             # check which category is active
-            for cat in feat.categories:
-                if opt_model._cat_var_dict[idx][cat].x > 0.5:
-                    x_val = cat
+            for cat_i in range(len(feat.categories)):
+                if opt_model._cat_var_dict[idx][cat_i].x > 0.5:
+                    x_val = cat_i
         else:
             try:
                 x_val = opt_model._cont_var_dict[idx].x
@@ -51,14 +51,15 @@ def get_opt_core(
         if isinstance(feat, CategoricalInput):
             model._cat_var_dict[idx] = {}
 
-            for cat in feat.categories:
-                model._cat_var_dict[idx][cat] = model.addVar(
+            for i, cat in enumerate(feat.categories):
+                model._cat_var_dict[idx][i] = model.addVar(
                     name=f"{var_name}_{cat}", vtype=GRB.BINARY
                 )
 
             # constr vars need to add up to one
             model.addConstr(
-                sum([model._cat_var_dict[idx][cat] for cat in feat.categories]) == 1
+                sum([model._cat_var_dict[idx][i] for i in range(len(feat.categories))])
+                == 1
             )
 
         elif isinstance(feat, NumericalInput):

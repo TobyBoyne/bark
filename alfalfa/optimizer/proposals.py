@@ -65,7 +65,7 @@ def _get_global_sol(
 
     # get active leaf area
     label = "1st_obj"
-    var_bnds = [get_feature_bounds(feat) for feat in input_feats]
+    var_bnds = [get_feature_bounds(feat, ordinal_encoding=True) for feat in input_feats]
 
     active_enc = [
         (tree_id, leaf_enc)
@@ -144,10 +144,10 @@ def _get_leaf_min_center_dist(
     for idx, feat in enumerate(input_feats):
         if idx in cat_idx:
             # add constr for cat vars
-            for cat in feat.categories:
+            for cat_i, cat in enumerate(feat.categories):
                 # cat is fixed to what is valid with respect to x_area[idx]
-                if cat not in x_area[idx]:
-                    opt_model.addConstr(opt_model._cat_var_dict[idx][cat] == 0)
+                if cat_i not in x_area[idx]:
+                    opt_model.addConstr(opt_model._cat_var_dict[idx][cat_i] == 0)
         else:
             lb, ub = x_area[idx]
             opt_model.addConstr(opt_model._cont_var_dict[idx] <= ub)
@@ -163,10 +163,10 @@ def _get_leaf_min_center_dist(
         for idx, feat in enumerate(input_feats):
             if idx in cat_idx:
                 # add constr for cat vars
-                for cat in feat.categories:
+                for cat_i, cat in enumerate(feat.categories):
                     # distance increases by one if cat is different from x[idx]
-                    if cat != x[idx]:
-                        expr.append(opt_model._cat_var_dict[idx][cat])
+                    if cat_i != x[idx]:
+                        expr.append(opt_model._cat_var_dict[idx][cat_i])
 
             else:
                 # add constr for conti and int vars
