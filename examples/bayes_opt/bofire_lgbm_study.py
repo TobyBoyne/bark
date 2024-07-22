@@ -8,7 +8,7 @@ from bofire.data_models.enum import CategoricalEncodingEnum
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 
-from alfalfa.benchmarks.mixed_bofire import CombinationFunc2
+from alfalfa.benchmarks import CombinationFunc2
 from alfalfa.benchmarks.pest import PestControl
 from alfalfa.bofire_utils.sampling import sample_projected
 from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest

@@ -20,6 +20,10 @@ QuadraticFeatureKeys = Annotated[
     AfterValidator(make_unique_validator("QuadraticFeatures")),
 ]
 
+ConstraintFuncT = Callable[[list[float | gurobipy.Var], gurobipy.Model | None], float]
+
+GurobiExpressionT = gurobipy.LinExpr | gurobipy.QuadExpr | gurobipy.GenExpr
+
 
 class QuadraticConstraint(IntrapointConstraint):
     """Abstract base class for quadratic equality and inequality constraints.
@@ -61,7 +65,7 @@ class FunctionalConstraint(NonlinearConstraint):
     """Arbitrary constraint that takes any functional form."""
 
     type: Literal["FunctionalConstraint"] = "FunctionalConstraint"
-    func: Callable[[list[float | gurobipy.Var], gurobipy.Model | None], float]
+    func: ConstraintFuncT
     rhs: float
     expression: str = ""
 
@@ -69,13 +73,13 @@ class FunctionalConstraint(NonlinearConstraint):
         exp_as_idx_cols = experiments.rename(
             columns={col: i for i, col in enumerate(experiments.columns)}
         )
-        return exp_as_idx_cols.apply(self.func, axis="columns")
+        return exp_as_idx_cols.apply(self.func, axis="columns") - self.rhs
 
     def jacobian(self, experiments: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError()
 
 
-def _expr_to_equality(expr: gurobipy.GenExpr, constraint: AnyConstraint):
+def _expr_to_equality(expr: GurobiExpressionT, constraint: AnyConstraint):
     rhs = constraint.rhs
     return (expr == rhs) if isinstance(constraint, EqalityConstraint) else (expr <= rhs)
 

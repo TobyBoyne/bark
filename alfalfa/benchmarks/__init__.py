@@ -1,4 +1,5 @@
-from beartype.typing import Union
+from beartype.typing import Type, Union
+from bofire.benchmarks.benchmark import Benchmark
 
 from .base import CatSynFunc, DatasetFunc, SynFunc, standardise
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
@@ -9,21 +10,18 @@ from .dataset import (
     JsonDatasetFunc,
     StudentPerformance,
 )
-from .mixed import CatAckley, PressureVessel, VAESmall
+from .mixed import CatAckley, CombinationFunc2, PressureVessel
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
 from .unconstrained import (
-    CombinationFunc2,
     Friedman,
-    Hartmann6D,
     Rastrigin,
     Schwefel,
     StyblinskiTang,
 )
 
-BENCHMARK_MAP = {
+BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # unconstrained spaces
-    "hartmann6d": Hartmann6D,
     "friedman": Friedman,
     "rastrigin": Rastrigin,
     "styblinski_tang": StyblinskiTang,
@@ -40,16 +38,16 @@ BENCHMARK_MAP = {
     # mixed spaces
     "pest": PestControl,
     "pressure_vessel": PressureVessel,
-    "vae_nas": VAESmall,
+    # "vae_nas": VAESmall,
     "cat_ackley": CatAckley,
     # multi-fidelity
-    "currin": CurrinExp2D,
+    # "currin": CurrinExp2D,
     # datasets
-    "auto_mpg": AutoMPG,
-    "student_performance": StudentPerformance,
-    "abalone": Abalone,
-    "concrete": ConcreteCompressive,
-    "json": JsonDatasetFunc,
+    # "auto_mpg": AutoMPG,
+    # "student_performance": StudentPerformance,
+    # "abalone": Abalone,
+    # "concrete": ConcreteCompressive,
+    # "json": JsonDatasetFunc,
 }
 
 

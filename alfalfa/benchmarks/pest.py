@@ -126,4 +126,4 @@ class PestControl(Benchmark):
 
     def get_optima(self) -> DataFrame:
         # 11.5
-        return
+        raise NotImplementedError()
