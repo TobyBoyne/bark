@@ -23,6 +23,7 @@ QuadraticFeatureKeys = Annotated[
 ConstraintFuncT = Callable[[list[float | gurobipy.Var], gurobipy.Model | None], float]
 
 GurobiExpressionT = gurobipy.LinExpr | gurobipy.QuadExpr | gurobipy.GenExpr
+GurobiConstraintT = gurobipy.Constr | gurobipy.QConstr
 
 
 class QuadraticConstraint(IntrapointConstraint):
@@ -79,11 +80,6 @@ class FunctionalConstraint(NonlinearConstraint):
         raise NotImplementedError()
 
 
-def _expr_to_equality(expr: GurobiExpressionT, constraint: AnyConstraint):
-    rhs = constraint.rhs
-    return (expr == rhs) if isinstance(constraint, EqalityConstraint) else (expr <= rhs)
-
-
 class QuadraticEqualityConstraint(QuadraticConstraint, EqalityConstraint):
     type: Literal["QuadraticEqualityConstraint"] = "QuadraticEqualityConstraint"
 
@@ -100,9 +96,23 @@ class FunctionalInequalityConstraint(FunctionalConstraint, InequalityConstraint)
     type: Literal["FunctionalInequalityConstraint"] = "FunctionalInequalityConstraint"
 
 
+ExtendedAnyConstraint = (
+    AnyConstraint
+    | QuadraticEqualityConstraint
+    | QuadraticInequalityConstraint
+    | FunctionalEqualityConstraint
+    | FunctionalInequalityConstraint
+)
+
+
+def _expr_to_equality(expr: GurobiExpressionT, constraint: ExtendedAnyConstraint):
+    rhs = constraint.rhs
+    return (expr == rhs) if isinstance(constraint, EqalityConstraint) else (expr <= rhs)
+
+
 def apply_constraint_to_model(
-    constraint: AnyConstraint, model_core: gurobipy.Model
-) -> gurobipy.GenExpr:
+    constraint: ExtendedAnyConstraint, model_core: gurobipy.Model
+) -> GurobiConstraintT:
     if isinstance(constraint, LinearConstraint):
         expr = gurobipy.quicksum(
             (

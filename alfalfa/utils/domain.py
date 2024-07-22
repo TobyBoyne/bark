@@ -1,5 +1,5 @@
 """Utils for working with Bofire domains"""
-from bofire.data_models.domain.api import Domain, Features
+from bofire.data_models.domain.api import Domain, Features, Inputs, Outputs
 from bofire.data_models.features.api import (
     AnyFeature,
     CategoricalInput,
@@ -8,7 +8,9 @@ from bofire.data_models.features.api import (
 )
 
 
-def get_feature_by_index(features: Features, index: int) -> AnyFeature:
+def get_feature_by_index(
+    features: Features | Inputs | Outputs, index: int
+) -> AnyFeature:
     return features.get().features[index]
 
 
@@ -18,7 +20,7 @@ def get_index_by_feature_key(features: Features, key: str) -> int:
 
 def get_feature_bounds(
     feature: AnyFeature, ordinal_encoding: bool = False
-) -> tuple[float, float] | list[str]:
+) -> tuple[float, float] | list[str] | list[int]:
     if isinstance(feature, CategoricalInput):
         cats = feature.categories
         return list(range(len(cats))) if ordinal_encoding else cats

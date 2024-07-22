@@ -12,7 +12,7 @@ from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode, LeafNode
 
 def fit_lgbm_forest(
     train_x: pd.DataFrame,
-    train_y: pd.DataFrame,
+    train_y: pd.Series,
     domain: Domain,
     params: Optional[dict] = None,
 ) -> lgb.Booster:

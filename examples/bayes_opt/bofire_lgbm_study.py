@@ -7,15 +7,17 @@ from bofire.benchmarks.detergent import Detergent
 from bofire.data_models.enum import CategoricalEncodingEnum
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
+from jaxtyping import install_import_hook
 
-from alfalfa.benchmarks import CombinationFunc2
-from alfalfa.benchmarks.pest import PestControl
-from alfalfa.bofire_utils.sampling import sample_projected
-from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
-from alfalfa.optimizer import build_opt_model, propose
-from alfalfa.optimizer.gbm_model import GbmModel
-from alfalfa.optimizer.optimizer_utils import get_opt_core_from_domain
-from alfalfa.tree_kernels import AlfalfaGP
+with install_import_hook("alfalfa", "beartype.beartype"):
+    from alfalfa.benchmarks import CombinationFunc2
+    from alfalfa.benchmarks.pest import PestControl
+    from alfalfa.bofire_utils.sampling import sample_projected
+    from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
+    from alfalfa.optimizer import build_opt_model, propose
+    from alfalfa.optimizer.gbm_model import GbmModel
+    from alfalfa.optimizer.optimizer_utils import get_opt_core_from_domain
+    from alfalfa.tree_kernels import AlfalfaGP
 
 benchmark = Detergent()
 benchmark = CombinationFunc2()

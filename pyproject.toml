@@ -37,8 +37,8 @@ pre-commit = "^3.6.0"
 ipython = "^8.21.0"
 pytest-benchmark = "^4.0.0"
 
-# [tool.pytest.ini_options]
-# addopts = "--benchmark-storage=benchmarks/results --benchmark-autosave --jaxtyping-packages=alfalfa,beartype.beartype"
+[tool.pytest.ini_options]
+addopts = "--benchmark-storage=benchmarks/results --benchmark-autosave --jaxtyping-packages=alfalfa,beartype.beartype"
 
 [build-system]
 requires = ["poetry-core"]

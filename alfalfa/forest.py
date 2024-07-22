@@ -27,7 +27,6 @@ class AlfalfaNode:
     """ """
 
     def __init__(self):
-        super().__init__()
         self.depth: int = 0
         self.parent: Optional[tuple[DecisionNode, str]] = None
         self.tree: Optional[AlfalfaTree] = None
@@ -107,7 +106,7 @@ class DecisionNode(AlfalfaNode):
     def __init__(
         self,
         var_idx: Optional[int] = None,
-        threshold: Optional[float | Shaped[np.ndarray, "T"]] = None,
+        threshold: Optional[float | list[int]] = None,
         left: Optional["AlfalfaNode"] = None,
         right: Optional["AlfalfaNode"] = None,
     ):
