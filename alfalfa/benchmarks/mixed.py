@@ -56,9 +56,7 @@ class PressureVessel(Benchmark):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        def _pv_func(
-            x: list[float | gurobipy.Var], model_core: gurobipy.Model | None = None
-        ):
+        def _pv_func(x, model_core: gurobipy.Model | None = None):
             if model_core is not None:
                 x2_squ = model_core.addVar(lb=10.0**2, ub=200.0**2)
                 model_core.addConstr(x2_squ == x[0] * x[0])
