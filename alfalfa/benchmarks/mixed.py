@@ -45,7 +45,7 @@ class PressureVessel(SynFunc):
 
         self.ineq_constr_funcs = [
             lambda x: -X0(x) + 0.0193 * x[2],
-            lambda x: -X1(x) + 0.00954 * x[3],
+            lambda x: -X1(x) + 0.00954 * x[2],
             lambda x: -np.pi * x[3] * x[2] ** 2 - (4 / 3) * np.pi * x[2] ** 3 + 1296000,
             # this constr. is in the reference but is not necessary
             # lambda x: x[3] - 240
