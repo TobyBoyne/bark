@@ -159,7 +159,7 @@ class Space:
             sobol_points = lb + sobol_points_unit * (ub - lb)
             out[:, self.cont_idx] = sobol_points
 
-        if self.cat_idx:
+        if self.cat_idx + self.int_idx:
             uniform = self.sample(n, np.random.default_rng(seed))
             uniform = self.transform(uniform)
             out[:, self.cat_idx + self.int_idx] = uniform[
