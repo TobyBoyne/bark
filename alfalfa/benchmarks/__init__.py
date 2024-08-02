@@ -22,6 +22,7 @@ from .unconstrained import (
     Schwefel,
     StyblinskiTang,
 )
+from .xgboost_mnist import XGBoostMNIST
 
 BENCHMARK_MAP = {
     # unconstrained spaces
@@ -54,6 +55,7 @@ BENCHMARK_MAP = {
     "abalone": Abalone,
     "concrete": ConcreteCompressive,
     "json": JsonDatasetFunc,
+    "xgboost": XGBoostMNIST,
 }
 
 
