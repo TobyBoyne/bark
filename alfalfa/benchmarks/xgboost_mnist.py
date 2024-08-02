@@ -7,8 +7,7 @@ from alfalfa.benchmarks.base import SynFunc
 
 
 class XGBoostMNIST(SynFunc):
-    cat_idx = {0, 1, 2}
-    int_idx = {4}
+    int_idx = {0, 1, 2, 4}
 
     def __init__(self, seed: int, split=6 / 7):
         super().__init__(seed)
