@@ -30,7 +30,7 @@ class XGBoostMNIST(SynFunc):
             "booster": ["gbtree", "dart"][int(x[0])],
             "grow_policy": ["depthwise", "lossguide"][int(x[1])],
             "objective": ["multi:softmax", "multi:softprob"][int(x[2])],
-            "learning_rate": x[3],
+            "learning_rate": 10 ** x[3],
             "max_depth": int(x[4]),
             "min_split_loss": x[5],
             "subsample": x[6],
@@ -52,7 +52,7 @@ class XGBoostMNIST(SynFunc):
             [0, 1],  # booster
             [0, 1],  # grow_policy
             [0, 1],  # objective
-            [1e-5, 1],  # learning_rate
+            [-5, 0],  # log learning_rate
             [1, 10],  # max_depth
             [0, 10],  # min_split_loss
             [0.001, 1],  # subsample
