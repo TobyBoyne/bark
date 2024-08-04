@@ -9,7 +9,7 @@ from alfalfa.benchmarks.base import SynFunc
 class XGBoostMNIST(SynFunc):
     int_idx = {0, 1, 2, 4}
 
-    def __init__(self, seed: int, split=6 / 7):
+    def __init__(self, seed: int, split=0.3):
         super().__init__(seed)
         data = datasets.load_digits()
         (
@@ -43,7 +43,6 @@ class XGBoostMNIST(SynFunc):
 
         # 1-acc for minimization
         score = 1 - metrics.accuracy_score(self.test_y, y_pred)
-
         return score
 
     @property

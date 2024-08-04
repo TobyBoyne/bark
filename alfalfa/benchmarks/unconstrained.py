@@ -225,3 +225,25 @@ class CombinationFunc2(SynFunc):
     @property
     def optimum(self):
         return -1.0316 * 2
+
+
+class OrthogonalRosenbrock(SynFunc):
+    """Four instances of the Rosenbrock function arranged orthogonally."""
+
+    is_vectorised = True
+
+    def _rosenbrock(self, x: np.ndarray):
+        return 100 * (x[:, 1] - x[:, 0] ** 2) ** 2 + (1 - x[:, 0]) ** 2
+
+    def __call__(self, x, **kwargs):
+        x = np.atleast_2d(x)
+        orientation = x[:, 0] * x[:, 1] > 0
+        x_bar = -5 + 15 * np.abs(x)
+        f = np.where(
+            orientation, self._rosenbrock(x_bar), self._rosenbrock(x_bar[:, ::-1])
+        )
+        return f
+
+    @property
+    def bounds(self):
+        return [[-1.0, 1.0] for _ in range(2)]

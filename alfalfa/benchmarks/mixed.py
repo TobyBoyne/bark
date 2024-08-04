@@ -68,7 +68,7 @@ class PressureVessel(SynFunc):
 
         # add constraints
         model_core.addConstr(-X0 + 0.0193 * x[2] <= 0)
-        model_core.addConstr(-X1 + 0.00954 * x[3] <= 0)
+        model_core.addConstr(-X1 + 0.00954 * x[2] <= 0)
 
         # add helper for cubic var
         lb2, ub2 = self.bounds[2]

@@ -18,6 +18,7 @@ from .unconstrained import (
     Friedman,
     Hartmann6D,
     Himmelblau1D,
+    OrthogonalRosenbrock,
     Rastrigin,
     Schwefel,
     StyblinskiTang,
@@ -34,6 +35,7 @@ BENCHMARK_MAP = {
     "styblinski_tang": StyblinskiTang,
     "schwefel": Schwefel,
     "combination_func2": CombinationFunc2,
+    "ortho_ros": OrthogonalRosenbrock,
     # constrained spaces
     "g1": G1,
     "g3": G3,
