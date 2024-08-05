@@ -218,7 +218,7 @@ def add_constr_expr_to_gurobipy_model(
     expr = sympy.parse_expr(expression_string, key_to_symbol)
     assert isinstance(
         expr, (LessThan, Equality)
-    ), f"{expr.func} is not a relational expression."
+    ), f"{expr} is not a relational expression."
     lhs, rhs = expr.args
     gur_expr = _recurse_sympy(lhs, model_core)
     gur_constr = gur_expr <= rhs if isinstance(expr.func, LessThan) else gur_expr == rhs
