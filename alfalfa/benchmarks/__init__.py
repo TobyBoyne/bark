@@ -19,6 +19,7 @@ from .unconstrained import (
     Schwefel,
     StyblinskiTang,
 )
+from .xgboost_mnist import XGBoostMNIST
 
 BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # unconstrained spaces
