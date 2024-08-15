@@ -1,14 +1,21 @@
 """https://github.com/huawei-noah/HEBO/blob/master/MCBO/mcbo/tasks/xgboost_opt/xgboost_opt_task.py"""
 
+import pandas as pd
 import xgboost
+from bofire.benchmarks.api import Benchmark
+from bofire.data_models.domain.api import Domain, Inputs, Outputs
+from bofire.data_models.features.api import (
+    CategoricalInput,
+    ContinuousInput,
+    ContinuousOutput,
+)
+from bofire.data_models.objectives.api import MinimizeObjective
 from sklearn import datasets, metrics, model_selection
 
-from alfalfa.benchmarks.base import SynFunc
+from alfalfa.utils.domain import build_integer_input
 
 
-class XGBoostMNIST(SynFunc):
-    int_idx = {0, 1, 2, 4}
-
+class XGBoostMNIST(Benchmark):
     def __init__(self, seed: int, split=0.3):
         super().__init__(seed)
         data = datasets.load_digits()
@@ -25,35 +32,44 @@ class XGBoostMNIST(SynFunc):
             random_state=seed,
         )
 
-    def __call__(self, x, **kwargs):
-        xgboost_kwargs = {
-            "booster": ["gbtree", "dart"][int(x[0])],
-            "grow_policy": ["depthwise", "lossguide"][int(x[1])],
-            "objective": ["multi:softmax", "multi:softprob"][int(x[2])],
-            "learning_rate": 10 ** x[3],
-            "max_depth": int(x[4]),
-            "min_split_loss": x[5],
-            "subsample": x[6],
-            "reg_lambda": x[7],
-        }
+        self._domain = Domain(
+            inputs=Inputs(
+                features=[
+                    CategoricalInput(key="booster", categories=["gbtree", "dart"]),
+                    CategoricalInput(
+                        key="grow_policy", categories=["depthwise", "lossguide"]
+                    ),
+                    CategoricalInput(
+                        key="objective", categories=["multi:softmax", "multi:softprob"]
+                    ),
+                    ContinuousInput(key="log_learning_rate", min=-5, max=0),
+                    build_integer_input(key="max_depth", bounds=[1, 10]),
+                    ContinuousInput(key="min_split_loss", min=0, max=10),
+                    ContinuousInput(key="subsample", min=0.001, max=1),
+                    ContinuousInput(key="reg_lambda", min=0, max=5),
+                ]
+            ),
+            outputs=Outputs(
+                features=[ContinuousOutput(key="y", objective=MinimizeObjective())]
+            ),
+        )
+
+    def _train_xgboost(self, xgboost_kwargs):
         model = xgboost.XGBClassifier(**xgboost_kwargs)
         model.fit(self.train_x, self.train_y)
-
         y_pred = model.predict(self.test_x)
 
         # 1-acc for minimization
         score = 1 - metrics.accuracy_score(self.test_y, y_pred)
         return score
 
-    @property
-    def bounds(self):
-        return [
-            [0, 1],  # booster
-            [0, 1],  # grow_policy
-            [0, 1],  # objective
-            [-5, 0],  # log learning_rate
-            [1, 10],  # max_depth
-            [0, 10],  # min_split_loss
-            [0.001, 1],  # subsample
-            [0, 5],  # reg_lambda
-        ]
+    def _f(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        ys = []
+        for _, row in X.iterrows():
+            xgboost_kwargs = row.to_dict()
+            log_learning_rate = xgboost_kwargs.pop("log_learning_rate")
+            xgboost_kwargs["learning_rate"] = 10**log_learning_rate
+
+            ys.append([self._train_xgboost(xgboost_kwargs)])
+
+        return pd.DataFrame(data=ys, columns=self.domain.outputs.get_keys())

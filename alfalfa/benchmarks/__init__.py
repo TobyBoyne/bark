@@ -1,4 +1,5 @@
-from beartype.typing import Union
+from beartype.typing import Type, Union
+from bofire.benchmarks.benchmark import Benchmark
 
 from .base import CatSynFunc, DatasetFunc, SynFunc, standardise
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
@@ -9,33 +10,24 @@ from .dataset import (
     JsonDatasetFunc,
     StudentPerformance,
 )
-from .mixed import CatAckley, PressureVessel, VAESmall
+from .mixed import CatAckley, CombinationFunc2, PressureVessel
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
 from .unconstrained import (
-    Branin,
-    CombinationFunc2,
     Friedman,
-    Hartmann6D,
-    Himmelblau1D,
-    OrthogonalRosenbrock,
     Rastrigin,
     Schwefel,
     StyblinskiTang,
 )
 from .xgboost_mnist import XGBoostMNIST
 
-BENCHMARK_MAP = {
+BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # unconstrained spaces
-    "hartmann6d": Hartmann6D,
-    "himmelblau1d": Himmelblau1D,
-    "branin": Branin,
     "friedman": Friedman,
     "rastrigin": Rastrigin,
     "styblinski_tang": StyblinskiTang,
     "schwefel": Schwefel,
     "combination_func2": CombinationFunc2,
-    "ortho_ros": OrthogonalRosenbrock,
     # constrained spaces
     "g1": G1,
     "g3": G3,
@@ -47,17 +39,16 @@ BENCHMARK_MAP = {
     # mixed spaces
     "pest": PestControl,
     "pressure_vessel": PressureVessel,
-    "vae_nas": VAESmall,
+    # "vae_nas": VAESmall,
     "cat_ackley": CatAckley,
     # multi-fidelity
-    "currin": CurrinExp2D,
+    # "currin": CurrinExp2D,
     # datasets
-    "auto_mpg": AutoMPG,
-    "student_performance": StudentPerformance,
-    "abalone": Abalone,
-    "concrete": ConcreteCompressive,
-    "json": JsonDatasetFunc,
-    "xgboost": XGBoostMNIST,
+    # "auto_mpg": AutoMPG,
+    # "student_performance": StudentPerformance,
+    # "abalone": Abalone,
+    # "concrete": ConcreteCompressive,
+    # "json": JsonDatasetFunc,
 }
 
 

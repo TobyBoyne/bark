@@ -5,3 +5,4 @@ models
 *.sh
 *.csv
 *.json
+*.log

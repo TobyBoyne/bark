@@ -2,16 +2,22 @@
 import numpy as np
 from beartype.cave import IntType
 from beartype.typing import Any, Optional
+from bofire.data_models.domain.api import Domain
 from jaxtyping import Bool, Int, Shaped
 
+from alfalfa.utils.domain import get_cat_idx_from_domain
+
 from ...forest import AlfalfaNode, AlfalfaTree, DecisionNode
-from ...utils.space import Space
 
 
-class Data:
-    def __init__(self, space: Space, X: Shaped[np.ndarray, "N D"]):
-        self.space = space
-        self.X = np.asarray(X)
+class BARKData:
+    """Contains the data used during training, as well as helper functions for
+    e.g. unique values at nodes"""
+
+    def __init__(self, domain: Domain, X: Shaped[np.ndarray, "N D"]):
+        self.domain = domain
+        self.X = X
+        self.cat_idx = get_cat_idx_from_domain(domain)
 
     def get_init_prior(self):
         def _prior(node: DecisionNode):
@@ -48,18 +54,18 @@ class Data:
     ) -> Int[np.ndarray, "..."]:
         valid = [
             i
-            for i in range(len(self.space))
+            for i in range(len(self.domain.inputs))
             if len(self.unique_split_values(x_index, i)) >= 1
         ]
         return np.array(valid, dtype=int)
 
     def unique_split_values(
-        self, x_index: Shaped[np.ndarray, "N"], var_idx: IntType
+        self, x_index: Shaped[np.ndarray, "N"], var_idx: IntType | int
     ) -> Shaped[np.ndarray, "unique"]:
         """
         x_index is shape (N,), where it is true if the x value reaches a leaf"""
         x = self.X[x_index, var_idx]
-        if var_idx in self.space.cat_idx:
+        if var_idx in self.cat_idx:
             return np.unique(x)
         else:
             return np.unique(x)[:-1]

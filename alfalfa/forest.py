@@ -3,9 +3,12 @@ import abc
 import numpy as np
 from beartype.cave import IntType
 from beartype.typing import Callable, Optional, Sequence
+from bofire.data_models.domain.api import Domain
+from bofire.data_models.features.api import AnyInput, CategoricalInput
 from jaxtyping import Float, Int, Shaped
 
-from .utils.space import Space
+from alfalfa.utils.domain import get_feature_by_index
+from alfalfa.utils.logger import Timer
 
 InitFuncType = Optional[Callable[["DecisionNode"], None]]
 
@@ -24,7 +27,6 @@ class AlfalfaNode:
     """ """
 
     def __init__(self):
-        super().__init__()
         self.depth: int = 0
         self.parent: Optional[tuple[DecisionNode, str]] = None
         self.tree: Optional[AlfalfaTree] = None
@@ -42,8 +44,8 @@ class AlfalfaNode:
         return []
 
     @property
-    def space(self):
-        return self.tree.space
+    def domain(self):
+        return self.tree.domain
 
     def initialise(self, depth, *args):
         self.depth = depth
@@ -103,20 +105,28 @@ class LeafNode(AlfalfaNode):
 class DecisionNode(AlfalfaNode):
     def __init__(
         self,
-        var_idx=None,
-        threshold: Optional[float | Shaped[np.ndarray, "T"]] = None,
+        var_idx: Optional[int] = None,
+        threshold: Optional[float | list[int]] = None,
         left: Optional["AlfalfaNode"] = None,
         right: Optional["AlfalfaNode"] = None,
     ):
         super().__init__()
-        self.var_idx = None if var_idx is None else var_idx
-        self.threshold = None if threshold is None else threshold
+        self.var_idx = var_idx
+        self.threshold = threshold
 
         self._left: AlfalfaNode = None
         self._right: AlfalfaNode = None
 
         self.left = LeafNode() if left is None else left
         self.right = LeafNode() if right is None else right
+
+    @property
+    def var_key(self):
+        return get_feature_by_index(self.domain.inputs, self.var_idx).key
+
+    @property
+    def var_feat(self) -> AnyInput:
+        return get_feature_by_index(self.domain.inputs, self.var_idx)
 
     # Structural methods
     @property
@@ -166,7 +176,7 @@ class DecisionNode(AlfalfaNode):
 
         var = x[:, self.var_idx]
 
-        if self.var_idx in self.space.cat_idx:
+        if isinstance(self.var_feat, CategoricalInput):
             # categorical - check if value is in subset
             # TODO: implement subset
             return np.where(np.equal(var, self.threshold), self.left(x), self.right(x))
@@ -180,7 +190,7 @@ class DecisionNode(AlfalfaNode):
             )
 
     def __repr__(self):
-        return f"N{self.var_idx}({self.left}), ({self.right})"
+        return f"N{self.var_key}({self.left}), ({self.right})"
 
     @classmethod
     def create_of_height(cls, d):
@@ -239,10 +249,10 @@ class AlfalfaTree:
             self.root._set_child_data(self.root.left)
             self.root._set_child_data(self.root.right)
 
-        self.space: Optional[Space] = None
+        self.domain: Optional[Domain] = None
 
-    def initialise(self, space: Space, init_func: InitFuncType = None):
-        self.space = space
+    def initialise(self, domain: Domain, init_func: InitFuncType = None):
+        self.domain = domain
         self.root.initialise(0, init_func)
 
     def _get_nodes_by_depth(self) -> dict[int, list[AlfalfaNode]]:
@@ -299,7 +309,11 @@ class AlfalfaTree:
 
 class AlfalfaForest:
     def __init__(
-        self, height=None, num_trees=None, trees: Optional[list[AlfalfaTree]] = None
+        self,
+        height=None,
+        num_trees=None,
+        trees: Optional[list[AlfalfaTree]] = None,
+        frozen: bool = False,
     ):
         self.trees: Sequence[AlfalfaTree]
         if trees:
@@ -307,19 +321,29 @@ class AlfalfaForest:
         else:
             self.trees = [AlfalfaTree(height) for _ in range(num_trees)]
 
-    def initialise(self, space: Space, init_func: InitFuncType = None):
-        self.space = space
+        self._cache: dict[tuple[bytes, bytes], np.ndarray] = {}
+        self.frozen = frozen
+        self.timer = Timer()
+
+    def initialise(self, domain: Domain, init_func: InitFuncType = None):
+        self.domain = domain
         for tree in self.trees:
-            tree.initialise(space, init_func)
+            tree.initialise(domain, init_func)
 
     def gram_matrix(
         self, x1: Shaped[np.ndarray, "N D"], x2: Shaped[np.ndarray, "M D"]
     ) -> Float[np.ndarray, "N M"]:
-        x1_leaves = np.stack([tree(x1) for tree in self.trees], axis=-1)
-        x2_leaves = np.stack([tree(x2) for tree in self.trees], axis=-1)
+        input_key = (x1.tobytes(), x2.tobytes())
+        if self.frozen and input_key in self._cache:
+            return self._cache[input_key]
+        with self.timer("gram_matrix"):
+            x1_leaves = np.stack([tree(x1) for tree in self.trees], axis=-1)
+            x2_leaves = np.stack([tree(x2) for tree in self.trees], axis=-1)
 
-        sim_mat = np.equal(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
-        sim_mat = 1 / len(self.trees) * np.sum(sim_mat, axis=-1)
+            sim_mat = np.equal(x1_leaves[..., :, None, :], x2_leaves[..., None, :, :])
+            sim_mat = 1 / len(self.trees) * np.sum(sim_mat, axis=-1)
+        if self.frozen:
+            self._cache[input_key] = sim_mat
         return sim_mat
 
     def structure_eq(self, other: "AlfalfaForest"):

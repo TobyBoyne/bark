@@ -3,6 +3,9 @@
 import collections as coll
 
 import numpy as np
+from bofire.data_models.features.api import CategoricalInput
+
+from alfalfa.utils.domain import get_feature_by_index
 
 from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode
 from ..forest import LeafNode as AlfalfaLeafNode
@@ -40,7 +43,13 @@ class GbmModel:
 
     def _build_null_tree(self, tree: AlfalfaTree) -> "GbmNode":
         """Build a tree with a single leaf node."""
-        ub = tree.space.dims[0].bnds[-1]
+        # TODO: build null tree for Categorical features
+        feat = get_feature_by_index(tree.domain.inputs, 0)
+        if isinstance(feat, CategoricalInput):
+            raise NotImplementedError(
+                "Please ensure the first feature is not categorical"
+            )
+        ub = feat.bounds[0]
         null_tree = AlfalfaTree(root=DecisionNode(var_idx=0, threshold=ub))
         null_tree.root.left.leaf_id = tree.root.leaf_id
         return GbmNode(split_var=0, split_code_pred=ub, node=null_tree.root)
@@ -305,7 +314,9 @@ class GbmNode(GbmType):
         List of node dicts that define the tree
     """
 
-    def __init__(self, split_var: int, split_code_pred: float, node: DecisionNode):
+    def __init__(
+        self, split_var: int, split_code_pred: float | list[int], node: DecisionNode
+    ):
         self.split_var = split_var
         # TODO: handle cat vars!
         self.split_code_pred = split_code_pred

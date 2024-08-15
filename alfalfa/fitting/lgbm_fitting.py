@@ -1,13 +1,20 @@
 """Convert an LGBM tree to an instance of Alternating Tree for comparison"""
+import warnings
+
 import lightgbm as lgb
-import numpy as np
+import pandas as pd
 from beartype.typing import Optional
+from bofire.data_models.domain.api import Domain
+from bofire.data_models.features.api import CategoricalInput
 
 from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode, LeafNode
 
 
 def fit_lgbm_forest(
-    train_x: np.ndarray, train_y: np.ndarray, params: Optional[dict] = None
+    train_x: pd.DataFrame,
+    train_y: pd.Series,
+    domain: Domain,
+    params: Optional[dict] = None,
 ) -> lgb.Booster:
     default_params = {
         "max_depth": 3,
@@ -15,16 +22,22 @@ def fit_lgbm_forest(
         "verbose": -1,
         "num_boost_round": 50,
     }
-    if params is not None:
-        params = {**default_params, **params}
-    else:
-        params = default_params
+    if params is None:
+        params = {}
 
-    return lgb.train(
-        params,
-        lgb.Dataset(train_x, train_y),
-        num_boost_round=params["num_boost_round"],
-    )
+    params = {**default_params, **params}
+
+    cat = domain.inputs.get_keys(includes=CategoricalInput)
+    dataset = lgb.Dataset(train_x, train_y, categorical_feature=cat)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        booster = lgb.train(
+            params,
+            dataset,
+        )
+
+    return booster
 
 
 def lgbm_to_alfalfa_forest(tree_model: lgb.Booster) -> AlfalfaForest:
@@ -36,6 +49,10 @@ def lgbm_to_alfalfa_forest(tree_model: lgb.Booster) -> AlfalfaForest:
         else:
             var_idx = node_dict["split_feature"]
             threshold = node_dict["threshold"]
+            # TODO: double check this:
+            if node_dict["decision_type"] == "==":
+                threshold = [int(threshold)]
+
             return DecisionNode(
                 var_idx=var_idx,
                 threshold=threshold,
@@ -47,5 +64,5 @@ def lgbm_to_alfalfa_forest(tree_model: lgb.Booster) -> AlfalfaForest:
         AlfalfaTree(root=get_subtree(tree_dict["tree_structure"]))
         for tree_dict in all_trees
     ]
-    forest = AlfalfaForest(trees=trees)
+    forest = AlfalfaForest(trees=trees, frozen=True)
     return forest

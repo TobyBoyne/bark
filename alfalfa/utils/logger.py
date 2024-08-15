@@ -5,10 +5,11 @@ from time import perf_counter
 
 import numpy as np
 import torch
-from beartype.typing import Callable
+from beartype.typing import TYPE_CHECKING, Callable
 from matplotlib.axes import Axes
 
-from ..tree_kernels import AlfalfaGP
+if TYPE_CHECKING:
+    from ..tree_kernels import AlfalfaGP
 
 
 class Timer:
@@ -105,7 +106,7 @@ class BOLogger(Logger):
 
 
 class MCMCLogger(Logger):
-    def checkpoint(self, model: AlfalfaGP):
+    def checkpoint(self, model: "AlfalfaGP"):
         self.log(samples=deepcopy(model.state_dict()))
         self.log(noise=model.likelihood.noise, squeeze=True)
         self.log(scale=model.covar_module.outputscale, squeeze=True)

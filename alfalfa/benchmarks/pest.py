@@ -1,9 +1,17 @@
 # adapted from https://github.com/huawei-noah/HEBO/blob/master/MCBO/mcbo/tasks/synthetic/pest.py
 
 import numpy as np
-
-from ..utils.space import CategoricalDimension, Space
-from .base import SynFunc
+import pandas as pd
+from bofire.benchmarks.api import Benchmark
+from bofire.data_models.domain.api import Domain, Inputs, Outputs
+from bofire.data_models.enum import CategoricalEncodingEnum
+from bofire.data_models.features.api import (
+    CategoricalInput,
+    ContinuousOutput,
+)
+from bofire.data_models.objectives.api import MinimizeObjective
+from jaxtyping import Int
+from pandas import DataFrame
 
 
 def spread_pests(curr_pest_frac, spread_rate, control_rate, apply_control):
@@ -14,7 +22,7 @@ def spread_pests(curr_pest_frac, spread_rate, control_rate, apply_control):
     return next_pest_frac
 
 
-def _pest_control_score(x, seed=None):
+def _pest_control_score(x: Int[np.ndarray, "D"], rng: np.random.Generator):
     U = 0.1
     n_stages = x.size
     n_simulations = 100
@@ -34,34 +42,17 @@ def _pest_control_score(x, seed=None):
     payed_price_sum = 0
     above_threshold = 0
 
-    if seed is not None:
-        init_pest_frac = np.random.RandomState(seed).beta(
-            init_pest_frac_alpha, init_pest_frac_beta, size=(n_simulations,)
-        )
-    else:
-        init_pest_frac = np.random.beta(
-            init_pest_frac_alpha, init_pest_frac_beta, size=(n_simulations,)
-        )
+    init_pest_frac = rng.beta(
+        init_pest_frac_alpha, init_pest_frac_beta, size=(n_simulations,)
+    )
     curr_pest_frac = init_pest_frac
     for i in range(n_stages):
-        if seed is not None:
-            spread_rate = np.random.RandomState(seed).beta(
-                spread_alpha, spread_beta, size=(n_simulations,)
-            )
-        else:
-            spread_rate = np.random.beta(
-                spread_alpha, spread_beta, size=(n_simulations,)
-            )
+        spread_rate = rng.beta(spread_alpha, spread_beta, size=(n_simulations,))
         do_control = x[i] > 0
         if do_control:
-            if seed is not None:
-                control_rate = np.random.RandomState(seed).beta(
-                    control_alpha, control_beta[x[i]], size=(n_simulations,)
-                )
-            else:
-                control_rate = np.random.beta(
-                    control_alpha, control_beta[x[i]], size=(n_simulations,)
-                )
+            control_rate = rng.beta(
+                control_alpha, control_beta[x[i]], size=(n_simulations,)
+            )
             next_pest_frac = spread_pests(
                 curr_pest_frac, spread_rate, control_rate, True
             )
@@ -84,7 +75,7 @@ def _pest_control_score(x, seed=None):
     return payed_price_sum + above_threshold
 
 
-class PestControl(SynFunc):
+class PestControl(Benchmark):
     """
     Pest Control Problem.
     """
@@ -97,28 +88,42 @@ class PestControl(SynFunc):
         "pesticide 4",
     ]
 
-    def __init__(self, seed: int, n_stages: int = 25):
-        super().__init__(seed)
+    def __init__(self, n_stages: int = 25, seed: int | None = None, **kwargs):
+        super().__init__(**kwargs)
         self._n_stages = n_stages
+        self._pest_rng = np.random.default_rng(seed)
+        self._domain = Domain(
+            inputs=Inputs(
+                features=[
+                    CategoricalInput(key=f"stage_{i+1}", categories=self.categories)
+                    for i in range(n_stages)
+                ]
+            ),
+            outputs=Outputs(
+                features=[ContinuousOutput(key="y", objective=MinimizeObjective())]
+            ),
+        )
 
-    def __call__(self, x: list | np.ndarray) -> float:
-        # x_ = x.replace(['do nothing', 'pesticide 1', 'pesticide 2', 'pesticide 3', 'pesticide 4'], [0, 1, 2, 3, 4])
-        x = np.asarray(x)
-        if isinstance(x[0], str):
-            x = self.space.transform(x)
-        assert x.ndim == 1 and len(x) == self._n_stages, (x.shape, self._n_stages)
-        evaluation = _pest_control_score(x, seed=self.seed)
-        return evaluation
+    def _f(self, X: pd.DataFrame) -> pd.DataFrame:
+        stages = [f"stage_{i+1}" for i in range(self._n_stages)]
+        specs = {s: CategoricalEncodingEnum.ORDINAL for s in stages}
+        X_transformed = self.domain.inputs.transform(X, specs)
+        X_numpy = X_transformed[stages].to_numpy()
+        scores = []
+        for row in X_numpy:
+            score = _pest_control_score(row, self._pest_rng)
+            scores.append([score])
+        return pd.DataFrame(data=scores, columns=self.domain.outputs.get_keys())
 
-    @property
-    def space(self) -> Space:
-        dims = [
-            CategoricalDimension(key=f"stage_{i}", bnds=PestControl.categories)
-            for i in range(self._n_stages)
-        ]
-        return Space(dims)
+    # def __call__(self, x: list | np.ndarray) -> float:
+    #     # x_ = x.replace(['do nothing', 'pesticide 1', 'pesticide 2', 'pesticide 3', 'pesticide 4'], [0, 1, 2, 3, 4])
+    #     x = np.asarray(x)
+    #     if isinstance(x[0], str):
+    #         x = self.space.transform(x)
+    #     assert x.ndim == 1 and len(x) == self._n_stages, (x.shape, self._n_stages)
+    #     evaluation = _pest_control_score(x, seed=self.seed)
+    #     return evaluation
 
-    @property
-    def optimum(self) -> float:
-        # TODO: confirm this value
-        return 11.5
+    def get_optima(self) -> DataFrame:
+        # 11.5
+        raise NotImplementedError()

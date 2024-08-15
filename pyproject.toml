@@ -27,6 +27,7 @@ lightgbm = "^4.3.0"
 botorch = "^0.9.5"
 beartype = "^0.17.2"
 ucimlrepo = "^0.0.6"
+bofire = "^0.0.13"
 
 
 [tool.poetry.group.dev.dependencies]
