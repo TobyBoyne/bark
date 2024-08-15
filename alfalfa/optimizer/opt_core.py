@@ -1,6 +1,6 @@
 import gurobipy as gp
 from beartype.typing import Optional
-from bofire.data_models.domain.api import Domain, Inputs
+from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import (
     CategoricalInput,
     ContinuousInput,
@@ -12,35 +12,8 @@ from gurobipy import GRB, quicksum
 from alfalfa.bofire_utils.constraints import apply_constraint_to_model
 
 
-def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
-    # get optimal solution from gurobi model
-    next_x = []
-    for idx, feat in enumerate(input_feats):
-        x_val = None
-        if idx in cat_idx:
-            # check which category is active
-            for cat_i in range(len(feat.categories)):
-                if opt_model._cat_var_dict[idx][cat_i].x > 0.5:
-                    x_val = cat_i
-        else:
-            try:
-                x_val = opt_model._cont_var_dict[idx].x
-            except AttributeError:
-                pass
-
-        if x_val is None:
-            raise ValueError(
-                f"'get_opt_sol' wasn't able to extract solution for feature {idx}"
-            )
-
-        next_x.append(x_val)
-    return next_x
-
-
-def get_opt_core(
-    domain: Domain, env: Optional[gp.Env] = None
-) -> gp.Model:  # , opt_core: Optional[gp.Model] = None):
-    """creates the base optimization model"""
+def get_opt_core(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
+    """Build the optimization core with input features"""
     model = gp.Model(env=env)
     model._cont_var_dict = {}
     model._cat_var_dict = {}
@@ -81,7 +54,7 @@ def get_opt_core(
 
 
 def get_opt_core_copy(opt_core: gp.Model):
-    """creates the copy of an optimization model"""
+    """Create a copy of an optimization core."""
     new_opt_core = opt_core.copy()
     new_opt_core._n_feat = opt_core._n_feat
 
@@ -109,6 +82,7 @@ def get_opt_core_copy(opt_core: gp.Model):
 
 
 def get_opt_core_from_domain(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
+    """Create an optimization model from a domain (including constraints)"""
     model_core = get_opt_core(domain, env=env)
     for constraint in domain.constraints:
         apply_constraint_to_model(constraint, model_core)

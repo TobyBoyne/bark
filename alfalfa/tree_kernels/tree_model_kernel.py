@@ -18,10 +18,3 @@ class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
         return torch.as_tensor(
             self.tree_model.gram_matrix(x1.detach().numpy(), x2.detach().numpy())
         )
-
-    def get_extra_state(self):
-        return {"tree_model": self.tree_model.as_dict()}
-
-    def set_extra_state(self, state):
-        d = state["tree_model"]
-        self.tree_model = AlfalfaForest.from_dict(d)

@@ -12,7 +12,7 @@ from alfalfa.utils.domain import get_cat_idx_from_domain
 
 from ..tree_kernels import AlfalfaGP, AlfalfaMOGP
 from .gbm_model import GbmModel
-from .optimizer_utils import add_gbm_to_opt_model, get_opt_core, get_opt_core_copy
+from .opt_core import add_gbm_to_opt_model, get_opt_core, get_opt_core_copy
 
 
 def build_opt_model(
@@ -22,6 +22,7 @@ def build_opt_model(
     kappa: float,
     model_core: Optional[gp.Model] = None,
 ):
+    """Build an optimization model for the acquisition function"""
     # build opt_model core
 
     # check if there's already a model core with extra constraints

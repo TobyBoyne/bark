@@ -17,7 +17,7 @@ with install_import_hook("alfalfa", "beartype.beartype"):
     from alfalfa.fitting import fit_lgbm_forest, lgbm_to_alfalfa_forest
     from alfalfa.optimizer import build_opt_model, propose
     from alfalfa.optimizer.gbm_model import GbmModel
-    from alfalfa.optimizer.optimizer_utils import get_opt_core_from_domain
+    from alfalfa.optimizer.opt_core import get_opt_core_from_domain
     from alfalfa.tree_kernels import AlfalfaGP
 
 benchmark = Detergent()
@@ -50,7 +50,7 @@ for itr in range(10):
         lambda x: torch.from_numpy(x.to_numpy()), (train_x_transformed, train_y)
     )
     tree_gp = AlfalfaGP(*train_torch, likelihood, forest)
-    mll = gpy.mlls.MarginalLogLikelihood(likelihood, tree_gp)
+    mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
     fit_gpytorch_mll(mll)
 
     # get new proposal and evaluate bb_func

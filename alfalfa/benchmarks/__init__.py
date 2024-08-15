@@ -1,7 +1,6 @@
 from beartype.typing import Type, Union
 from bofire.benchmarks.benchmark import Benchmark
 
-from .base import CatSynFunc, DatasetFunc, SynFunc, standardise
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
 from .dataset import (
     Abalone,
@@ -19,6 +18,7 @@ from .unconstrained import (
     Schwefel,
     StyblinskiTang,
 )
+from .xgboost_mnist import XGBoostMNIST
 
 BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # unconstrained spaces
@@ -48,17 +48,10 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # "abalone": Abalone,
     # "concrete": ConcreteCompressive,
     # "json": JsonDatasetFunc,
+    "xgboost": XGBoostMNIST,
 }
 
 
-def map_benchmark(name: str, **kwargs) -> Union[SynFunc, CatSynFunc, DatasetFunc]:
-    """Map a benchmark name to a function that generates the benchmark
-
-    Args:
-        name (str): the name of the benchmark
-        **kwargs: additional arguments to pass to the benchmark function
-
-    Returns:
-        Union[SynFunc, CatSynFunc, DatasetFunc]: the benchmark function
-    """
+def map_benchmark(name: str, **kwargs) -> Benchmark:
+    """Map a benchmark name to a function that generates the benchmark"""
     return BENCHMARK_MAP[name](**kwargs)
