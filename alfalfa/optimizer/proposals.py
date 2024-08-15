@@ -8,11 +8,35 @@ from gurobipy import GRB
 from alfalfa.utils.domain import get_cat_idx_from_domain, get_feature_bounds
 
 from .gbm_model import GbmModel
-from .optimizer_utils import (
+from .opt_core import (
     get_opt_core_copy,
-    get_opt_sol,
     label_leaf_index,
 )
+
+
+def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
+    # get optimal solution from gurobi model
+    next_x = []
+    for idx, feat in enumerate(input_feats):
+        x_val = None
+        if idx in cat_idx:
+            # check which category is active
+            for cat_i in range(len(feat.categories)):
+                if opt_model._cat_var_dict[idx][cat_i].x > 0.5:
+                    x_val = cat_i
+        else:
+            try:
+                x_val = opt_model._cont_var_dict[idx].x
+            except AttributeError:
+                pass
+
+        if x_val is None:
+            raise ValueError(
+                f"'get_opt_sol' wasn't able to extract solution for feature {idx}"
+            )
+
+        next_x.append(x_val)
+    return next_x
 
 
 def propose(

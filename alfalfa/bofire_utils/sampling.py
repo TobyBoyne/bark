@@ -2,7 +2,7 @@ import pandas as pd
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, NumericalInput
 
-from alfalfa.optimizer.optimizer_utils import get_opt_core_from_domain
+from alfalfa.optimizer.opt_core import get_opt_core_from_domain
 
 
 def sample_projected(domain: Domain, n: int, seed: int | None = None) -> pd.DataFrame:

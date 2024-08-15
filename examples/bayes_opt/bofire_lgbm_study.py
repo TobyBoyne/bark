@@ -17,7 +17,7 @@ with install_import_hook("alfalfa", "beartype.beartype"):
     from alfalfa.fitting import fit_lgbm_forest, lgbm_to_alfalfa_forest
     from alfalfa.optimizer import build_opt_model, propose
     from alfalfa.optimizer.gbm_model import GbmModel
-    from alfalfa.optimizer.optimizer_utils import get_opt_core_from_domain
+    from alfalfa.optimizer.opt_core import get_opt_core_from_domain
     from alfalfa.tree_kernels import AlfalfaGP
 
 benchmark = Detergent()

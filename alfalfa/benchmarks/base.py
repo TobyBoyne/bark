@@ -8,7 +8,8 @@ import torch
 from beartype.typing import Optional
 from jaxtyping import Float, Shaped
 
-from ..optimizer.optimizer_utils import get_opt_core, get_opt_sol
+from ..optimizer.opt_core import get_opt_core
+from ..optimizer.proposals import get_opt_sol
 from ..utils.space import Space
 
 

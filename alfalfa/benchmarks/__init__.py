@@ -1,7 +1,6 @@
 from beartype.typing import Type, Union
 from bofire.benchmarks.benchmark import Benchmark
 
-from .base import CatSynFunc, DatasetFunc, SynFunc, standardise
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
 from .dataset import (
     Abalone,
