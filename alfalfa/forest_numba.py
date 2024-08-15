@@ -1,11 +1,10 @@
 """Inspired by https://github.com/ogrisel/pygbm"""
 
-import timeit
 
 import numpy as np
 from numba import njit, prange
 
-PREDICTOR_RECORD_DTYPE = np.dtype(
+NODE_RECORD_DTYPE = np.dtype(
     [
         ("is_leaf", np.uint8),
         ("feature_idx", np.uint32),
@@ -53,12 +52,14 @@ nodes = np.array(
         (1, 0, 1.0, 0, 0, 2),
         (1, 0, 1.0, 0, 0, 2),
     ],
-    dtype=PREDICTOR_RECORD_DTYPE,
+    dtype=NODE_RECORD_DTYPE,
 )
 
-X = np.linspace(0, 1, 10_000).reshape(-1, 1)
-feat_is_cat = np.array([False])
+# X = np.linspace(0, 1, 10_000).reshape(-1, 1)
+# feat_is_cat = np.array([False])
 
-_pass_through_tree(nodes, X, feat_is_cat)
-t = timeit.timeit(lambda: _pass_through_tree(nodes, X, feat_is_cat), number=100)
-print(t)
+# _pass_through_tree(nodes, X, feat_is_cat)
+# t = timeit.timeit(lambda: _pass_through_tree(nodes, X, feat_is_cat), number=100)
+# print(t)
+
+print(np.ones((5,), dtype=NODE_RECORD_DTYPE))
