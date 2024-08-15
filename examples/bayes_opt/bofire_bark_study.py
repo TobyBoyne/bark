@@ -10,7 +10,7 @@ from alfalfa.fitting import BARK, BARKData, BARKTrainParams
 from alfalfa.forest import AlfalfaForest
 from alfalfa.optimizer import build_opt_model, propose
 from alfalfa.optimizer.gbm_model import GbmModel
-from alfalfa.optimizer.optimizer_utils import get_opt_core_from_domain
+from alfalfa.optimizer.opt_core import get_opt_core_from_domain
 from alfalfa.tree_kernels import AlfalfaGP
 
 benchmark = Himmelblau()

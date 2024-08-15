@@ -50,7 +50,7 @@ for itr in range(10):
         lambda x: torch.from_numpy(x.to_numpy()), (train_x_transformed, train_y)
     )
     tree_gp = AlfalfaGP(*train_torch, likelihood, forest)
-    mll = gpy.mlls.MarginalLogLikelihood(likelihood, tree_gp)
+    mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
     fit_gpytorch_mll(mll)
 
     # get new proposal and evaluate bb_func
