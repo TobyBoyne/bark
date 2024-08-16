@@ -6,8 +6,9 @@ from bofire.data_models.features.api import CategoricalInput, DiscreteInput
 from numba import njit
 
 from alfalfa.fitting.noise_scale_proposals import get_noise_proposal, get_scale_proposal
+from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update
 from alfalfa.fitting.tree_proposals import FeatureTypeEnum, get_tree_proposal
-from alfalfa.forest_numba import NODE_RECORD_DTYPE
+from alfalfa.forest_numba import NODE_RECORD_DTYPE, get_leaf_vectors, pass_through_tree
 from alfalfa.tree_kernels.tree_gps import AlfalfaGP
 from alfalfa.utils.domain import get_feature_bounds
 
@@ -144,19 +145,47 @@ def _step_bark_sampler(
     rng: np.random.Generator,
     params: np.ndarray,
 ):
+    # TODO: pass in previous K_inv and K_logdet
     m = forest.shape[0]
+    K_XX = (scale / m) * pass_through_tree(forest, train_x, feat_types)
+    # TODO: should use cholesky
+    # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
+    K_inv = np.linalg.inv(K_XX)
     for tree_idx in range(m):
-        new_nodes, log_alpha = get_tree_proposal(
-            forest, noise, scale, tree_idx, bounds, feat_types, rng, params
+        old_nodes = forest[tree_idx].copy()
+        new_nodes, log_q_prior = get_tree_proposal(
+            forest[tree_idx], bounds, feat_types, rng, params
         )
-        if np.log(rng.uniform()) <= log_alpha:
-            forest[tree_idx] = new_nodes
 
-    new_noise, log_alpha = get_noise_proposal(noise, rng)
+        cur_leaf_vectors = get_leaf_vectors(forest, train_x, feat_types)
+        forest[tree_idx] = new_nodes
+        new_leaf_vectors = get_leaf_vectors(forest, train_x, feat_types)
+
+        K_inv_new, K_logdet_new = (
+            low_rank_inv_update(K_inv, cur_leaf_vectors, subtract=True),
+            low_rank_det_update(K_inv, cur_leaf_vectors, K_logdet, subtract=True),
+        )
+
+        # K = torch.linalg.inv(K_inv)
+        # actual = torch.linalg.inv(K + cur_leaf_vectors)
+
+        K_inv_new, K_logdet_new = (
+            low_rank_inv_update(K_inv_new, new_leaf_vectors),
+            low_rank_det_update(K_inv_new, new_leaf_vectors, K_logdet_new),
+        )
+
+        log_alpha = log_q_prior + log_ll
+        if np.log(rng.uniform()) > log_alpha:  # reject
+            forest[tree_idx] = old_nodes
+
+    new_noise, log_q_prior = get_noise_proposal(noise, rng, params)
+    # log_ll =
+    log_alpha = log_q_prior + log_ll
     if np.log(rng.uniform()) <= log_alpha:
         noise = new_noise
 
-    new_scale, log_alpha = get_scale_proposal(scale, rng)
+    new_scale, log_q_prior = get_scale_proposal(scale, rng, params)
+    log_alpha = log_q_prior + log_ll
     if np.log(rng.uniform()) <= log_alpha:
         scale = new_scale
 

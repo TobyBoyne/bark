@@ -3,7 +3,7 @@ from enum import Enum
 import numpy as np
 from numba import njit
 
-from alfalfa.forest_numba import NODE_RECORD_DTYPE
+from alfalfa.forest_numba import NODE_RECORD_DTYPE, FeatureTypeEnum
 
 NODE_PROPOSAL_DTYPE = np.dtype(
     [
@@ -14,12 +14,6 @@ NODE_PROPOSAL_DTYPE = np.dtype(
         ("new_threshold", np.float32),
     ]
 )
-
-
-class FeatureTypeEnum(Enum):
-    Cat = 0
-    Int = 1
-    Cont = 2
 
 
 class TreeProposalEnum(Enum):
@@ -116,10 +110,7 @@ def change(nodes: np.ndarray, node_proposal):
 
 @njit
 def get_tree_proposal(
-    forest: np.ndarray,
-    noise,
-    scale,
-    tree_idx,
+    nodes: np.ndarray,
     bounds,
     feat_types,
     tree_rng: np.random.Generator,
