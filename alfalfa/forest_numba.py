@@ -12,6 +12,7 @@ NODE_RECORD_DTYPE = np.dtype(
         ("left", np.uint32),
         ("right", np.uint32),
         ("depth", np.uint32),
+        ("active", np.uint8),
     ]
 )
 
@@ -44,16 +45,16 @@ def _pass_through_tree(nodes, X, feat_is_cat):
     return out
 
 
-nodes = np.array(
-    [
-        (0, 0, 0.5, 1, 2, 0),
-        (0, 0, 0.25, 3, 4, 1),
-        (1, 0, 1.0, 0, 0, 1),
-        (1, 0, 1.0, 0, 0, 2),
-        (1, 0, 1.0, 0, 0, 2),
-    ],
-    dtype=NODE_RECORD_DTYPE,
-)
+# nodes = np.array(
+#     [
+#         (0, 0, 0.5, 1, 2, 0),
+#         (0, 0, 0.25, 3, 4, 1),
+#         (1, 0, 1.0, 0, 0, 1),
+#         (1, 0, 1.0, 0, 0, 2),
+#         (1, 0, 1.0, 0, 0, 2),
+#     ],
+#     dtype=NODE_RECORD_DTYPE,
+# )
 
 # X = np.linspace(0, 1, 10_000).reshape(-1, 1)
 # feat_is_cat = np.array([False])
@@ -62,4 +63,4 @@ nodes = np.array(
 # t = timeit.timeit(lambda: _pass_through_tree(nodes, X, feat_is_cat), number=100)
 # print(t)
 
-print(np.ones((5,), dtype=NODE_RECORD_DTYPE))
+# print(np.ones((5,), dtype=NODE_RECORD_DTYPE))
