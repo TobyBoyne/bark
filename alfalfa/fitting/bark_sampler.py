@@ -5,8 +5,8 @@ from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
 from numba import njit
 
-from alfalfa.fitting.noise_scale_proposals import get_noise_proposal, get_scale_proposal
-from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update
+from alfalfa.fitting.noise_scale_proposals import get_noise_proposal
+from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
 from alfalfa.fitting.tree_proposals import FeatureTypeEnum, get_tree_proposal
 from alfalfa.forest_numba import NODE_RECORD_DTYPE, get_leaf_vectors, pass_through_tree
 from alfalfa.tree_kernels.tree_gps import AlfalfaGP
@@ -126,9 +126,10 @@ def _run_bark_sampler(
             forest, train_x, train_y, bounds, feat_types, noise, scale, rng, params
         )
         if itr % params["thinning"] == 0:
-            node_samples[itr // params["thinning"], :, :] = forest
-            noise_samples[itr // params["thinning"]] = noise
-            scale_samples[itr // params["thinning"]] = scale
+            slice_idx = itr // params["thinning"]
+            node_samples[slice_idx, :, :] = forest
+            noise_samples[slice_idx] = noise
+            scale_samples[slice_idx] = scale
 
     return node_samples, noise_samples, scale_samples
 
@@ -148,11 +149,15 @@ def _step_bark_sampler(
     # TODO: pass in previous K_inv and K_logdet
     m = forest.shape[0]
     K_XX = (scale / m) * pass_through_tree(forest, train_x, feat_types)
+    K_XX_s = K_XX + noise * np.eye(K_XX.shape[0])
     # TODO: should use cholesky
     # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
-    K_inv = np.linalg.inv(K_XX)
+    # https://github.com/numba/numba-scipy/issues/91
+    cur_K_inv = np.linalg.inv(K_XX_s)
+    _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
+    cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
     for tree_idx in range(m):
-        old_nodes = forest[tree_idx].copy()
+        cur_nodes = forest[tree_idx].copy()
         new_nodes, log_q_prior = get_tree_proposal(
             forest[tree_idx], bounds, feat_types, rng, params
         )
@@ -161,32 +166,47 @@ def _step_bark_sampler(
         forest[tree_idx] = new_nodes
         new_leaf_vectors = get_leaf_vectors(forest, train_x, feat_types)
 
-        K_inv_new, K_logdet_new = (
-            low_rank_inv_update(K_inv, cur_leaf_vectors, subtract=True),
-            low_rank_det_update(K_inv, cur_leaf_vectors, K_logdet, subtract=True),
+        new_K_inv, new_K_logdet = (
+            low_rank_inv_update(cur_K_inv, cur_leaf_vectors, subtract=True),
+            low_rank_det_update(
+                cur_K_inv, cur_leaf_vectors, cur_K_logdet, subtract=True
+            ),
         )
 
         # K = torch.linalg.inv(K_inv)
         # actual = torch.linalg.inv(K + cur_leaf_vectors)
 
-        K_inv_new, K_logdet_new = (
-            low_rank_inv_update(K_inv_new, new_leaf_vectors),
-            low_rank_det_update(K_inv_new, new_leaf_vectors, K_logdet_new),
+        new_K_inv, new_K_logdet = (
+            low_rank_inv_update(new_K_inv, new_leaf_vectors),
+            low_rank_det_update(new_K_inv, new_leaf_vectors, new_K_logdet),
         )
-
+        new_mll = mll(new_K_inv, new_K_logdet, train_y)
+        log_ll = new_mll - cur_mll
         log_alpha = log_q_prior + log_ll
-        if np.log(rng.uniform()) > log_alpha:  # reject
-            forest[tree_idx] = old_nodes
+        if np.log(rng.uniform()) <= min(log_alpha, 0):
+            # accept - set the new mll and K_inv values
+            cur_K_inv = new_K_inv
+            cur_K_logdet = new_K_logdet
+            cur_mll = new_mll
+        else:
+            # reject - reset the change
+            forest[tree_idx] = cur_nodes
 
-    new_noise, log_q_prior = get_noise_proposal(noise, rng, params)
-    # log_ll =
+    (new_noise, new_scale), log_q_prior = get_noise_proposal(forest, noise, scale, rng)
+    K_XX = (new_scale / m) * pass_through_tree(forest, train_x, feat_types)
+    K_XX_s = K_XX + new_noise * np.eye(K_XX.shape[0])
+    new_K_inv = np.linalg.inv(K_XX_s)
+    _, new_K_logdet = np.linalg.slogdet(K_XX_s)
+
+    new_mll = mll(cur_K_inv, cur_K_logdet, train_y)
     log_alpha = log_q_prior + log_ll
+
     if np.log(rng.uniform()) <= log_alpha:
         noise = new_noise
-
-    new_scale, log_q_prior = get_scale_proposal(scale, rng, params)
-    log_alpha = log_q_prior + log_ll
-    if np.log(rng.uniform()) <= log_alpha:
+        cur_K_inv = new_K_inv
+        cur_K_logdet = new_K_logdet
+        cur_mll = new_mll
         scale = new_scale
+        noise = new_noise
 
     return forest, noise, scale
