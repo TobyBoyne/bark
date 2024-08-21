@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
+from numba import njit
 
 from alfalfa.fitting.noise_scale_proposals import get_noise_scale_proposal
 from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
@@ -99,7 +100,7 @@ def run_bark_sampler(model: AlfalfaGP, domain: Domain, params: BARKTrainParams):
     return samples
 
 
-# @njit
+@njit
 def _run_bark_sampler(
     forest: np.ndarray,
     train_x: np.ndarray,
@@ -165,7 +166,7 @@ def _run_bark_sampler(
     return node_samples, noise_samples, scale_samples
 
 
-# @njit
+@njit
 def _step_bark_sampler(
     forest: np.ndarray,
     noise: float,
@@ -180,13 +181,17 @@ def _step_bark_sampler(
     cur_mll: float,
 ):
     m = forest.shape[0]
+    s_sqrtm = np.sqrt(scale / m)
+
     for tree_idx in range(m):
         new_nodes, log_q_prior = get_tree_proposal(
             forest[tree_idx], bounds, feat_types, params
         )
 
-        cur_leaf_vectors = get_leaf_vectors(forest[tree_idx], train_x, feat_types)
-        new_leaf_vectors = get_leaf_vectors(new_nodes, train_x, feat_types)
+        cur_leaf_vectors = s_sqrtm * get_leaf_vectors(
+            forest[tree_idx], train_x, feat_types
+        )
+        new_leaf_vectors = s_sqrtm * get_leaf_vectors(new_nodes, train_x, feat_types)
 
         new_K_inv, new_K_logdet = (
             low_rank_inv_update(cur_K_inv, cur_leaf_vectors, subtract=True),
@@ -202,6 +207,7 @@ def _step_bark_sampler(
             low_rank_inv_update(new_K_inv, new_leaf_vectors),
             low_rank_det_update(new_K_inv, new_leaf_vectors, new_K_logdet),
         )
+
         new_mll = mll(new_K_inv, new_K_logdet, train_y)
         log_ll = new_mll - cur_mll
         log_alpha = log_q_prior + log_ll
@@ -218,10 +224,13 @@ def _step_bark_sampler(
     new_K_inv = np.linalg.inv(K_XX_s)
     _, new_K_logdet = np.linalg.slogdet(K_XX_s)
 
-    new_mll = mll(cur_K_inv, cur_K_logdet, train_y)
+    new_mll = mll(new_K_inv, new_K_logdet, train_y)
     log_ll = new_mll - cur_mll
     log_alpha = log_q_prior + log_ll
-
+    print(">>")
+    print(noise, scale)
+    print(new_noise, new_scale)
+    print(log_q_prior, log_ll)
     if np.log(np.random.uniform()) <= min(log_alpha, 0):
         noise = new_noise
         cur_K_inv = new_K_inv

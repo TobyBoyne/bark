@@ -32,7 +32,7 @@ print("sampling")
 samples = run_bark_sampler(gp, benchmark.domain, params)
 print(samples)
 
-params.n_steps = 100
+params.n_steps = 50
 params.thinning = 5
 tic = perf_counter()
 samples = run_bark_sampler(gp, benchmark.domain, params)
