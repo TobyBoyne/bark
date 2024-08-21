@@ -2,7 +2,6 @@
 However, it doesn't seem to be much faster..."""
 
 import numpy as np
-import torch
 from jaxtyping import Float
 from numba import njit
 
@@ -15,7 +14,7 @@ def low_rank_inv_update(
     K_inv: InverseType, U: Float[np.ndarray, "N B"], subtract: bool = False
 ) -> InverseType:
     mul = -1.0 if subtract else 1.0
-    den = mul * np.eye(U.shape[-1]) + (U.mT @ K_inv @ U)
+    den = mul * np.eye(U.shape[-1]) + (U.T @ K_inv @ U)
 
     return K_inv - K_inv @ U @ np.linalg.solve(den, U.T @ K_inv)
 
@@ -28,7 +27,7 @@ def low_rank_det_update(
     subtract: bool = False,
 ) -> DetType:
     mul = -1.0 if subtract else 1.0
-    _, logabsdet = np.linalg.slogdet(torch.eye(U.shape[-1]) + mul * (U.mT @ K_inv @ U))
+    _, logabsdet = np.linalg.slogdet(np.eye(U.shape[-1]) + mul * (U.T @ K_inv @ U))
     return K_logdet + logabsdet
 
 

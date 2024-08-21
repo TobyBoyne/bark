@@ -70,7 +70,7 @@ def pass_through_forest(
 def get_leaf_vectors(nodes, X, feat_types):
     x_leaves = pass_through_tree(nodes, X, feat_types)
     all_leaves = np.unique(x_leaves)
-    leaf_vector = (np.equal(x_leaves[:, None], all_leaves[None, :])).astype(float)
+    leaf_vector = (np.equal(x_leaves[:, None], all_leaves[None, :])).astype(np.float64)
     return leaf_vector
 
 

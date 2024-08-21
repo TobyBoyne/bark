@@ -41,13 +41,29 @@ def _get_two_inactive_nodes(nodes):
 
 
 @njit
+def _assign_node(
+    target, active, feature_idx, threshold, left, right, depth, is_leaf
+) -> None:
+    # numba requires individual assignment
+    # https://numba.discourse.group/t/assigning-to-numpy-structural-array-using-a-tuple-in-jitclass/549/6
+
+    target["active"] = active
+    target["feature_idx"] = feature_idx
+    target["threshold"] = threshold
+    target["left"] = left
+    target["right"] = right
+    target["depth"] = depth
+    target["is_leaf"] = is_leaf
+
+
+@njit
 def sample_splitting_rule(bounds: list[list[float]], feat_types: np.ndarray):
     feature_idx = np.random.randint(0, len(bounds))
     if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
         threshold = np.random.randint(0, len(bounds[feature_idx]))
     elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
         threshold = np.random.randint(
-            bounds[feature_idx][0], bounds[feature_idx][1] + 1
+            int(bounds[feature_idx][0]), int(bounds[feature_idx][1]) + 1
         )
     else:
         threshold = np.random.uniform(bounds[feature_idx][0], bounds[feature_idx][1])
@@ -71,19 +87,20 @@ def splitting_rule_logprob(
 
 
 @njit
-def tree_q_ratio(nodes: np.ndarray, proposal_type: int, node_proposal: np.ndarray):
+def tree_q_ratio(nodes: np.ndarray, proposal_type: int, node_proposal: np.record):
     if proposal_type == TreeProposalEnum.Grow:
-        w_0 = np.size(terminal_nodes(nodes))
+        w_0 = np.shape(terminal_nodes(nodes))[0]
         parent = nodes[node_proposal["node_idx"]]
-        parent_singly_internal = (
-            parent["left"]["is_leaf"] and parent["right"]["is_leaf"]
+        left, right = nodes[parent["left"]], nodes[parent["right"]]
+        parent_singly_internal = left["is_leaf"] and right["is_leaf"]
+        w_1_star = (
+            np.shape(singly_internal_nodes(nodes))[0] + 1 - parent_singly_internal
         )
-        w_1_star = np.size(singly_internal_nodes(nodes)) + 1 - parent_singly_internal
         return np.log(w_0) - np.log(w_1_star)
 
     elif proposal_type == TreeProposalEnum.Prune:
-        w_0_star = np.size(terminal_nodes(nodes)) - 1
-        w_1 = np.size(singly_internal_nodes(nodes))
+        w_0_star = np.shape(terminal_nodes(nodes))[0] - 1
+        w_1 = np.shape(singly_internal_nodes(nodes))[0]
         return np.log(w_1) - np.log(w_0_star)
 
     else:
@@ -91,10 +108,12 @@ def tree_q_ratio(nodes: np.ndarray, proposal_type: int, node_proposal: np.ndarra
 
 
 @njit
-def tree_prior_ratio(nodes: np.ndarray, proposal_type: int, params: np.ndarray):
+def tree_prior_ratio(
+    nodes: np.ndarray, proposal_type: int, node_proposal: np.record, params: np.record
+):
     alpha = params["alpha"]
     beta = params["beta"]
-    depth = nodes[params["node_idx"]]["depth"]
+    depth = nodes[node_proposal["node_idx"]]["depth"]
 
     if proposal_type == TreeProposalEnum.Change:
         return 0.0
@@ -114,10 +133,9 @@ def tree_prior_ratio(nodes: np.ndarray, proposal_type: int, params: np.ndarray):
 @njit
 def grow(nodes: np.ndarray, node_proposal):
     left_idx, right_idx = _get_two_inactive_nodes(nodes)
-    depth = nodes[node_proposal["node_idx"]]["depth"] + 1
-    nodes[left_idx] = (1, 0, 0, 0, 0, depth, 1)
-    nodes[right_idx] = (1, 0, 0, 0, 0, depth, 1)
-    nodes[node_proposal["node_idx"]] = (
+    depth = nodes[node_proposal["node_idx"]]["depth"]
+    child_node = (1, 0, 0, 0, 0, depth + 1, 1)
+    new_parent_node = (
         0,
         node_proposal["new_feature_idx"],
         node_proposal["new_threshold"],
@@ -126,6 +144,10 @@ def grow(nodes: np.ndarray, node_proposal):
         depth,
         1,
     )
+
+    _assign_node(nodes[left_idx], *child_node)
+    _assign_node(nodes[right_idx], *child_node)
+    _assign_node(nodes[node_proposal["node_idx"]], *new_parent_node)
     return nodes
 
 
@@ -134,7 +156,7 @@ def prune(nodes: np.ndarray, node_proposal):
     node = nodes[node_proposal["node_idx"]]
     nodes[node["left"]]["active"] = 0
     nodes[node["right"]]["active"] = 0
-    nodes[node_proposal["node_idx"]] = (1, 0, 0, 0, 0, node["depth"], 1)
+    node["is_leaf"] = 1
     return nodes
 
 
@@ -151,9 +173,9 @@ def get_tree_proposal(
     nodes: np.ndarray,
     bounds,
     feat_types,
-    params: np.ndarray,
+    params: np.record,
 ) -> tuple[np.ndarray, float]:
-    node_proposal = np.zeros((), dtype=NODE_PROPOSAL_DTYPE)
+    node_proposal = np.zeros((1,), dtype=NODE_PROPOSAL_DTYPE)[0]
     # numba doesn't support weighted choice
     proposal_idx = np.searchsorted(
         np.cumsum(params["proposal_weights"]), np.random.rand()
@@ -172,7 +194,6 @@ def get_tree_proposal(
     if len(valid_nodes) == 0:
         return nodes, -np.inf
 
-    node_proposal["node_idx"] = "xyz"
     node_proposal["node_idx"] = np.random.choice(valid_nodes)
     node_proposal["prev_feature_idx"] = nodes[node_proposal["node_idx"]]["feature_idx"]
     node_proposal["prev_threshold"] = nodes[node_proposal["node_idx"]]["threshold"]
@@ -187,7 +208,7 @@ def get_tree_proposal(
         ) = sample_splitting_rule(bounds, feat_types)
 
     log_q_ratio = tree_q_ratio(nodes, proposal_type, node_proposal)
-    log_prior_ratio = tree_prior_ratio(nodes, proposal_type, params)
+    log_prior_ratio = tree_prior_ratio(nodes, proposal_type, node_proposal, params)
 
     new_nodes = nodes.copy()
     if proposal_type == TreeProposalEnum.Grow:

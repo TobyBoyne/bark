@@ -5,7 +5,7 @@ from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
 from numba import njit
 
-from alfalfa.fitting.noise_scale_proposals import get_noise_proposal
+from alfalfa.fitting.noise_scale_proposals import get_noise_scale_proposal
 from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
 from alfalfa.fitting.tree_proposals import FeatureTypeEnum, get_tree_proposal
 from alfalfa.forest_numba import NODE_RECORD_DTYPE, forest_gram_matrix, get_leaf_vectors
@@ -51,7 +51,7 @@ BARKTRAINPARAMS_DTYPE = np.dtype(
 
 
 def _bark_params_to_struct(params: BARKTrainParams):
-    return np.array(
+    return np.record(
         (
             params.warmup_steps,
             params.n_steps,
@@ -79,6 +79,7 @@ def run_bark_sampler(model: AlfalfaGP, domain: Domain, params: BARKTrainParams):
     bounds = [
         get_feature_bounds(feat, ordinal_encoding=True) for feat in domain.inputs.get()
     ]
+
     feat_type = np.array(
         [
             FeatureTypeEnum.Cat.value
@@ -99,7 +100,7 @@ def run_bark_sampler(model: AlfalfaGP, domain: Domain, params: BARKTrainParams):
     return samples
 
 
-# @njit
+@njit
 def _run_bark_sampler(
     forest: np.ndarray,
     train_x: np.ndarray,
@@ -108,7 +109,7 @@ def _run_bark_sampler(
     feat_types: np.ndarray,
     noise: float,
     scale: float,
-    params: np.ndarray,
+    params: np.record,
 ):
     # forest is (m x N) array of nodes
     np.random.seed(42)
@@ -116,14 +117,45 @@ def _run_bark_sampler(
     node_samples = np.zeros((num_samples, *forest.shape), dtype=NODE_RECORD_DTYPE)
     noise_samples = np.zeros(num_samples, dtype=np.float32)
     scale_samples = np.zeros(num_samples, dtype=np.float32)
+
+    # initial values of K_inv and K_logdet
+    K_XX = scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
+    K_XX_s = K_XX + noise * np.eye(K_XX.shape[0])
+    # TODO: should use cholesky
+    # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
+    # https://github.com/numba/numba-scipy/issues/91
+    cur_K_inv = np.linalg.inv(K_XX_s)
+    _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
+    cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
+
     for itr in range(params["warmup_steps"]):
-        forest, noise, scale = _step_bark_sampler(
-            forest, train_x, train_y, bounds, feat_types, noise, scale, params
+        forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
+            forest,
+            noise,
+            scale,
+            train_x,
+            train_y,
+            bounds,
+            feat_types,
+            params,
+            cur_K_inv,
+            cur_K_logdet,
+            cur_mll,
         )
 
     for itr in range(params["n_steps"]):
-        forest, noise, scale = _step_bark_sampler(
-            forest, train_x, train_y, bounds, feat_types, noise, scale, params
+        forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
+            forest,
+            noise,
+            scale,
+            train_x,
+            train_y,
+            bounds,
+            feat_types,
+            params,
+            cur_K_inv,
+            cur_K_logdet,
+            cur_mll,
         )
         if itr % params["thinning"] == 0:
             slice_idx = itr // params["thinning"]
@@ -137,33 +169,25 @@ def _run_bark_sampler(
 @njit
 def _step_bark_sampler(
     forest: np.ndarray,
+    noise: float,
+    scale: float,
     train_x: np.ndarray,
     train_y: np.ndarray,
     bounds: list[list[float]],
     feat_types: np.ndarray,
-    noise: float,
-    scale: float,
-    params: np.ndarray,
+    params: np.record,
+    cur_K_inv: np.ndarray,
+    cur_K_logdet: float,
+    cur_mll: float,
 ):
-    # TODO: pass in previous K_inv and K_logdet
     m = forest.shape[0]
-    K_XX = scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
-    K_XX_s = K_XX + noise * np.eye(K_XX.shape[0])
-    # TODO: should use cholesky
-    # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
-    # https://github.com/numba/numba-scipy/issues/91
-    cur_K_inv = np.linalg.inv(K_XX_s)
-    _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
-    cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
     for tree_idx in range(m):
-        cur_nodes = forest[tree_idx].copy()
         new_nodes, log_q_prior = get_tree_proposal(
             forest[tree_idx], bounds, feat_types, params
         )
 
-        cur_leaf_vectors = get_leaf_vectors(forest, train_x, feat_types)
-        forest[tree_idx] = new_nodes
-        new_leaf_vectors = get_leaf_vectors(forest, train_x, feat_types)
+        cur_leaf_vectors = get_leaf_vectors(forest[tree_idx], train_x, feat_types)
+        new_leaf_vectors = get_leaf_vectors(new_nodes, train_x, feat_types)
 
         new_K_inv, new_K_logdet = (
             low_rank_inv_update(cur_K_inv, cur_leaf_vectors, subtract=True),
@@ -187,20 +211,19 @@ def _step_bark_sampler(
             cur_K_inv = new_K_inv
             cur_K_logdet = new_K_logdet
             cur_mll = new_mll
-        else:
-            # reject - reset the change
-            forest[tree_idx] = cur_nodes
+            forest[tree_idx] = new_nodes
 
-    (new_noise, new_scale), log_q_prior = get_noise_proposal(forest, noise, scale)
+    (new_noise, new_scale), log_q_prior = get_noise_scale_proposal(noise, scale)
     K_XX = new_scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
     K_XX_s = K_XX + new_noise * np.eye(K_XX.shape[0])
     new_K_inv = np.linalg.inv(K_XX_s)
     _, new_K_logdet = np.linalg.slogdet(K_XX_s)
 
     new_mll = mll(cur_K_inv, cur_K_logdet, train_y)
+    log_ll = new_mll - cur_mll
     log_alpha = log_q_prior + log_ll
 
-    if np.log(np.random.uniform()) <= log_alpha:
+    if np.log(np.random.uniform()) <= min(log_alpha, 0):
         noise = new_noise
         cur_K_inv = new_K_inv
         cur_K_logdet = new_K_logdet
@@ -208,4 +231,4 @@ def _step_bark_sampler(
         scale = new_scale
         noise = new_noise
 
-    return forest, noise, scale
+    return forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll

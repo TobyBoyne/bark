@@ -2,18 +2,9 @@ import numpy as np
 from numba import njit
 
 S_PROP = np.array([[0.1, 0.0], [0.0, 0.5]])
+S_PROP_CHOL = np.linalg.cholesky(S_PROP)
 S_PROP_INV = np.linalg.inv(S_PROP)
 _, S_PROP_LOGDET = np.linalg.slogdet(S_PROP)
-
-
-@njit
-def get_noise_proposal(forest: np.ndarray, noise, scale):
-    pass
-
-
-@njit
-def get_scale_proposal(forest: np.ndarray, noise, scale):
-    pass
 
 
 @njit
@@ -27,7 +18,7 @@ def half_normal_logpdf(x, scale):
 def propose_positive_transition(cur_value: np.ndarray) -> np.ndarray:
     """Propose a new value for a hyperparameter that is positive.
 
-    Proposals are made in the unconstrained log-space
+    Proposals are made in the unconstrained log-space. Numba does not currently support multivariate normals (https://github.com/numba/numba/issues/1335)
 
     Args:
         cur_value (float): current value of hyperparameter
@@ -37,14 +28,17 @@ def propose_positive_transition(cur_value: np.ndarray) -> np.ndarray:
         float: proposed value
     """
     cur_log_value = np.log(cur_value + 1e-30)
-    new_log_value = np.random.multivariate_normal(mean=cur_log_value, cov=S_PROP)
-    new_value = np.exp(new_log_value)
+    u = np.empty((2, 1), dtype=np.float64)
+    for i in range(2):
+        u[i] = np.random.normal()
+    new_log_value = cur_log_value + S_PROP_CHOL @ u
+    new_value = np.exp(new_log_value[:, 0])
     return new_value
 
 
 @njit
 def get_noise_scale_proposal(
-    forest: np.ndarray, noise, scale
+    noise: float, scale: float
 ) -> tuple[tuple[float, float], float]:
     # TODO: consider a better sampler
 
