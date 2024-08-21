@@ -1,6 +1,7 @@
 import numpy as np
 
 import alfalfa.fitting.bart.tree_traversal as traverse
+from alfalfa.fitting.tree_traversal import singly_internal_nodes, terminal_nodes
 from alfalfa.forest import AlfalfaTree, DecisionNode
 from alfalfa.forest_numba import NODE_RECORD_DTYPE
 

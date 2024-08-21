@@ -42,18 +42,18 @@ def _get_two_inactive_nodes(nodes):
 
 @njit
 def _assign_node(
-    target, active, feature_idx, threshold, left, right, depth, is_leaf
+    target, is_leaf, feature_idx, threshold, left, right, depth, active
 ) -> None:
     # numba requires individual assignment
     # https://numba.discourse.group/t/assigning-to-numpy-structural-array-using-a-tuple-in-jitclass/549/6
 
-    target["active"] = active
+    target["is_leaf"] = is_leaf
     target["feature_idx"] = feature_idx
     target["threshold"] = threshold
     target["left"] = left
     target["right"] = right
     target["depth"] = depth
-    target["is_leaf"] = is_leaf
+    target["active"] = active
 
 
 @njit
@@ -87,15 +87,12 @@ def splitting_rule_logprob(
 
 
 @njit
-def tree_q_ratio(nodes: np.ndarray, proposal_type: int, node_proposal: np.record):
+def tree_q_ratio(nodes: np.ndarray, proposal_type: TreeProposalEnum, node_proposal):
     if proposal_type == TreeProposalEnum.Grow:
         w_0 = np.shape(terminal_nodes(nodes))[0]
-        parent = nodes[node_proposal["node_idx"]]
-        left, right = nodes[parent["left"]], nodes[parent["right"]]
-        parent_singly_internal = left["is_leaf"] and right["is_leaf"]
-        w_1_star = (
-            np.shape(singly_internal_nodes(nodes))[0] + 1 - parent_singly_internal
-        )
+        new_nodes = grow(nodes.copy(), node_proposal)
+        w_1_star = np.shape(singly_internal_nodes(new_nodes))[0]
+
         return np.log(w_0) - np.log(w_1_star)
 
     elif proposal_type == TreeProposalEnum.Prune:
@@ -108,9 +105,7 @@ def tree_q_ratio(nodes: np.ndarray, proposal_type: int, node_proposal: np.record
 
 
 @njit
-def tree_prior_ratio(
-    nodes: np.ndarray, proposal_type: int, node_proposal: np.record, params: np.record
-):
+def tree_prior_ratio(nodes: np.ndarray, proposal_type: int, node_proposal, params):
     alpha = params["alpha"]
     beta = params["beta"]
     depth = nodes[node_proposal["node_idx"]]["depth"]
@@ -154,6 +149,7 @@ def grow(nodes: np.ndarray, node_proposal):
 @njit
 def prune(nodes: np.ndarray, node_proposal):
     node = nodes[node_proposal["node_idx"]]
+    assert node["is_leaf"] == 0, str(node_proposal["node_idx"])
     nodes[node["left"]]["active"] = 0
     nodes[node["right"]]["active"] = 0
     node["is_leaf"] = 1
@@ -195,6 +191,7 @@ def get_tree_proposal(
         return nodes, -np.inf
 
     node_proposal["node_idx"] = np.random.choice(valid_nodes)
+
     node_proposal["prev_feature_idx"] = nodes[node_proposal["node_idx"]]["feature_idx"]
     node_proposal["prev_threshold"] = nodes[node_proposal["node_idx"]]["threshold"]
 
@@ -207,7 +204,13 @@ def get_tree_proposal(
             node_proposal["new_threshold"],
         ) = sample_splitting_rule(bounds, feat_types)
 
+    # I have no idea why this happens
+    # tree_q_ratio has some side effect with the node_idx
+
+    temp = node_proposal["node_idx"]
     log_q_ratio = tree_q_ratio(nodes, proposal_type, node_proposal)
+    node_proposal["node_idx"] = temp
+
     log_prior_ratio = tree_prior_ratio(nodes, proposal_type, node_proposal, params)
 
     new_nodes = nodes.copy()

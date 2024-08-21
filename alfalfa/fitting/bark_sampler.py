@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import numpy as np
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
-from numba import njit
 
 from alfalfa.fitting.noise_scale_proposals import get_noise_scale_proposal
 from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
@@ -100,7 +99,7 @@ def run_bark_sampler(model: AlfalfaGP, domain: Domain, params: BARKTrainParams):
     return samples
 
 
-@njit
+# @njit
 def _run_bark_sampler(
     forest: np.ndarray,
     train_x: np.ndarray,
@@ -166,7 +165,7 @@ def _run_bark_sampler(
     return node_samples, noise_samples, scale_samples
 
 
-@njit
+# @njit
 def _step_bark_sampler(
     forest: np.ndarray,
     noise: float,
