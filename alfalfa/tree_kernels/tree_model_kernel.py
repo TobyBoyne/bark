@@ -4,6 +4,7 @@ import torch
 from beartype.typing import Optional
 
 from ..forest import AlfalfaForest
+from ..forest_numba import forest_gram_matrix
 
 
 class AlfalfaTreeModelKernel(gpy.kernels.Kernel):
@@ -32,5 +33,5 @@ class AlfalfaTreeModelKernelNumba(gpy.kernels.Kernel):
         if diag:
             return torch.ones(x1.shape[0])
         return torch.as_tensor(
-            self.tree_model.gram_matrix(x1.detach().numpy(), x2.detach().numpy())
+            forest_gram_matrix(x1.detach().numpy(), x2.detach().numpy())
         )

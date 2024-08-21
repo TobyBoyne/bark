@@ -7,12 +7,12 @@ _, S_PROP_LOGDET = np.linalg.slogdet(S_PROP)
 
 
 @njit
-def get_noise_proposal(forest: np.ndarray, noise, scale, rng: np.random.Generator):
+def get_noise_proposal(forest: np.ndarray, noise, scale):
     pass
 
 
 @njit
-def get_scale_proposal(forest: np.ndarray, noise, scale, rng: np.random.Generator):
+def get_scale_proposal(forest: np.ndarray, noise, scale):
     pass
 
 
@@ -24,9 +24,7 @@ def half_normal_logpdf(x, scale):
 
 
 @njit
-def propose_positive_transition(
-    cur_value: np.ndarray, rng: np.random.Generator
-) -> np.ndarray:
+def propose_positive_transition(cur_value: np.ndarray) -> np.ndarray:
     """Propose a new value for a hyperparameter that is positive.
 
     Proposals are made in the unconstrained log-space
@@ -39,19 +37,19 @@ def propose_positive_transition(
         float: proposed value
     """
     cur_log_value = np.log(cur_value + 1e-30)
-    new_log_value = rng.multivariate_normal(mean=cur_log_value, cov=S_PROP)
+    new_log_value = np.random.multivariate_normal(mean=cur_log_value, cov=S_PROP)
     new_value = np.exp(new_log_value)
     return new_value
 
 
 @njit
 def get_noise_scale_proposal(
-    forest: np.ndarray, noise, scale, rng: np.random.Generator
+    forest: np.ndarray, noise, scale
 ) -> tuple[tuple[float, float], float]:
     # TODO: consider a better sampler
 
     hyperparams = np.array([noise, scale])
-    new_hyperparams = propose_positive_transition(hyperparams, rng)
+    new_hyperparams = propose_positive_transition(hyperparams)
     new_noise, new_scale = new_hyperparams
 
     # random walk in the log-space mostly cancels

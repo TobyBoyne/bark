@@ -6,7 +6,7 @@ from torch.distributions import Categorical, MixtureSameFamily
 
 from ..forest import AlfalfaForest, AlfalfaTree
 from ..utils.space import Space
-from .tree_model_kernel import AlfalfaTreeModelKernel
+from .tree_model_kernel import AlfalfaTreeModelKernel, AlfalfaTreeModelKernelNumba
 
 
 class AlfalfaGP(gpy.models.ExactGP):
@@ -44,7 +44,7 @@ class AlfalfaGPNumba(gpy.models.ExactGP):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()
 
-        tree_kernel = AlfalfaTreeModelKernel(tree_model)
+        tree_kernel = AlfalfaTreeModelKernelNumba(tree_model)
         self.covar_module = gpy.kernels.ScaleKernel(tree_kernel)
 
     def forward(self, x):
@@ -53,7 +53,7 @@ class AlfalfaGPNumba(gpy.models.ExactGP):
         return gpy.distributions.MultivariateNormal(mean_x, covar_x)
 
     @property
-    def tree_model(self) -> Union[AlfalfaTree, AlfalfaForest]:
+    def tree_model(self) -> np.ndarray:
         return self.covar_module.base_kernel.tree_model
 
 

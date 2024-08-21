@@ -8,7 +8,7 @@ from numba import njit
 from alfalfa.fitting.noise_scale_proposals import get_noise_proposal
 from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
 from alfalfa.fitting.tree_proposals import FeatureTypeEnum, get_tree_proposal
-from alfalfa.forest_numba import NODE_RECORD_DTYPE, get_leaf_vectors, pass_through_tree
+from alfalfa.forest_numba import NODE_RECORD_DTYPE, forest_gram_matrix, get_leaf_vectors
 from alfalfa.tree_kernels.tree_gps import AlfalfaGP
 from alfalfa.utils.domain import get_feature_bounds
 
@@ -68,8 +68,8 @@ def run_bark_sampler(model: AlfalfaGP, domain: Domain, params: BARKTrainParams):
     """Generate samples from the BARK posterior"""
 
     # unpack the model
-    (train_x,) = model.train_inputs
-    train_y = model.train_targets
+    train_x = model.train_inputs[0].detach().numpy()
+    train_y = model.train_targets.detach().numpy()
     forest = model.tree_model
 
     noise = model.likelihood.noise.item()
@@ -81,11 +81,11 @@ def run_bark_sampler(model: AlfalfaGP, domain: Domain, params: BARKTrainParams):
     ]
     feat_type = np.array(
         [
-            FeatureTypeEnum.Cat
+            FeatureTypeEnum.Cat.value
             if isinstance(feat, CategoricalInput)
-            else FeatureTypeEnum.Int
+            else FeatureTypeEnum.Int.value
             if isinstance(feat, DiscreteInput)
-            else FeatureTypeEnum.Cont
+            else FeatureTypeEnum.Cont.value
             for feat in domain.inputs.get()
         ]
     )
@@ -99,7 +99,7 @@ def run_bark_sampler(model: AlfalfaGP, domain: Domain, params: BARKTrainParams):
     return samples
 
 
-@njit
+# @njit
 def _run_bark_sampler(
     forest: np.ndarray,
     train_x: np.ndarray,
@@ -111,19 +111,19 @@ def _run_bark_sampler(
     params: np.ndarray,
 ):
     # forest is (m x N) array of nodes
-    rng = np.random.default_rng(seed=42)
+    np.random.seed(42)
     num_samples = params["n_steps"] // params["thinning"]
     node_samples = np.zeros((num_samples, *forest.shape), dtype=NODE_RECORD_DTYPE)
     noise_samples = np.zeros(num_samples, dtype=np.float32)
     scale_samples = np.zeros(num_samples, dtype=np.float32)
     for itr in range(params["warmup_steps"]):
         forest, noise, scale = _step_bark_sampler(
-            forest, train_x, train_y, bounds, feat_types, noise, scale, rng, params
+            forest, train_x, train_y, bounds, feat_types, noise, scale, params
         )
 
     for itr in range(params["n_steps"]):
         forest, noise, scale = _step_bark_sampler(
-            forest, train_x, train_y, bounds, feat_types, noise, scale, rng, params
+            forest, train_x, train_y, bounds, feat_types, noise, scale, params
         )
         if itr % params["thinning"] == 0:
             slice_idx = itr // params["thinning"]
@@ -143,12 +143,11 @@ def _step_bark_sampler(
     feat_types: np.ndarray,
     noise: float,
     scale: float,
-    rng: np.random.Generator,
     params: np.ndarray,
 ):
     # TODO: pass in previous K_inv and K_logdet
     m = forest.shape[0]
-    K_XX = (scale / m) * pass_through_tree(forest, train_x, feat_types)
+    K_XX = scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
     K_XX_s = K_XX + noise * np.eye(K_XX.shape[0])
     # TODO: should use cholesky
     # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
@@ -159,7 +158,7 @@ def _step_bark_sampler(
     for tree_idx in range(m):
         cur_nodes = forest[tree_idx].copy()
         new_nodes, log_q_prior = get_tree_proposal(
-            forest[tree_idx], bounds, feat_types, rng, params
+            forest[tree_idx], bounds, feat_types, params
         )
 
         cur_leaf_vectors = get_leaf_vectors(forest, train_x, feat_types)
@@ -183,7 +182,7 @@ def _step_bark_sampler(
         new_mll = mll(new_K_inv, new_K_logdet, train_y)
         log_ll = new_mll - cur_mll
         log_alpha = log_q_prior + log_ll
-        if np.log(rng.uniform()) <= min(log_alpha, 0):
+        if np.log(np.random.uniform()) <= min(log_alpha, 0):
             # accept - set the new mll and K_inv values
             cur_K_inv = new_K_inv
             cur_K_logdet = new_K_logdet
@@ -192,8 +191,8 @@ def _step_bark_sampler(
             # reject - reset the change
             forest[tree_idx] = cur_nodes
 
-    (new_noise, new_scale), log_q_prior = get_noise_proposal(forest, noise, scale, rng)
-    K_XX = (new_scale / m) * pass_through_tree(forest, train_x, feat_types)
+    (new_noise, new_scale), log_q_prior = get_noise_proposal(forest, noise, scale)
+    K_XX = new_scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
     K_XX_s = K_XX + new_noise * np.eye(K_XX.shape[0])
     new_K_inv = np.linalg.inv(K_XX_s)
     _, new_K_logdet = np.linalg.slogdet(K_XX_s)
@@ -201,7 +200,7 @@ def _step_bark_sampler(
     new_mll = mll(cur_K_inv, cur_K_logdet, train_y)
     log_alpha = log_q_prior + log_ll
 
-    if np.log(rng.uniform()) <= log_alpha:
+    if np.log(np.random.uniform()) <= log_alpha:
         noise = new_noise
         cur_K_inv = new_K_inv
         cur_K_logdet = new_K_logdet

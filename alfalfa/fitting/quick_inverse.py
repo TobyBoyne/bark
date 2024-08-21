@@ -33,7 +33,5 @@ def low_rank_det_update(
 
 
 @njit
-def mll(
-    K_inv: InverseType, K_logdet: DetType, y: Float[np.ndarray, "N 1"]
-) -> Float[np.ndarray, ""]:
-    return (-y.T @ K_inv @ y - K_logdet).squeeze()
+def mll(K_inv: InverseType, K_logdet: DetType, y: Float[np.ndarray, "N 1"]) -> float:
+    return (-y.T @ K_inv @ y - K_logdet)[0, 0]

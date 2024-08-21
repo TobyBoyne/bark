@@ -4,7 +4,7 @@ import numpy as np
 from numba import njit
 
 from alfalfa.fitting.tree_traversal import singly_internal_nodes, terminal_nodes
-from alfalfa.forest_numba import NODE_RECORD_DTYPE, FeatureTypeEnum
+from alfalfa.forest_numba import FeatureTypeEnum
 
 NODE_PROPOSAL_DTYPE = np.dtype(
     [
@@ -41,18 +41,16 @@ def _get_two_inactive_nodes(nodes):
 
 
 @njit
-def sample_splitting_rule(
-    bounds: list[list[float]], feat_types: np.ndarray, rng: np.random.Generator
-):
-    feature_idx = rng.integers(0, len(bounds))
-    if feat_types[feature_idx] == FeatureTypeEnum.Cat:
-        threshold = rng.integers(0, len(bounds[feature_idx]))
-    elif feat_types[feature_idx] == FeatureTypeEnum.Int:
-        threshold = rng.integers(
-            bounds[feature_idx][0], bounds[feature_idx][1], endpoint=True
+def sample_splitting_rule(bounds: list[list[float]], feat_types: np.ndarray):
+    feature_idx = np.random.randint(0, len(bounds))
+    if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
+        threshold = np.random.randint(0, len(bounds[feature_idx]))
+    elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
+        threshold = np.random.randint(
+            bounds[feature_idx][0], bounds[feature_idx][1] + 1
         )
     else:
-        threshold = rng.uniform(bounds[feature_idx][0], bounds[feature_idx][1])
+        threshold = np.random.uniform(bounds[feature_idx][0], bounds[feature_idx][1])
 
     return feature_idx, threshold
 
@@ -61,9 +59,10 @@ def sample_splitting_rule(
 def splitting_rule_logprob(
     bounds: list[list[float]], feat_types: np.ndarray, feature_idx: int
 ):
-    if feat_types[feature_idx] == FeatureTypeEnum.Cat:
+    # this function might not be necessary
+    if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
         threshold_prob = -np.log(len(bounds[feature_idx]))
-    elif feat_types[feature_idx] == FeatureTypeEnum.Int:
+    elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
         threshold_prob = -np.log(bounds[feature_idx][1] - bounds[feature_idx][0] + 1)
     else:
         threshold_prob = -np.log((bounds[feature_idx][1] - bounds[feature_idx][0]))
@@ -152,14 +151,18 @@ def get_tree_proposal(
     nodes: np.ndarray,
     bounds,
     feat_types,
-    tree_rng: np.random.Generator,
     params: np.ndarray,
 ) -> tuple[np.ndarray, float]:
     node_proposal = np.zeros((), dtype=NODE_PROPOSAL_DTYPE)
-    proposal_type = tree_rng.choice(
-        [TreeProposalEnum.Grow, TreeProposalEnum.Prune, TreeProposalEnum.Change],
-        p=params["proposal_weights"],
+    # numba doesn't support weighted choice
+    proposal_idx = np.searchsorted(
+        np.cumsum(params["proposal_weights"]), np.random.rand()
     )
+    proposal_type = [
+        TreeProposalEnum.Grow,
+        TreeProposalEnum.Prune,
+        TreeProposalEnum.Change,
+    ][proposal_idx]
 
     if proposal_type == TreeProposalEnum.Grow:
         valid_nodes = terminal_nodes(nodes)
@@ -169,7 +172,8 @@ def get_tree_proposal(
     if len(valid_nodes) == 0:
         return nodes, -np.inf
 
-    node_proposal["node_idx"] = tree_rng.choice(valid_nodes)
+    node_proposal["node_idx"] = "xyz"
+    node_proposal["node_idx"] = np.random.choice(valid_nodes)
     node_proposal["prev_feature_idx"] = nodes[node_proposal["node_idx"]]["feature_idx"]
     node_proposal["prev_threshold"] = nodes[node_proposal["node_idx"]]["threshold"]
 
@@ -180,7 +184,7 @@ def get_tree_proposal(
         (
             node_proposal["new_feature_idx"],
             node_proposal["new_threshold"],
-        ) = sample_splitting_rule(bounds, feat_types, tree_rng)
+        ) = sample_splitting_rule(bounds, feat_types)
 
     log_q_ratio = tree_q_ratio(nodes, proposal_type, node_proposal)
     log_prior_ratio = tree_prior_ratio(nodes, proposal_type, params)
@@ -195,14 +199,3 @@ def get_tree_proposal(
 
     log_q_prior = log_q_ratio + log_prior_ratio
     return new_nodes, log_q_prior
-
-
-# x = np.array((1, 2, 3, 4, 5), dtype=NODE_PROPOSAL_DTYPE)
-# print(x)
-# bounds = List([[1, 2, 3], [4, 5, 6], [7, 8]])
-# print(foo(y))
-
-
-nodes = np.zeros((5,), dtype=NODE_RECORD_DTYPE)
-nodes[2] = (1, 0, 0.5, 0, 0, 0, 0)
-print(nodes)
