@@ -1,4 +1,5 @@
 import gpytorch as gpy
+import numpy as np
 import torch
 from beartype.typing import Optional, Union
 from torch.distributions import Categorical, MixtureSameFamily
@@ -15,6 +16,30 @@ class AlfalfaGP(gpy.models.ExactGP):
         train_targets,
         likelihood,
         tree_model: Optional[AlfalfaForest],
+    ):
+        super().__init__(train_inputs, train_targets, likelihood)
+        self.mean_module = gpy.means.ZeroMean()
+
+        tree_kernel = AlfalfaTreeModelKernel(tree_model)
+        self.covar_module = gpy.kernels.ScaleKernel(tree_kernel)
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return gpy.distributions.MultivariateNormal(mean_x, covar_x)
+
+    @property
+    def tree_model(self) -> Union[AlfalfaTree, AlfalfaForest]:
+        return self.covar_module.base_kernel.tree_model
+
+
+class AlfalfaGPNumba(gpy.models.ExactGP):
+    def __init__(
+        self,
+        train_inputs,
+        train_targets,
+        likelihood,
+        tree_model: Optional[np.ndarray],
     ):
         super().__init__(train_inputs, train_targets, likelihood)
         self.mean_module = gpy.means.ZeroMean()

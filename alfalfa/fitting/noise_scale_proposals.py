@@ -54,8 +54,9 @@ def get_noise_scale_proposal(
     new_hyperparams = propose_positive_transition(hyperparams, rng)
     new_noise, new_scale = new_hyperparams
 
-    # random walk in the log-space is symmetric
-    log_q = 0.0
+    # random walk in the log-space mostly cancels
+    # https://stats.stackexchange.com/a/297559
+    log_q = -np.log(noise) - np.log(scale) + np.log(new_noise) + np.log(new_scale)
     log_prior = (
         half_normal_logpdf(new_noise, 1.0)
         + half_normal_logpdf(new_scale, 5.0)

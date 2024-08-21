@@ -4,7 +4,7 @@ from numba import njit
 from alfalfa.forest_numba import NODE_RECORD_DTYPE
 
 
-# @njit
+@njit
 def pre_order_traverse(
     nodes: np.ndarray,
 ):
@@ -24,8 +24,8 @@ def pre_order_traverse(
         current_idx = stack.pop(0)
 
 
-# @njit
-def terminal_nodes(nodes: np.ndarray) -> list[int]:
+@njit
+def terminal_nodes(nodes: np.ndarray) -> np.ndarray:
     """Find all leaves"""
 
     terminal_idxs = np.argwhere(nodes["active"] & nodes["is_leaf"])
@@ -33,7 +33,7 @@ def terminal_nodes(nodes: np.ndarray) -> list[int]:
 
 
 @njit
-def singly_internal_nodes(nodes: np.ndarray) -> list[int]:
+def singly_internal_nodes(nodes: np.ndarray) -> np.ndarray:
     """Find all decision nodes where both children are leaves"""
 
     singly_internal_cond = (

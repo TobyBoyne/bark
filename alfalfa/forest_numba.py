@@ -26,7 +26,7 @@ class FeatureTypeEnum(Enum):
 
 
 @njit
-def _pass_one_through_tree(nodes, X, feat_types: np.ndarray):
+def _pass_one_through_tree(nodes, X, feat_types):
     node_idx = 0
     while True:
         node = nodes[node_idx]
@@ -35,7 +35,7 @@ def _pass_one_through_tree(nodes, X, feat_types: np.ndarray):
         if node["is_leaf"]:
             return node_idx
 
-        if feat_types[feature_idx] == FeatureTypeEnum.Cat:
+        if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
             cond = X[feature_idx] == node["threshold"]
         else:
             cond = X[feature_idx] <= node["threshold"]
@@ -47,10 +47,22 @@ def _pass_one_through_tree(nodes, X, feat_types: np.ndarray):
 
 
 @njit(parallel=True)
-def pass_through_tree(nodes, X, feat_types: np.ndarray):
+def pass_through_tree(nodes, X, feat_types):
     out = np.empty(X.shape[0], dtype=np.uint32)
     for i in prange(X.shape[0]):
         out[i] = _pass_one_through_tree(nodes, X[i], feat_types)
+    return out
+
+
+@njit(parallel=True)
+def pass_through_forest(
+    nodes,
+    X,
+    feat_types,
+):
+    out = np.empty((X.shape[0], nodes.shape[0]), dtype=np.uint32)
+    for i in prange(nodes.shape[0]):
+        out[:, i] = pass_through_tree(nodes[i], X, feat_types)
     return out
 
 
@@ -60,6 +72,20 @@ def get_leaf_vectors(nodes, X, feat_types):
     all_leaves = np.unique(x_leaves)
     leaf_vector = (np.equal(x_leaves[:, None], all_leaves[None, :])).astype(float)
     return leaf_vector
+
+
+@njit
+def forest_gram_matrix(
+    nodes,
+    x1,
+    x2,
+    feat_types,
+):
+    x1_leaves = pass_through_forest(nodes, x1, feat_types)
+    x2_leaves = pass_through_forest(nodes, x2, feat_types)
+    sim_mat = np.equal(x1_leaves[:, None, :], x2_leaves[None, :, :])  # N x M x m
+    sim_mat = 1 / nodes.shape[0] * np.sum(sim_mat, axis=-1)
+    return sim_mat
 
 
 nodes = np.array(
