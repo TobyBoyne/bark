@@ -3,12 +3,21 @@
 import collections as coll
 
 import numpy as np
-from bofire.data_models.features.api import CategoricalInput
 
-from alfalfa.utils.domain import get_feature_by_index
+from ..forest_numba import FeatureTypeEnum
 
-from ..forest import AlfalfaForest, AlfalfaTree, DecisionNode
-from ..forest import LeafNode as AlfalfaLeafNode
+
+def _build_tree(tree: np.ndarray, feature_types: np.ndarray) -> "GbmNode":
+    node_idx = 0
+    # TODO: if a tree is a single leaf, can it be skipped entirely?
+    if tree[node_idx]["is_leaf"]:
+        return None
+        # tree = np.zeros_like(tree)
+        # tree[0] = (0, 0, -np.inf, 1, 2, 0, 1)
+        # tree[1] = (1, 0, 0, 0, 0, 0, 1)
+        # tree[2] = (1, 0, 0, 0, 0, 0, 1)
+
+    return GbmNode(tree=tree, node_idx=node_idx, feature_types=feature_types)
 
 
 class GbmModel:
@@ -31,36 +40,9 @@ class GbmModel:
 
     """
 
-    def __init__(self, forest: AlfalfaForest):
-        self.load_forest(forest)
-
-    def _build_tree(self, tree: AlfalfaTree) -> "GbmNode":
-        node = tree.root
-        split_var = node.var_idx
-        split_code_pred = node.threshold
-
-        return GbmNode(split_var=split_var, split_code_pred=split_code_pred, node=node)
-
-    def _build_null_tree(self, tree: AlfalfaTree) -> "GbmNode":
-        """Build a tree with a single leaf node."""
-        # TODO: build null tree for Categorical features
-        feat = get_feature_by_index(tree.domain.inputs, 0)
-        if isinstance(feat, CategoricalInput):
-            raise NotImplementedError(
-                "Please ensure the first feature is not categorical"
-            )
-        ub = feat.bounds[0]
-        null_tree = AlfalfaTree(root=DecisionNode(var_idx=0, threshold=ub))
-        null_tree.root.left.leaf_id = tree.root.leaf_id
-        return GbmNode(split_var=0, split_code_pred=ub, node=null_tree.root)
-
-    def load_forest(self, forest: AlfalfaForest):
-        self.trees = [
-            self._build_tree(tree)
-            if isinstance(tree.root, DecisionNode)
-            else self._build_null_tree(tree)
-            for tree in forest.trees
-        ]
+    def __init__(self, forest: np.ndarray, feature_types: np.ndarray):
+        trees = [_build_tree(tree, feature_types) for tree in forest]
+        self.trees = [tree for tree in trees if tree is not None]
 
         self.n_trees = len(self.trees)
 
@@ -314,39 +296,32 @@ class GbmNode(GbmType):
         List of node dicts that define the tree
     """
 
-    def __init__(
-        self, split_var: int, split_code_pred: float | list[int], node: DecisionNode
-    ):
-        self.split_var = split_var
-        # TODO: handle cat vars!
-        self.split_code_pred = split_code_pred
+    def __init__(self, tree: np.ndarray, node_idx: int, feature_types: np.ndarray):
+        feature_idx = tree[node_idx]["feature_idx"]
+        threshold = tree[node_idx]["threshold"]
 
-        # check if tree is empty
-        # if not tree:
-        #     print("EmptyTreeModelError: LightGBM was not able to train a "
-        #     "tree model based on your parameter specifications. This can "
-        #     "usually be fixed by increasing the number of `n_initial_points` or "
-        #     "reducing `min_child_samples` via `base_estimator_kwargs` (default "
-        #     "is 2). Alternatively, change `acq_optimizer='sampling'`.")
-        #     import sys
-        #     sys.exit(1)
-
-        # TODO: check whether split_code_pred has any impact
-        child = node.left
-        if isinstance(child, AlfalfaLeafNode):
-            self.left = LeafNode(split_code_pred=0.0, leaf_id=child.leaf_id)
+        self.split_var = feature_idx
+        self.split_code_pred = (
+            threshold
+            if feature_types[feature_idx] != FeatureTypeEnum.Cat.value
+            else [int(threshold)]
+        )
+        # TODO: check categorical features
+        child_idx = tree[node_idx]["left"]
+        if tree[child_idx]["is_leaf"]:
+            self.left = LeafNode(leaf_id=child_idx)
         else:
             self.left = GbmNode(
-                split_var=child.var_idx, split_code_pred=child.threshold, node=child
+                tree=tree, node_idx=child_idx, feature_types=feature_types
             )
 
         # read right node
-        child = node.right
-        if isinstance(child, AlfalfaLeafNode):
-            self.right = LeafNode(split_code_pred=0.0, leaf_id=child.leaf_id)
+        child_idx = tree[node_idx]["left"]
+        if tree[child_idx]["is_leaf"]:
+            self.right = LeafNode(leaf_id=child_idx)
         else:
             self.right = GbmNode(
-                split_var=child.var_idx, split_code_pred=child.threshold, node=child
+                tree=tree, node_idx=child_idx, feature_types=feature_types
             )
 
     def __repr__(self):
@@ -466,9 +441,9 @@ class LeafNode(GbmType):
     """Defines a child class of `GbmType`. Leaf nodes have `split_var = -1` and
     `split_code_pred` as leaf value defined by training."""
 
-    def __init__(self, split_code_pred, leaf_id):
+    def __init__(self, leaf_id):
         self.split_var = -1
-        self.split_code_pred = split_code_pred
+        self.split_code_pred = 0.0
         self.leaf_id = leaf_id
 
     def __repr__(self):

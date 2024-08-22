@@ -1,4 +1,5 @@
 """Utils for working with Bofire domains"""
+import numpy as np
 from bofire.data_models.domain.api import Domain, Features, Inputs, Outputs
 from bofire.data_models.features.api import (
     AnyFeature,
@@ -6,6 +7,8 @@ from bofire.data_models.features.api import (
     ContinuousInput,
     DiscreteInput,
 )
+
+from alfalfa.forest_numba import FeatureTypeEnum
 
 
 def get_feature_by_index(
@@ -39,6 +42,19 @@ def get_cat_idx_from_domain(domain: Domain) -> set[int]:
         for i, feat in enumerate(domain.inputs.get())
         if isinstance(feat, CategoricalInput)
     }
+
+
+def get_feature_types_array(domain: Domain) -> np.ndarray:
+    return np.array(
+        [
+            FeatureTypeEnum.Cat.value
+            if isinstance(feat, CategoricalInput)
+            else FeatureTypeEnum.Int.value
+            if isinstance(feat, DiscreteInput)
+            else FeatureTypeEnum.Cont.value
+            for feat in domain.inputs.get()
+        ]
+    )
 
 
 def build_integer_input(*, key: str, unit: str | None = None, bounds: tuple[int, int]):

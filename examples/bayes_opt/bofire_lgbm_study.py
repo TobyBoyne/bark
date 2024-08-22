@@ -3,47 +3,43 @@ import gpytorch as gpy
 import pandas as pd
 import pydantic
 import torch
-from bofire.benchmarks.detergent import Detergent
 from bofire.data_models.enum import CategoricalEncodingEnum
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 from botorch import fit_gpytorch_mll
-from jaxtyping import install_import_hook
 
-with install_import_hook("alfalfa", "beartype.beartype"):
-    from alfalfa.benchmarks import CombinationFunc2
-    from alfalfa.benchmarks.pest import PestControl
-    from alfalfa.bofire_utils.sampling import sample_projected
-    from alfalfa.fitting import fit_lgbm_forest, lgbm_to_alfalfa_forest
-    from alfalfa.optimizer import build_opt_model, propose
-    from alfalfa.optimizer.gbm_model import GbmModel
-    from alfalfa.optimizer.opt_core import get_opt_core_from_domain
-    from alfalfa.tree_kernels import AlfalfaGP
+# with install_import_hook("alfalfa", "beartype.beartype"):
+from alfalfa.benchmarks import StyblinskiTang
+from alfalfa.bofire_utils.sampling import sample_projected
+from alfalfa.fitting import fit_lgbm_forest, lgbm_to_alfalfa_forest
+from alfalfa.optimizer import build_opt_model, propose
+from alfalfa.optimizer.gbm_model import GbmModel
+from alfalfa.optimizer.opt_core import get_opt_core_from_domain
+from alfalfa.tree_kernels import AlfalfaGP
+from alfalfa.utils.domain import get_feature_types_array
 
-benchmark = Detergent()
-benchmark = CombinationFunc2()
-benchmark = PestControl(seed=42)
+benchmark = StyblinskiTang(dim=4)
 domain = benchmark.domain
 
 # sample initial points
 try:
-    sampler = strategies.map(RandomStrategy(domain=domain, seed=42))
+    sampler = strategies.map(RandomStrategy(domain=domain, seed=43))
     train_x = sampler.ask(10)
 except pydantic.ValidationError:
-    train_x = sample_projected(domain, n=10, seed=42)
+    train_x = sample_projected(domain, n=10, seed=433)
 train_y = benchmark.f(train_x)["y"]  # .drop("valid_y", axis="columns")
 cat = benchmark.domain.inputs.get_keys(includes=CategoricalInput)
 transform_specs = {k: CategoricalEncodingEnum.ORDINAL for k in cat}
+feature_types = get_feature_types_array(domain)
 
 # add model_core with constraints if problem has constraints
 model_core = get_opt_core_from_domain(domain)
 # main bo loop
 print("\n* * * start bo loop...")
-for itr in range(10):
+for itr in range(100):
     train_x_transformed = domain.inputs.transform(train_x, transform_specs)
     booster = fit_lgbm_forest(train_x_transformed, train_y, domain)
     forest = lgbm_to_alfalfa_forest(booster)
-    forest.initialise(domain)
 
     likelihood = gpy.likelihoods.GaussianLikelihood()
     train_torch = map(
@@ -54,7 +50,7 @@ for itr in range(10):
     fit_gpytorch_mll(mll)
 
     # get new proposal and evaluate bb_func
-    gbm_model = GbmModel(forest)
+    gbm_model = GbmModel(forest, feature_types)
     opt_model = build_opt_model(
         benchmark.domain, gbm_model, tree_gp, 1.96, model_core=model_core
     )
