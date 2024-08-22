@@ -316,7 +316,7 @@ class GbmNode(GbmType):
             )
 
         # read right node
-        child_idx = tree[node_idx]["left"]
+        child_idx = tree[node_idx]["right"]
         if tree[child_idx]["is_leaf"]:
             self.right = LeafNode(leaf_id=child_idx)
         else:
