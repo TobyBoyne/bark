@@ -1,4 +1,5 @@
 import bofire.strategies.api as strategies
+import numpy as np
 import pandas as pd
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
@@ -24,12 +25,12 @@ feature_types = get_feature_types_array(domain)
 # add model_core with constraints if problem has constraints
 model_core = get_opt_core_from_domain(domain)
 
-# main bo loop
-bark_params = BARKTrainParams(warmup_steps=500, n_steps=500, thinning=100)
+bark_params = BARKTrainParams(warmup_steps=5, n_steps=5, thinning=1, num_chains=4)
 
 forest = create_empty_forest(m=50)
-noise = 0.1
-scale = 1.0
+forest = np.tile(forest, (bark_params.num_chains, 1, 1))
+noise = np.tile(0.1, (bark_params.num_chains,))
+scale = np.tile(1.0, (bark_params.num_chains,))
 
 print("\n* * * start bo loop...")
 for itr in range(100):
@@ -46,6 +47,7 @@ for itr in range(100):
     )
 
     bark_params.warmup_steps = 0
+    print("Training complete")
 
     # get new proposal and evaluate bb_func
     opt_model = build_opt_model_from_forest(
@@ -55,6 +57,12 @@ for itr in range(100):
         kappa=1.96,
         model_core=model_core,
     )
+
+    # update starting values
+    forest = samples[0][:, -1, :, :]
+    noise = samples[1][:, -1]
+    scale = samples[2][:, -1]
+
     next_x = propose(benchmark.domain, opt_model, model_core)
     candidate = pd.DataFrame(data=[next_x], columns=domain.inputs.get_keys())
     next_y = benchmark.f(candidate)["y"]

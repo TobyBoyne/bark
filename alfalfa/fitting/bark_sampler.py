@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
-from numba import njit
+from numba import njit, prange
 
 from alfalfa.fitting.noise_scale_proposals import get_noise_scale_proposal
 from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
@@ -30,7 +30,7 @@ class BARKTrainParams:
     grow_prune_weight: float = 0.5
     change_weight: float = 1.0
 
-    verbose: bool = True
+    num_chains: int = 1
 
     @property
     def proposal_weights(self):
@@ -45,6 +45,7 @@ BARKTRAINPARAMS_DTYPE = np.dtype(
         ("warmup_steps", np.uint32),
         ("n_steps", np.uint32),
         ("thinning", np.uint32),
+        ("num_chains", np.uint32),
         ("alpha", np.float32),
         ("beta", np.float32),
         ("proposal_weights", np.float32, (3,)),
@@ -58,6 +59,7 @@ def _bark_params_to_struct(params: BARKTrainParams):
             params.warmup_steps,
             params.n_steps,
             params.thinning,
+            params.num_chains,
             params.alpha,
             params.beta,
             params.proposal_weights,
@@ -68,7 +70,7 @@ def _bark_params_to_struct(params: BARKTrainParams):
 
 def run_bark_sampler(
     model: ModelT, data: DataT, domain: Domain, params: BARKTrainParams
-):
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Generate samples from the BARK posterior"""
 
     # unpack the model
@@ -93,26 +95,66 @@ def run_bark_sampler(
 
     params_struct = _bark_params_to_struct(params)
 
-    samples = _run_bark_sampler(
-        forest, train_x, train_y, bounds, feat_type, noise, scale, params_struct
+    samples = _run_bark_sampler_multichain(
+        forest, noise, scale, train_x, train_y, bounds, feat_type, params_struct
     )
 
     return samples
 
 
-@njit
-def _run_bark_sampler(
+# @njit
+def _run_bark_sampler_multichain(
     forest: np.ndarray,
+    noise: np.ndarray,
+    scale: np.ndarray,
     train_x: np.ndarray,
     train_y: np.ndarray,
     bounds: list[list[float]],
     feat_types: np.ndarray,
+    params: np.record,
+):
+    # this function can't be jitted nor parallelized - possibly due to rng
+    np.random.seed(42)
+    num_chains = params["num_chains"]
+    num_samples = params["n_steps"] // params["thinning"]
+
+    node_samples = np.zeros(
+        (num_chains, num_samples, *forest.shape[-2:]), dtype=NODE_RECORD_DTYPE
+    )
+    noise_samples = np.zeros((num_chains, num_samples), dtype=np.float32)
+    scale_samples = np.zeros((num_chains, num_samples), dtype=np.float32)
+
+    for chain_idx in prange(num_chains):
+        node_s, noise_s, scale_s = _run_bark_sampler(
+            forest[chain_idx],
+            noise[chain_idx],
+            scale[chain_idx],
+            train_x,
+            train_y,
+            bounds,
+            feat_types,
+            params,
+        )
+
+        node_samples[chain_idx] = node_s
+        noise_samples[chain_idx] = noise_s
+        scale_samples[chain_idx] = scale_s
+
+    return (node_samples, noise_samples, scale_samples)
+
+
+@njit
+def _run_bark_sampler(
+    forest: np.ndarray,
     noise: float,
     scale: float,
+    train_x: np.ndarray,
+    train_y: np.ndarray,
+    bounds: list[list[float]],
+    feat_types: np.ndarray,
     params: np.record,
 ):
     # forest is (m x N) array of nodes
-    np.random.seed(42)
     num_samples = params["n_steps"] // params["thinning"]
     node_samples = np.zeros((num_samples, *forest.shape), dtype=NODE_RECORD_DTYPE)
     noise_samples = np.zeros(num_samples, dtype=np.float32)

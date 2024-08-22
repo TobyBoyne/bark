@@ -28,10 +28,15 @@ def build_opt_model_from_forest(
 
     # unpack samples
     forest_samples, noise_samples, scale_samples = gp_samples
-    if forest_samples.ndim == 2:
+    while forest_samples.ndim < 4:
         forest_samples = forest_samples[None, ...]
-    noise_samples = np.atleast_1d(noise_samples)
-    scale_samples = np.atleast_1d(scale_samples)
+    noise_samples = np.atleast_2d(noise_samples)
+    scale_samples = np.atleast_2d(scale_samples)
+
+    # combine chain and sample dimensions
+    forest_samples = forest_samples.reshape(-1, *forest_samples.shape[-2:])
+    noise_samples = noise_samples.reshape(-1)
+    scale_samples = scale_samples.reshape(-1)
 
     num_samples = forest_samples.shape[0]
     num_data = train_x.shape[0]
