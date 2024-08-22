@@ -88,21 +88,16 @@ def forest_gram_matrix(
     return sim_mat
 
 
-nodes = np.array(
-    [
-        (0, 0, 0.5, 1, 2, 0, 1),
-        (0, 0, 0.25, 3, 4, 1, 1),
-        (1, 0, 1.0, 0, 0, 1, 1),
-        (1, 0, 1.0, 0, 0, 2, 1),
-        (1, 0, 1.0, 0, 0, 2, 1),
-    ],
-    dtype=NODE_RECORD_DTYPE,
-)
+@njit(parallel=True)
+def batched_forest_gram_matrix(nodes, x1, x2, feat_types):
+    batch_dim = nodes.shape[-3]
+    sim_mat = np.zeros((batch_dim, x1.shape[0], x2.shape[0]), dtype=np.float64)
+    for i in prange(batch_dim):
+        sim_mat[i] = forest_gram_matrix(nodes[i], x1, x2, feat_types)
+    return sim_mat
 
-X = np.linspace(0, 1, 10_000).reshape(-1, 1)
-feat_types = np.array([FeatureTypeEnum.Cont.value])
 
-# t = timeit.timeit(lambda: _pass_through_tree(nodes, X, feat_is_cat), number=100)
-# print(t)
-
-# print(np.ones((5,), dtype=NODE_RECORD_DTYPE))
+def create_empty_forest(m: int, node_limit: int = 100):
+    forest = np.zeros((m, node_limit), dtype=NODE_RECORD_DTYPE)
+    forest[:, 0] = (1, 0, 0, 0, 0, 0, 1)
+    return forest

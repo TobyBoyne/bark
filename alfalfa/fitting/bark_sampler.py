@@ -9,8 +9,10 @@ from alfalfa.fitting.noise_scale_proposals import get_noise_scale_proposal
 from alfalfa.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
 from alfalfa.fitting.tree_proposals import FeatureTypeEnum, get_tree_proposal
 from alfalfa.forest_numba import NODE_RECORD_DTYPE, forest_gram_matrix, get_leaf_vectors
-from alfalfa.tree_kernels.tree_gps import AlfalfaGP
 from alfalfa.utils.domain import get_feature_bounds
+
+ModelT = tuple[np.ndarray, float, float]
+DataT = tuple[np.ndarray, np.ndarray]
 
 
 @dataclass
@@ -64,16 +66,14 @@ def _bark_params_to_struct(params: BARKTrainParams):
     )
 
 
-def run_bark_sampler(model: AlfalfaGP, domain: Domain, params: BARKTrainParams):
+def run_bark_sampler(
+    model: ModelT, data: DataT, domain: Domain, params: BARKTrainParams
+):
     """Generate samples from the BARK posterior"""
 
     # unpack the model
-    train_x = model.train_inputs[0].detach().numpy()
-    train_y = model.train_targets.detach().numpy()
-    forest = model.tree_model
-
-    noise = model.likelihood.noise.item()
-    scale = model.covar_module.outputscale.item()
+    train_x, train_y = data
+    forest, noise, scale = model
 
     # unpack the domain
     bounds = [
@@ -227,10 +227,10 @@ def _step_bark_sampler(
     new_mll = mll(new_K_inv, new_K_logdet, train_y)
     log_ll = new_mll - cur_mll
     log_alpha = log_q_prior + log_ll
-    print(">>")
-    print(noise, scale)
-    print(new_noise, new_scale)
-    print(log_q_prior, log_ll)
+    # print(">>")
+    # print(noise, scale)
+    # print(new_noise, new_scale)
+    # print(log_q_prior, log_ll)
     if np.log(np.random.uniform()) <= min(log_alpha, 0):
         noise = new_noise
         cur_K_inv = new_K_inv
