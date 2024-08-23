@@ -7,7 +7,7 @@ ignore-init-module-imports = true
 "__init__.py" = ["F401"]
 
 [tool.poetry]
-name = "alfalfa"
+name = "bark"
 version = "0.1.0"
 description = ""
 authors = ["TobyBoyne <tobyboyne@gmail.com>"]
@@ -38,7 +38,7 @@ ipython = "^8.21.0"
 pytest-benchmark = "^4.0.0"
 
 # [tool.pytest.ini_options]
-# addopts = "--benchmark-storage=benchmarks/results --benchmark-autosave --jaxtyping-packages=alfalfa,beartype.beartype"
+# addopts = "--benchmark-storage=benchmarks/results --benchmark-autosave --jaxtyping-packages=bark,beartype.beartype"
 
 [build-system]
 requires = ["poetry-core"]

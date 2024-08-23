@@ -3,8 +3,8 @@ import pytest
 from beartype.typing import Type
 from bofire.benchmarks.benchmark import Benchmark
 
-from alfalfa.benchmarks import BENCHMARK_MAP
-from alfalfa.bofire_utils.sampling import sample_projected
+from bark.benchmarks import BENCHMARK_MAP
+from bark.bofire_utils.sampling import sample_projected
 
 BENCHMARKS = list(BENCHMARK_MAP.values())
 

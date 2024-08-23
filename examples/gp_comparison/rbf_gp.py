@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import problem
 import torch
 
-from alfalfa.baselines import RBFGP
-from alfalfa.fitting import fit_gp_adam
-from alfalfa.utils.plots import plot_gp_nd
+from bark.baselines import RBFGP
+from bark.fitting import fit_gp_adam
+from bark.utils.plots import plot_gp_nd
 
 likelihood = gpy.likelihoods.GaussianLikelihood()
 gp = RBFGP(problem.train_x_torch, problem.train_y_torch, likelihood)

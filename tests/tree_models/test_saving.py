@@ -1,8 +1,8 @@
 import gpytorch
 import pytest
 
-from alfalfa.forest import AlfalfaForest, AlfalfaTree, DecisionNode
-from alfalfa.tree_kernels import AlfalfaGP
+from bark.forest import BARKForest, BARKTree, DecisionNode
+from bark.tree_kernels import BARKGP
 
 
 @pytest.fixture
@@ -39,9 +39,9 @@ def test_saving_node(node1):
 def test_saving_forest(node1, node2):
     root1, expected_d1 = node1
     root2, expected_d2 = node2
-    trees = [AlfalfaTree(root=root1), AlfalfaTree(root=root2)]
+    trees = [BARKTree(root=root1), BARKTree(root=root2)]
 
-    forest = AlfalfaForest(trees=trees)
+    forest = BARKForest(trees=trees)
     d = forest.as_dict()
     assert d == {
         "tree_model_type": "forest",
@@ -51,7 +51,7 @@ def test_saving_forest(node1, node2):
         ],
     }
 
-    new_forest = AlfalfaForest.from_dict(d)
+    new_forest = BARKForest.from_dict(d)
     assert forest.structure_eq(new_forest)
 
 
@@ -60,13 +60,13 @@ def test_saving_tree_gp(node1, node2):
 
     root1, expected_d1 = node1
     root2, expected_d2 = node2
-    trees = [AlfalfaTree(root=root1), AlfalfaTree(root=root2)]
+    trees = [BARKTree(root=root1), BARKTree(root=root2)]
 
-    forest = AlfalfaForest(trees=trees)
-    gp = AlfalfaGP(None, None, likelihood, forest)
+    forest = BARKForest(trees=trees)
+    gp = BARKGP(None, None, likelihood, forest)
 
     state = gp.state_dict()
 
-    gp2 = AlfalfaGP(None, None, likelihood, None)
+    gp2 = BARKGP(None, None, likelihood, None)
     gp2.load_state_dict(state)
     assert state == gp2.state_dict()

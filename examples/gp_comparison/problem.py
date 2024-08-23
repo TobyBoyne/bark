@@ -3,7 +3,7 @@ import torch
 from jaxtyping import install_import_hook
 
 with install_import_hook("alfalfa", "beartype.beartype"):
-    from alfalfa.benchmarks import Hartmann6D
+    from bark.benchmarks import Hartmann6D
 
 
 torch.set_default_dtype(torch.float64)
