@@ -1,198 +1,125 @@
 """Real datasets
 
 Many obtained from https://archive.ics.uci.edu/"""
-import json
-import os
 
 import numpy as np
-import pandas as pd
-from jaxtyping import Float, Shaped
+from bofire.data_models.domain.api import Domain
+from bofire.data_models.features.api import (
+    CategoricalInput,
+    ContinuousInput,
+    ContinuousOutput,
+)
 from ucimlrepo import fetch_ucirepo
 
-from ..utils.space import (
-    CategoricalDimension,
-    ContinuousDimension,
-    IntegerDimension,
-    Space,
+from bark.bofire_utils.domain import build_integer_input
+
+
+def get_ucirepo_domain_and_data(
+    dataset_name: str,
+) -> tuple[Domain, np.ndarray, np.ndarray]:
+    domain = _dataset_name_to_domain[dataset_name]
+    dataset = fetch_ucirepo(name=dataset_name)
+    target_feature = domain.outputs.get_keys()[0]
+    nan_idxs = dataset.data.features.isna().any(axis=1)
+    train_x = dataset.data.features[~nan_idxs].to_numpy()
+    train_y = dataset.data.targets[target_feature][~nan_idxs].to_numpy().reshape(-1)
+    return domain, (train_x, train_y)
+
+
+_auto_mpg = Domain.from_lists(
+    inputs=[
+        ContinuousInput(key="displacement", bounds=[0.0, 500.0]),
+        build_integer_input(key="cylinders", bounds=[3, 8]),
+        ContinuousInput(key="horsepower", bounds=[0.0, 500.0]),
+        ContinuousInput(key="weight", bounds=[0.0, 7000.0]),
+        ContinuousInput(key="acceleration", bounds=[0.0, 30.0]),
+        build_integer_input(key="model_year", bounds=[70, 82]),
+        build_integer_input(key="origin", bounds=[1, 3]),
+    ],
+    outputs=[
+        ContinuousOutput(key="mpg"),
+    ],
 )
-from .base import DatasetFunc
 
+_student_performance = Domain.from_lists(
+    inputs=[
+        CategoricalInput(key="school", categories=["GP", "MS"]),
+        CategoricalInput(key="sex", categories=["M", "F"]),
+        build_integer_input(key="age", bounds=[15, 22]),
+        CategoricalInput(key="address", categories=["U", "R"]),
+        CategoricalInput(key="famsize", categories=["LE3", "GT3"]),
+        CategoricalInput(key="Pstatus", categories=["A", "T"]),
+        build_integer_input(key="Medu", bounds=[0, 4]),
+        build_integer_input(key="Fedu", bounds=[0, 4]),
+        CategoricalInput(
+            key="Mjob", categories=["teacher", "health", "services", "at_home", "other"]
+        ),
+        CategoricalInput(
+            key="Fjob", categories=["teacher", "health", "services", "at_home", "other"]
+        ),
+        CategoricalInput(
+            key="reason", categories=["home", "reputation", "course", "other"]
+        ),
+        CategoricalInput(key="guardian", categories=["mother", "father", "other"]),
+        build_integer_input(key="traveltime", bounds=[1, 4]),
+        build_integer_input(key="studytime", bounds=[1, 4]),
+        build_integer_input(key="failures", bounds=[0, 4]),
+        CategoricalInput(key="schoolsup", categories=["yes", "no"]),
+        CategoricalInput(key="famsup", categories=["yes", "no"]),
+        CategoricalInput(key="paid", categories=["yes", "no"]),
+        CategoricalInput(key="activities", categories=["yes", "no"]),
+        CategoricalInput(key="nursery", categories=["yes", "no"]),
+        CategoricalInput(key="higher", categories=["yes", "no"]),
+        CategoricalInput(key="internet", categories=["yes", "no"]),
+        CategoricalInput(key="romantic", categories=["yes", "no"]),
+        build_integer_input(key="famrel", bounds=[1, 5]),
+        build_integer_input(key="freetime", bounds=[1, 5]),
+        build_integer_input(key="goout", bounds=[1, 5]),
+        build_integer_input(key="Dalc", bounds=[1, 5]),
+        build_integer_input(key="Walc", bounds=[1, 5]),
+        build_integer_input(key="health", bounds=[1, 5]),
+        build_integer_input(key="absences", bounds=[0, 93]),
+    ],
+    outputs=[
+        ContinuousOutput(key="G3"),
+    ],
+)
 
-class JsonDatasetFunc(DatasetFunc):
-    """Json dataset, used for BO.
+_abalone = Domain.from_lists(
+    inputs=[
+        CategoricalInput(key="Sex", categories=["M", "F", "I"]),
+        ContinuousInput(key="Length", bounds=[0.0, 1.0]),
+        ContinuousInput(key="Diameter", bounds=[0.0, 1.0]),
+        ContinuousInput(key="Height", bounds=[0.0, 2.0]),
+        ContinuousInput(key="Whole_weight", bounds=[0.0, 3.0]),
+        ContinuousInput(key="Shucked_weight", bounds=[0.0, 1.5]),
+        ContinuousInput(key="Viscera_weight", bounds=[0.0, 1.0]),
+        ContinuousInput(key="Shell_weight", bounds=[0.0, 2.0]),
+    ],
+    outputs=[
+        ContinuousOutput(key="Rings"),
+    ],
+)
 
-    Data should take the form
-        ```json
-        {
-            "target": str
-            "features": [
-                {"key": str, "type": str, "bnds": [...]}
-            ]
-            "data": [
-                {
-                    key: value,
-                    ...
-                }
-            ]
-        }
-        ```"""
+_concrete_compressive = Domain.from_lists(
+    inputs=[
+        ContinuousInput(key="Cement", bounds=[0.0, 600.0]),
+        ContinuousInput(key="Blast Furnace Slag", bounds=[0.0, 400.0]),
+        ContinuousInput(key="Fly Ash", bounds=[0.0, 210.0]),
+        ContinuousInput(key="Water", bounds=[0.0, 250.0]),
+        ContinuousInput(key="Superplasticizer", bounds=[0.0, 50.0]),
+        ContinuousInput(key="Coarse Aggregate", bounds=[0.0, 1200.0]),
+        ContinuousInput(key="Fine Aggregate", bounds=[0.0, 1000.0]),
+        ContinuousInput(key="Age", bounds=[0.0, 400.0]),
+    ],
+    outputs=[
+        ContinuousOutput(key="Concrete compressive strength"),
+    ],
+)
 
-    def __init__(self, seed: int, path: os.PathLike):
-        with open(path, "r") as f:
-            self._data_meta = json.load(f)
-
-        super().__init__(seed)
-
-    @property
-    def space(self):
-        dims = []
-        for feature in self._data_meta["features"]:
-            key = feature["key"]
-            bnds = feature["bnds"]
-            if feature["type"] == "cat":
-                dims.append(CategoricalDimension(key=key, bnds=bnds))
-            elif feature["type"] == "int":
-                dims.append(IntegerDimension(key=key, bnds=bnds))
-            elif feature["type"] == "conti":
-                dims.append(ContinuousDimension(key=key, bnds=bnds))
-        return Space(dims)
-
-    def _load_data(self) -> tuple[np.ndarray, np.ndarray]:
-        data = self._data_meta["data"]
-        df = pd.DataFrame.from_dict(data)
-        X = df.drop(columns=[self._data_meta["target"]]).to_numpy()
-        y = df[self._data_meta["target"]].to_numpy().reshape(-1)
-        return X, y
-
-    def __call__(self, x):
-        X = self.space.transform(self.data[0])
-        idx = np.argwhere(np.all(X == x, axis=1)).item()
-        return self.data[1][idx]
-
-    @property
-    def optimum(self):
-        return self.data[1].min()
-
-
-class UCIDatasetFunc(DatasetFunc, skip_validation=True):
-    dataset_name: str
-    target_feature: str
-
-    def _load_data(self) -> tuple[Shaped[np.ndarray, "N D"], Float[np.ndarray, "N"]]:
-        dataset = fetch_ucirepo(name=self.dataset_name)
-        nan_idxs = dataset.data.features.isna().any(axis=1)
-        X = dataset.data.features[~nan_idxs].to_numpy()
-        y = dataset.data.targets[self.target_feature][~nan_idxs].to_numpy().reshape(-1)
-
-        return X, y
-
-
-class AutoMPG(UCIDatasetFunc):
-    dataset_name = "Auto MPG"
-    target_feature = "mpg"
-
-    @property
-    def space(self):
-        return Space(
-            [
-                ContinuousDimension(key="displacement", bnds=[0.0, 500.0]),
-                IntegerDimension(key="cylinders", bnds=[3, 8]),
-                ContinuousDimension(key="horsepower", bnds=[0.0, 500.0]),
-                ContinuousDimension(key="weight", bnds=[0.0, 7000.0]),
-                ContinuousDimension(key="acceleration", bnds=[0.0, 30.0]),
-                IntegerDimension(key="model_year", bnds=[70, 82]),
-                IntegerDimension(key="origin", bnds=[1, 3]),
-            ]
-        )
-
-
-class StudentPerformance(UCIDatasetFunc):
-    dataset_name = "Student Performance"
-    target_feature = "G3"
-
-    @property
-    def space(self):
-        return Space(
-            [
-                CategoricalDimension(key="school", bnds=["GP", "MS"]),
-                CategoricalDimension(key="sex", bnds=["M", "F"]),
-                IntegerDimension(key="age", bnds=[15, 22]),
-                CategoricalDimension(key="address", bnds=["U", "R"]),
-                CategoricalDimension(key="famsize", bnds=["LE3", "GT3"]),
-                CategoricalDimension(key="Pstatus", bnds=["A", "T"]),
-                IntegerDimension(key="Medu", bnds=[0, 4]),
-                IntegerDimension(key="Fedu", bnds=[0, 4]),
-                CategoricalDimension(
-                    key="Mjob",
-                    bnds=["teacher", "health", "services", "at_home", "other"],
-                ),
-                CategoricalDimension(
-                    key="Fjob",
-                    bnds=["teacher", "health", "services", "at_home", "other"],
-                ),
-                CategoricalDimension(
-                    key="reason", bnds=["home", "reputation", "course", "other"]
-                ),
-                CategoricalDimension(
-                    key="guardian", bnds=["mother", "father", "other"]
-                ),
-                IntegerDimension(key="traveltime", bnds=[1, 4]),
-                IntegerDimension(key="studytime", bnds=[1, 4]),
-                IntegerDimension(key="failures", bnds=[0, 4]),
-                CategoricalDimension(key="schoolsup", bnds=["yes", "no"]),
-                CategoricalDimension(key="famsup", bnds=["yes", "no"]),
-                CategoricalDimension(key="paid", bnds=["yes", "no"]),
-                CategoricalDimension(key="activities", bnds=["yes", "no"]),
-                CategoricalDimension(key="nursery", bnds=["yes", "no"]),
-                CategoricalDimension(key="higher", bnds=["yes", "no"]),
-                CategoricalDimension(key="internet", bnds=["yes", "no"]),
-                CategoricalDimension(key="romantic", bnds=["yes", "no"]),
-                IntegerDimension(key="famrel", bnds=[1, 5]),
-                IntegerDimension(key="freetime", bnds=[1, 5]),
-                IntegerDimension(key="goout", bnds=[1, 5]),
-                IntegerDimension(key="Dalc", bnds=[1, 5]),
-                IntegerDimension(key="Walc", bnds=[1, 5]),
-                IntegerDimension(key="health", bnds=[1, 5]),
-                IntegerDimension(key="absences", bnds=[0, 93]),
-            ]
-        )
-
-
-class Abalone(UCIDatasetFunc):
-    dataset_name = "Abalone"
-    target_feature = "Rings"
-
-    @property
-    def space(self):
-        return Space(
-            [
-                CategoricalDimension(key="Sex", bnds=["M", "F", "I"]),
-                ContinuousDimension(key="Length", bnds=[0.0, 1.0]),
-                ContinuousDimension(key="Diameter", bnds=[0.0, 1.0]),
-                ContinuousDimension(key="Height", bnds=[0.0, 2.0]),
-                ContinuousDimension(key="Whole_weight", bnds=[0.0, 3.0]),
-                ContinuousDimension(key="Shucked_weight", bnds=[0.0, 1.5]),
-                ContinuousDimension(key="Viscera_weight", bnds=[0.0, 1.0]),
-                ContinuousDimension(key="Shell_weight", bnds=[0.0, 2.0]),
-            ]
-        )
-
-
-class ConcreteCompressive(UCIDatasetFunc):
-    dataset_name = "Concrete Compressive Strength"
-    target_feature = "Concrete compressive strength"
-
-    @property
-    def space(self):
-        return Space(
-            [
-                ContinuousDimension(key="Cement", bnds=[0.0, 600.0]),
-                ContinuousDimension(key="Blast Furnace Slag", bnds=[0.0, 400.0]),
-                ContinuousDimension(key="Fly Ash", bnds=[0.0, 210.0]),
-                ContinuousDimension(key="Water", bnds=[0.0, 250.0]),
-                ContinuousDimension(key="Superplasticizer", bnds=[0.0, 50.0]),
-                ContinuousDimension(key="Coarse Aggregate", bnds=[0.0, 1200.0]),
-                ContinuousDimension(key="Fine Aggregate", bnds=[0.0, 1000.0]),
-                ContinuousDimension(key="Age", bnds=[0.0, 400.0]),
-            ]
-        )
+_dataset_name_to_domain = {
+    "Auto MPG": _auto_mpg,
+    "Student Performance": _student_performance,
+    "Abalone": _abalone,
+    "Concrete Compressive Strength": _concrete_compressive,
+}

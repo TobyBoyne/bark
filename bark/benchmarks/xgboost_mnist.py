@@ -12,7 +12,7 @@ from bofire.data_models.features.api import (
 from bofire.data_models.objectives.api import MinimizeObjective
 from sklearn import datasets, metrics, model_selection
 
-from bark.utils.domain import build_integer_input
+from bark.bofire_utils.domain import build_integer_input
 
 
 class XGBoostMNIST(Benchmark):

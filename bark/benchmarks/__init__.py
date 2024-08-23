@@ -2,13 +2,6 @@ from beartype.typing import Type, Union
 from bofire.benchmarks.benchmark import Benchmark
 
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
-from .dataset import (
-    Abalone,
-    AutoMPG,
-    ConcreteCompressive,
-    JsonDatasetFunc,
-    StudentPerformance,
-)
 from .mixed import CatAckley, CombinationFunc2, PressureVessel
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
@@ -38,17 +31,11 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # mixed spaces
     "pest": PestControl,
     "pressure_vessel": PressureVessel,
+    "xgboost": XGBoostMNIST,
     # "vae_nas": VAESmall,
     "cat_ackley": CatAckley,
     # multi-fidelity
     # "currin": CurrinExp2D,
-    # datasets
-    # "auto_mpg": AutoMPG,
-    # "student_performance": StudentPerformance,
-    # "abalone": Abalone,
-    # "concrete": ConcreteCompressive,
-    # "json": JsonDatasetFunc,
-    "xgboost": XGBoostMNIST,
 }
 
 

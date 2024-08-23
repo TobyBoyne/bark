@@ -3,8 +3,8 @@ import numpy as np
 from beartype.typing import Optional
 from bofire.data_models.domain.api import Domain
 
+from bark.bofire_utils.domain import get_feature_types_array
 from bark.forest import FeatureTypeEnum, batched_forest_gram_matrix
-from bark.utils.domain import get_feature_types_array
 
 from .tree_model_kernel import BARKTreeModelKernel
 

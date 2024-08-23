@@ -9,6 +9,8 @@ from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 from botorch import fit_gpytorch_mll
 
+from bark.bofire_utils.domain import get_feature_types_array
+
 # with install_import_hook("alfalfa", "beartype.beartype"):
 from bark.bofire_utils.sampling import sample_projected
 from bark.fitting.lgbm_fitting import fit_lgbm_forest, lgbm_to_bark_forest
@@ -16,7 +18,6 @@ from bark.optimizer.opt_core import get_opt_core_from_domain
 from bark.optimizer.opt_model import build_opt_model_from_forest
 from bark.optimizer.proposals import propose
 from bark.tree_kernels.tree_gps import LeafGP
-from bark.utils.domain import get_feature_types_array
 
 benchmark = Hartmann()
 domain = benchmark.domain
