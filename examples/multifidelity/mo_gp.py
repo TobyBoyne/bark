@@ -3,11 +3,9 @@ import lightgbm as lgb
 import matplotlib.pyplot as plt
 import torch
 
-from alfalfa.fitting import fit_gp_adam, lgbm_to_alfalfa_forest
-from alfalfa.tree_kernels import AlfalfaMOGP, MultitaskGaussianLikelihood
-from alfalfa.utils.space import Space
-
-import scienceplots
+from bark.fitting import fit_gp_adam, lgbm_to_alfalfa_forest
+from bark.tree_kernels import AlfalfaMOGP, MultitaskGaussianLikelihood
+from bark.utils.space import Space
 
 plt.style.use(["science", "no-latex", "grid"])
 
@@ -91,7 +89,12 @@ def ax_plot(ax: plt.Axes, train_y, train_x, rand_var, title):
     lower, upper = rand_var.confidence_region()
     # Plot training data as black stars
     # Predictive mean as blue line
-    ax.plot(test_x.detach().numpy(), rand_var.mean.detach().numpy(), color="C0", label="Mean")
+    ax.plot(
+        test_x.detach().numpy(),
+        rand_var.mean.detach().numpy(),
+        color="C0",
+        label="Mean",
+    )
     # Shade in confidence
     ax.fill_between(
         test_x.detach().numpy(),
@@ -99,7 +102,7 @@ def ax_plot(ax: plt.Axes, train_y, train_x, rand_var, title):
         upper.detach().numpy(),
         alpha=0.5,
         label="Confidence",
-        color="C0"
+        color="C0",
     )
     ax.set_ylim([-3, 3])
 

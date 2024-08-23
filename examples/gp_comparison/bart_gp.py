@@ -4,10 +4,10 @@ import scipy.stats as stats
 from jaxtyping import install_import_hook
 
 with install_import_hook("alfalfa", "beartype.beartype"):
-    from alfalfa.fitting import BART, BARTData, BARTTrainParams
-    from alfalfa.forest import AlfalfaForest
-    from alfalfa.tree_kernels import AlfalfaGP, AlfalfaMixtureModel
-    from alfalfa.utils.metrics import nlpd
+    from bark.fitting import BART, BARTData, BARTTrainParams
+    from bark.forest import AlfalfaForest
+    from bark.tree_kernels import AlfalfaGP, AlfalfaMixtureModel
+    from bark.utils.metrics import nlpd
 
 import problem
 

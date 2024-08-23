@@ -5,9 +5,9 @@ import torch
 from bofire.benchmarks.api import Himmelblau
 from bofire.data_models.features.api import CategoricalInput
 
-from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
-from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.metrics import nlpd
+from bark.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
+from bark.tree_kernels import AlfalfaGP
+from bark.utils.metrics import nlpd
 
 plt.style.use(["science", "no-latex", "grid"])
 

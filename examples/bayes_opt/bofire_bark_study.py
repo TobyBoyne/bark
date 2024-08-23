@@ -5,11 +5,11 @@ from bofire.benchmarks.single import Himmelblau
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 
-from alfalfa.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
-from alfalfa.forest_numba import create_empty_forest
-from alfalfa.optimizer import propose
-from alfalfa.optimizer.opt_core import get_opt_core_from_domain
-from alfalfa.optimizer.opt_model import build_opt_model_from_forest
+from bark.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
+from bark.forest import create_empty_forest
+from bark.optimizer.opt_core import get_opt_core_from_domain
+from bark.optimizer.opt_model import build_opt_model_from_forest
+from bark.optimizer.proposals import propose
 
 benchmark = Himmelblau()
 domain = benchmark.domain

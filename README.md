@@ -1,3 +1,3 @@
-# alfalfa
+# BARK
 
-**A** **L**earning **F**orest and **L**ow **F**idelity **A**pproach to Bayesian Optimisation.
+The **BART-K**ernel for Bayesian optimization

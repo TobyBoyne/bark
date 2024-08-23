@@ -4,11 +4,11 @@ import gpytorch as gpy
 import numpy as np
 import torch
 
-from alfalfa.benchmarks import map_benchmark
-from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
-from alfalfa.optimizer import build_opt_model, propose
-from alfalfa.optimizer.gbm_model import GbmModel
-from alfalfa.tree_kernels import AlfalfaGP
+from bark.benchmarks import map_benchmark
+from bark.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
+from bark.optimizer import build_opt_model, propose
+from bark.optimizer.gbm_model import GbmModel
+from bark.tree_kernels import AlfalfaGP
 
 parser = ArgumentParser()
 parser.add_argument("-bb-func", type=str, default="branin")

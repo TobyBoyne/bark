@@ -9,14 +9,15 @@ from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 from botorch import fit_gpytorch_mll
 
+from bark.bofire_utils.domain import get_feature_types_array
+
 # with install_import_hook("alfalfa", "beartype.beartype"):
-from alfalfa.bofire_utils.sampling import sample_projected
-from alfalfa.fitting import fit_lgbm_forest, lgbm_to_alfalfa_forest
-from alfalfa.optimizer import propose
-from alfalfa.optimizer.opt_core import get_opt_core_from_domain
-from alfalfa.optimizer.opt_model import build_opt_model_from_forest
-from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.domain import get_feature_types_array
+from bark.bofire_utils.sampling import sample_projected
+from bark.fitting.lgbm_fitting import fit_lgbm_forest, lgbm_to_bark_forest
+from bark.optimizer.opt_core import get_opt_core_from_domain
+from bark.optimizer.opt_model import build_opt_model_from_forest
+from bark.optimizer.proposals import propose
+from bark.tree_kernels.tree_gps import LeafGP
 
 benchmark = Hartmann()
 domain = benchmark.domain
@@ -40,7 +41,7 @@ for itr in range(100):
     train_x_transformed = domain.inputs.transform(train_x, transform_specs)
     train_y_transformed = (train_y - train_y.mean()) / train_y.std()
     booster = fit_lgbm_forest(train_x_transformed, train_y_transformed, domain)
-    forest = lgbm_to_alfalfa_forest(booster)
+    forest = lgbm_to_bark_forest(booster)
 
     # fit gp hyperparameters
     likelihood = gpy.likelihoods.GaussianLikelihood()
@@ -48,7 +49,7 @@ for itr in range(100):
         lambda x: torch.from_numpy(x.to_numpy()),
         (train_x_transformed, train_y_transformed),
     )
-    tree_gp = AlfalfaGP(*train_torch, likelihood, forest)
+    tree_gp = LeafGP(*train_torch, likelihood, forest)
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
     fit_gpytorch_mll(mll)
 

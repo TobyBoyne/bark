@@ -1,4 +1,4 @@
-from alfalfa.forest import DecisionNode
+from bark.forest import DecisionNode
 
 
 def test_tree_structure_equals():

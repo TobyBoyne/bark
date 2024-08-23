@@ -7,13 +7,13 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.gridspec import GridSpec
 
-from alfalfa.benchmarks import map_benchmark
-from alfalfa.fitting.bart.bart import BART
-from alfalfa.fitting.bart.data import Data
-from alfalfa.fitting.bart.params import BARTTrainParams
-from alfalfa.forest import AlfalfaForest
-from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.plots import plot_forest, plot_gp_1d
+from bark.benchmarks import map_benchmark
+from bark.fitting.bart.bart import BART
+from bark.fitting.bart.data import Data
+from bark.fitting.bart.params import BARTTrainParams
+from bark.forest import AlfalfaForest
+from bark.tree_kernels import AlfalfaGP
+from bark.utils.plots import plot_forest, plot_gp_1d
 
 torch.set_default_dtype(torch.float64)
 plt.style.use(["science", "no-latex", "grid"])

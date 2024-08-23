@@ -4,9 +4,9 @@ import problem
 import scienceplots  # noqa: F401
 import torch
 
-from alfalfa.baselines import RBFGP
-from alfalfa.tree_kernels import AlfalfaGP
-from alfalfa.utils.plots import plot_gp_nd
+from bark.baselines import RBFGP
+from bark.tree_kernels import AlfalfaGP
+from bark.utils.plots import plot_gp_nd
 
 
 def _get_rbf_gp(path, x, y):

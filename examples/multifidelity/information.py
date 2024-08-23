@@ -3,12 +3,12 @@
 import numpy as np
 import torch
 
-from alfalfa.benchmarks import CurrinExp2D
-from alfalfa.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
-from alfalfa.optimizer.information_based_fidelity import (
+from bark.benchmarks import CurrinExp2D
+from bark.fitting import fit_gp_adam, fit_lgbm_forest, lgbm_to_alfalfa_forest
+from bark.optimizer.information_based_fidelity import (
     propose_fidelity_information_based,
 )
-from alfalfa.tree_kernels import AlfalfaMOGP, MultitaskGaussianLikelihood
+from bark.tree_kernels import AlfalfaMOGP, MultitaskGaussianLikelihood
 
 torch.set_default_dtype(torch.float64)
 torch.manual_seed(42)

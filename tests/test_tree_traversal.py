@@ -1,15 +1,14 @@
 import numpy as np
 
-import alfalfa.fitting.bart.tree_traversal as traverse
-from alfalfa.fitting.tree_traversal import singly_internal_nodes, terminal_nodes
-from alfalfa.forest import AlfalfaTree, DecisionNode
-from alfalfa.forest_numba import NODE_RECORD_DTYPE
+import bark.fitting.bart.tree_traversal as traverse
+from bark.fitting.tree_traversal import singly_internal_nodes, terminal_nodes
+from bark.forest import NODE_RECORD_DTYPE, BARKTree, DecisionNode
 
 
 def test_terminal_nodes():
     n1 = DecisionNode()
     n2 = DecisionNode(left=n1)
-    tree = AlfalfaTree(root=n2)
+    tree = BARKTree(root=n2)
     g = traverse.terminal_nodes(tree)
     assert g == [n1.left, n1.right, n2.right]
 
@@ -17,7 +16,7 @@ def test_terminal_nodes():
 def test_singly_internal_nodes():
     n1 = DecisionNode()
     n2 = DecisionNode(left=n1)
-    tree = AlfalfaTree(root=n2)
+    tree = BARKTree(root=n2)
     g = traverse.singly_internal_nodes(tree)
     assert g == [n1]
 
