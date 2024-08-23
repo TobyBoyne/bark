@@ -1,17 +1,15 @@
 import bofire.strategies.api as strategies
-import gpytorch as gpy
+import numpy as np
 import pandas as pd
-import torch
-from bofire.benchmarks.api import Himmelblau
+from bofire.benchmarks.single import Himmelblau
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 
-from alfalfa.fitting import BARK, BARKData, BARKTrainParams
-from alfalfa.forest import AlfalfaForest
-from alfalfa.optimizer import build_opt_model, propose
-from alfalfa.optimizer.gbm_model import GbmModel
+from alfalfa.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
+from alfalfa.forest_numba import create_empty_forest
+from alfalfa.optimizer import propose
 from alfalfa.optimizer.opt_core import get_opt_core_from_domain
-from alfalfa.tree_kernels import AlfalfaGP
+from alfalfa.optimizer.opt_model import build_opt_model_from_forest
 
 benchmark = Himmelblau()
 domain = benchmark.domain
@@ -25,34 +23,46 @@ cat = benchmark.domain.inputs.get_keys(includes=CategoricalInput)
 # add model_core with constraints if problem has constraints
 model_core = get_opt_core_from_domain(domain)
 
-# main bo loop
+bark_params = BARKTrainParams(warmup_steps=500, n_steps=400, thinning=200, num_chains=4)
+# bark_params = BARKTrainParams(warmup_steps=5, n_steps=5, thinning=1, num_chains=4)
 
-bark_data = BARKData(domain, train_x.values)
-bark_params = BARKTrainParams(warmup_steps=50)
+forest = create_empty_forest(m=50)
+forest = np.tile(forest, (bark_params.num_chains, 1, 1))
+noise = np.tile(0.1, (bark_params.num_chains,))
+scale = np.tile(1.0, (bark_params.num_chains,))
 
 print("\n* * * start bo loop...")
-for itr in range(10):
-    forest = AlfalfaForest(height=0, num_trees=50)
-    forest.initialise(domain)
-    likelihood = gpy.likelihoods.GaussianLikelihood()
-    train_torch = map(lambda x: torch.from_numpy(x.to_numpy()), (train_x, train_y))
-    tree_gp = AlfalfaGP(*train_torch, likelihood, forest)
-
-    bark_sampler = BARK(
-        model=tree_gp,
-        data=bark_data,
+for itr in range(100):
+    train_x_transformed = train_x.to_numpy()
+    train_y_transformed = ((train_y - train_y.mean()) / train_y.std()).to_numpy()[
+        :, None
+    ]
+    data_numpy = (train_x_transformed, train_y_transformed)
+    samples = run_bark_sampler(
+        model=(forest, noise, scale),
+        data=data_numpy,
+        domain=domain,
         params=bark_params,
     )
 
-    bark_sampler.run()
-    bark_params.warmup_steps = 50
+    bark_params.warmup_steps = 0
+    print("Training complete")
 
     # get new proposal and evaluate bb_func
-    gbm_model = GbmModel(forest)
-    opt_model = build_opt_model(
-        benchmark.domain, gbm_model, tree_gp, 1.96, model_core=model_core
+    opt_model = build_opt_model_from_forest(
+        domain=benchmark.domain,
+        gp_samples=samples,
+        data=data_numpy,
+        kappa=1.96,
+        model_core=model_core,
     )
-    next_x = propose(benchmark.domain, opt_model, gbm_model, model_core)
+
+    # update starting values
+    forest = samples[0][:, -1, :, :]
+    noise = samples[1][:, -1]
+    scale = samples[2][:, -1]
+
+    next_x = propose(benchmark.domain, opt_model, model_core)
     candidate = pd.DataFrame(data=[next_x], columns=domain.inputs.get_keys())
     next_y = benchmark.f(candidate)["y"]
 

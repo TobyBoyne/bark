@@ -8,11 +8,112 @@ from bofire.data_models.domain.api import Domain
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 
-from alfalfa.utils.domain import get_cat_idx_from_domain
+from alfalfa.forest_numba import batched_forest_gram_matrix
+from alfalfa.utils.domain import get_cat_idx_from_domain, get_feature_types_array
 
 from ..tree_kernels import AlfalfaGP, AlfalfaMOGP
 from .gbm_model import GbmModel
 from .opt_core import add_gbm_to_opt_model, get_opt_core, get_opt_core_copy
+
+
+def build_opt_model_from_forest(
+    domain: Domain,
+    gp_samples: tuple[np.ndarray, float | np.ndarray, float | np.ndarray],
+    data: tuple[np.ndarray, np.ndarray],
+    kappa: float,
+    model_core: gp.Model,
+):
+    opt_model = get_opt_core_copy(model_core)
+    train_x, train_y = data
+
+    # unpack samples
+    forest_samples, noise_samples, scale_samples = gp_samples
+    while forest_samples.ndim < 4:
+        forest_samples = forest_samples[None, ...]
+    noise_samples = np.atleast_2d(noise_samples)
+    scale_samples = np.atleast_2d(scale_samples)
+
+    # combine chain and sample dimensions
+    forest_samples = forest_samples.reshape(-1, *forest_samples.shape[-2:])
+    noise_samples = noise_samples.reshape(-1)
+    scale_samples = scale_samples.reshape(-1)
+
+    num_samples = forest_samples.shape[0]
+    num_data = train_x.shape[0]
+
+    # build tree model
+    feature_types = get_feature_types_array(domain)
+    gbm_models = [GbmModel(forest, feature_types) for forest in forest_samples]
+
+    gbm_model_dict = {f"tree_sample_{i}": gbm for i, gbm in enumerate(gbm_models)}
+    cat_idx = get_cat_idx_from_domain(domain)
+    feature_types = get_feature_types_array(domain)
+    add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
+
+    K_XX = scale_samples[:, None, None] * batched_forest_gram_matrix(
+        forest_samples, train_x, train_x, feature_types
+    )
+    K_XX_s = K_XX + noise_samples[:, None, None] * np.eye(num_data)
+    # cholesky decomposition doesn't support batching
+    K_inv = np.linalg.inv(K_XX_s)
+
+    num_sub_k = num_samples * num_data
+    sub_k = opt_model.addVars(range(num_sub_k), lb=0, ub=1, name="sub_k", vtype="C")
+    for i, (gbm_name, gbm_model) in enumerate(gbm_model_dict.items()):
+        # create active leaf variables
+        act_leave_vars = gbm_model.get_active_leaf_vars(train_x, opt_model, gbm_name)
+
+        opt_model.addConstrs(
+            (
+                sub_k[idx + i * len(act_leave_vars)] == act_leave_vars[idx]
+                for idx in range(len(act_leave_vars))
+            ),
+            name=f"sub_k_constr_{gbm_name}",
+        )
+
+    ## add quadratic constraints
+    # \sigma <= K_xx - K_xX @ K_XX^-1 @ X_xX^T
+
+    opt_model._std = opt_model.addVars(
+        range(num_samples), lb=0, ub=GRB.INFINITY, name="std", vtype="C"
+    )
+
+    # pre- and post-multiply by scale
+    quadr_term = -(scale_samples**2)[:, None, None] * K_inv
+    const_term = scale_samples  # + noise_samples
+    zeros = np.zeros((train_x.shape[0], 1))
+
+    for i in range(num_samples):
+        quadr_constr = np.block([[quadr_term[i], zeros], [zeros.T, -1.0]])
+        sub_k_sample = [sub_k[j] for j in range(i * num_data, (i + 1) * num_data)]
+        sub_k_std = MVar.fromlist(sub_k_sample + [opt_model._std[i]])
+        opt_model.addMQConstr(
+            quadr_constr,
+            None,
+            sense=">",
+            rhs=-const_term[i],
+            xQ_L=sub_k_std,
+            xQ_R=sub_k_std,
+        )
+
+    ## add linear objective
+    lin_term = scale_samples[:, None, None] * (K_inv @ train_y[None, :, :])
+    lin_term = lin_term.squeeze(-1)
+
+    obj = 0
+    for i in range(num_samples):
+        sub_z_sample = [sub_k[j] for j in range(i * num_data, (i + 1) * num_data)]
+        sub_z_obj = MVar.fromlist(sub_z_sample + [opt_model._std[i]])
+        lin_obj = np.concatenate((lin_term[i], [-kappa]))
+        obj += (1 / num_samples) * lin_obj @ sub_z_obj
+
+    opt_model.setObjective(expr=obj, sense=GRB.MINIMIZE)
+
+    ## add mu variable
+    opt_model._sub_z_mu = MVar.fromlist(sub_k.values())
+    opt_model._mu_coeff = lin_term
+
+    return opt_model
 
 
 def build_opt_model(
@@ -133,32 +234,3 @@ def build_opt_model(
     opt_model._mu_coeff = lin_term
 
     return opt_model
-
-
-# def get_opt_core_copy(opt_core: gp.Model):
-#     """creates the copy of an optimization model"""
-#     raise DeprecationWarning("This is a duplicated function!")
-#     new_opt_core = opt_core.copy()
-#     new_opt_core._n_feat = opt_core._n_feat
-
-#     # transfer var dicts
-#     new_opt_core._cont_var_dict = {}
-#     new_opt_core._cat_var_dict = {}
-
-#     ## transfer cont_var_dict
-#     for var in opt_core._cont_var_dict.keys():
-#         var_name = opt_core._cont_var_dict[var].VarName
-
-#         new_opt_core._cont_var_dict[var] = new_opt_core.getVarByName(var_name)
-
-#     ## transfer cat_var_dict
-#     for var in opt_core._cat_var_dict.keys():
-#         for cat in opt_core._cat_var_dict[var].keys():
-#             var_name = opt_core._cat_var_dict[var][cat].VarName
-
-#             if var not in new_opt_core._cat_var_dict.keys():
-#                 new_opt_core._cat_var_dict[var] = {}
-
-#             new_opt_core._cat_var_dict[var][cat] = new_opt_core.getVarByName(var_name)
-
-#     return new_opt_core

@@ -7,7 +7,6 @@ from gurobipy import GRB
 
 from alfalfa.utils.domain import get_cat_idx_from_domain, get_feature_bounds
 
-from .gbm_model import GbmModel
 from .opt_core import (
     get_opt_core_copy,
     label_leaf_index,
@@ -42,15 +41,12 @@ def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
 def propose(
     domain: Domain,
     opt_model: gp.Model,
-    gbm_model: GbmModel,
-    model_core: Optional[gp.Model] = None,
+    model_core: Optional[gp.Model],
 ):
     cat_idx = get_cat_idx_from_domain(domain)
     input_features = domain.inputs.get()
 
-    next_x_area, next_val, curr_mean, curr_var = _get_global_sol(
-        input_features, cat_idx, opt_model, gbm_model
-    )
+    next_x_area, next_val = _get_global_sol(input_features, cat_idx, opt_model)
 
     # add epsilon if input constr. exist
     # i.e. tree splits are rounded to the 5th decimal when adding them to the model,
@@ -72,9 +68,7 @@ def propose(
     return next_center
 
 
-def _get_global_sol(
-    input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model, gbm_model: GbmModel
-):
+def _get_global_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
     # provides global solution to the optimization problem
 
     # build main model
@@ -87,30 +81,30 @@ def _get_global_sol(
     ## optimize opt_model to determine area to focus on
     opt_model.optimize()
 
-    # get active leaf area
-    label = "1st_obj"
     var_bnds = [get_feature_bounds(feat, ordinal_encoding=True) for feat in input_feats]
 
-    active_enc = [
-        (tree_id, leaf_enc)
-        for tree_id, leaf_enc in label_leaf_index(opt_model, label)
-        if round(opt_model._z_l[label, tree_id, leaf_enc].x) == 1.0
-    ]
-    gbm_model.update_var_bounds(active_enc, var_bnds)
+    # get active leaf area
+    for label, gbm_model in opt_model._gbm_models.items():
+        active_enc = [
+            (tree_id, leaf_enc)
+            for tree_id, leaf_enc in label_leaf_index(opt_model, label)
+            if round(opt_model._z_l[label, tree_id, leaf_enc].x) == 1.0
+        ]
+        gbm_model.update_var_bounds(active_enc, var_bnds)
 
     # reading x_val
     next_x = get_opt_sol(input_feats, cat_idx, opt_model)
 
     # extract variance and mean
-    curr_var = opt_model._var.x
-    curr_mean = sum(
-        [
-            opt_model._mu_coeff[idx] * opt_model._sub_z_mu[idx].x
-            for idx in range(len(opt_model._mu_coeff))
-        ]
-    )
+    # curr_var = opt_model._var.x
+    # curr_mean = sum(
+    #     [
+    #         opt_model._mu_coeff[idx] * opt_model._sub_z_mu[idx].x
+    #         for idx in range(len(opt_model._mu_coeff))
+    #     ]
+    # )
 
-    return var_bnds, next_x, curr_mean, curr_var
+    return var_bnds, next_x
 
 
 def _get_leaf_center(x_area, input_feats: Inputs, cat_idx: set[int]):
