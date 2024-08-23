@@ -50,7 +50,9 @@ def build_opt_model_from_forest(
     feature_types = get_feature_types_array(domain)
     add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
 
-    K_XX = batched_forest_gram_matrix(forest_samples, train_x, train_x, feature_types)
+    K_XX = scale_samples[:, None, None] * batched_forest_gram_matrix(
+        forest_samples, train_x, train_x, feature_types
+    )
     K_XX_s = K_XX + noise_samples[:, None, None] * np.eye(num_data)
     # cholesky decomposition doesn't support batching
     K_inv = np.linalg.inv(K_XX_s)
@@ -72,31 +74,26 @@ def build_opt_model_from_forest(
     ## add quadratic constraints
     # \sigma <= K_xx - K_xX @ K_XX^-1 @ X_xX^T
 
-    # opt_model._var = opt_model.addVar(lb=0, ub=GRB.INFINITY, name="var", vtype="C")
-
-    opt_model._var = opt_model.addVars(
-        range(num_samples), lb=0, ub=GRB.INFINITY, name="var", vtype="C"
+    opt_model._std = opt_model.addVars(
+        range(num_samples), lb=0, ub=GRB.INFINITY, name="std", vtype="C"
     )
-    # opt_model._sub_k_var = MVar.fromlist(sub_k.values() + [opt_model._var])
 
     # pre- and post-multiply by scale
     quadr_term = -(scale_samples**2)[:, None, None] * K_inv
-    const_term = scale_samples + noise_samples
+    const_term = scale_samples  # + noise_samples
     zeros = np.zeros((train_x.shape[0], 1))
 
     for i in range(num_samples):
         quadr_constr = np.block([[quadr_term[i], zeros], [zeros.T, -1.0]])
         sub_k_sample = [sub_k[j] for j in range(i * num_data, (i + 1) * num_data)]
-        sub_k_var = MVar.fromlist(sub_k_sample + [opt_model._var[i]])
+        sub_k_std = MVar.fromlist(sub_k_sample + [opt_model._std[i]])
         opt_model.addMQConstr(
             quadr_constr,
             None,
             sense=">",
             rhs=-const_term[i],
-            xQ_L=sub_k_var,
-            xQ_R=sub_k_var,
-            # xQ_L=opt_model._sub_k_var,
-            # xQ_R=opt_model._sub_k_var,
+            xQ_L=sub_k_std,
+            xQ_R=sub_k_std,
         )
 
     ## add linear objective
@@ -106,14 +103,14 @@ def build_opt_model_from_forest(
     obj = 0
     for i in range(num_samples):
         sub_z_sample = [sub_k[j] for j in range(i * num_data, (i + 1) * num_data)]
-        sub_z_obj = MVar.fromlist(sub_z_sample + [opt_model._var[i]])
+        sub_z_obj = MVar.fromlist(sub_z_sample + [opt_model._std[i]])
         lin_obj = np.concatenate((lin_term[i], [-kappa]))
         obj += (1 / num_samples) * lin_obj @ sub_z_obj
 
     opt_model.setObjective(expr=obj, sense=GRB.MINIMIZE)
 
     ## add mu variable
-    opt_model._sub_z_mu = MVar(sub_k.values())
+    opt_model._sub_z_mu = MVar.fromlist(sub_k.values())
     opt_model._mu_coeff = lin_term
 
     return opt_model

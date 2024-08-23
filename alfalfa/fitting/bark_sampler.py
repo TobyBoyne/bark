@@ -116,7 +116,7 @@ def _run_bark_sampler_multichain(
     # this function can't be jitted nor parallelized - possibly due to rng
     np.random.seed(42)
     num_chains = params["num_chains"]
-    num_samples = params["n_steps"] // params["thinning"]
+    num_samples = int(np.ceil(params["n_steps"] / params["thinning"]))
 
     node_samples = np.zeros(
         (num_chains, num_samples, *forest.shape[-2:]), dtype=NODE_RECORD_DTYPE

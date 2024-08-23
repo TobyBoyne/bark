@@ -1,18 +1,17 @@
 import bofire.strategies.api as strategies
 import numpy as np
 import pandas as pd
+from bofire.benchmarks.single import Himmelblau
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 
-from alfalfa.benchmarks import StyblinskiTang
 from alfalfa.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
 from alfalfa.forest_numba import create_empty_forest
 from alfalfa.optimizer import propose
 from alfalfa.optimizer.opt_core import get_opt_core_from_domain
 from alfalfa.optimizer.opt_model import build_opt_model_from_forest
-from alfalfa.utils.domain import get_feature_types_array
 
-benchmark = StyblinskiTang()
+benchmark = Himmelblau()
 domain = benchmark.domain
 
 # sample initial points
@@ -20,12 +19,12 @@ sampler = strategies.map(RandomStrategy(domain=domain, seed=42))
 train_x = sampler.ask(10)
 train_y = benchmark.f(train_x)["y"]  # .drop("valid_y", axis="columns")
 cat = benchmark.domain.inputs.get_keys(includes=CategoricalInput)
-feature_types = get_feature_types_array(domain)
 
 # add model_core with constraints if problem has constraints
 model_core = get_opt_core_from_domain(domain)
 
-bark_params = BARKTrainParams(warmup_steps=5, n_steps=5, thinning=1, num_chains=4)
+bark_params = BARKTrainParams(warmup_steps=500, n_steps=400, thinning=200, num_chains=4)
+# bark_params = BARKTrainParams(warmup_steps=5, n_steps=5, thinning=1, num_chains=4)
 
 forest = create_empty_forest(m=50)
 forest = np.tile(forest, (bark_params.num_chains, 1, 1))
