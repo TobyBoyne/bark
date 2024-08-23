@@ -9,7 +9,7 @@ from numba import njit, prange
 from bark.fitting.noise_scale_proposals import get_noise_scale_proposal
 from bark.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
 from bark.fitting.tree_proposals import FeatureTypeEnum, get_tree_proposal
-from bark.forest_numba import NODE_RECORD_DTYPE, forest_gram_matrix, get_leaf_vectors
+from bark.forest import NODE_RECORD_DTYPE, forest_gram_matrix, get_leaf_vectors
 from bark.utils.domain import get_feature_bounds
 
 ModelT = tuple[np.ndarray, float, float]

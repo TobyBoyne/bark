@@ -1,12 +1,11 @@
 import gpytorch as gpy
 import numpy as np
-import torch
-from beartype.typing import Optional, Union
-from torch.distributions import Categorical, MixtureSameFamily
+from beartype.typing import Optional
+from bofire.data_models.domain.api import Domain
 
-from ..forest import BARKForest, BARKTree
-from ..forest_numba import FeatureTypeEnum
-from ..utils.space import Space
+from bark.forest import FeatureTypeEnum, batched_forest_gram_matrix
+from bark.utils.domain import get_feature_types_array
+
 from .tree_model_kernel import BARKTreeModelKernel
 
 
@@ -33,22 +32,27 @@ class LeafGP(gpy.models.ExactGP):
         return gpy.distributions.MultivariateNormal(mean_x, covar_x)
 
     @property
-    def forest(self) -> Union[BARKTree, BARKForest]:
+    def forest(self) -> np.ndarray:
         return self.covar_module.base_kernel.forest
 
 
-class LeafMOGP(LeafGP):
+class LeafMOGP(gpy.models.ExactGP):
     def __init__(
         self,
         train_inputs,
         train_targets,
         likelihood,
-        tree_model: Optional[BARKForest],
+        forest: np.ndarray,
+        feat_types: Optional[np.ndarray] = None,
         num_tasks: int = 2,
     ):
-        super(LeafGP, self).__init__(train_inputs, train_targets, likelihood)
+        super().__init__(train_inputs, train_targets, likelihood)
+
+        if feat_types is None:
+            feat_types = np.full((train_inputs.shape[0],), FeatureTypeEnum.Cont.value)
+
         self.mean_module = gpy.means.ZeroMean()
-        self.covar_module = BARKTreeModelKernel(tree_model)
+        self.covar_module = BARKTreeModelKernel(forest, feat_types)
         self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=num_tasks, rank=1)
         self.num_tasks = num_tasks
 
@@ -61,80 +65,39 @@ class LeafMOGP(LeafGP):
         return gpy.distributions.MultivariateNormal(mean_x, covar)
 
     @property
-    def tree_model(self) -> Union[BARKTree, BARKForest]:
+    def tree_model(self) -> np.ndarray:
         return self.covar_module.tree_model
 
 
-class BARKMixtureModel:
-    """A model generated from many MCMC samples of a GP.
+def forest_predict(
+    model: tuple[np.ndarray, np.ndarray, np.ndarray],
+    data: tuple[np.ndarray, np.ndarray],
+    candidates: np.ndarray,
+    domain: Domain,
+) -> np.ndarray:
+    forest, noise, scale = model
+    forest = forest.reshape(-1, *forest.shape[-2:])
+    noise = noise.reshape(-1)
+    scale = scale.reshape(-1)
 
-    The posterior is a mixture of Gaussians."""
+    num_samples = scale.shape[0]
+    num_candidates = candidates.shape[0]
 
-    def __init__(
-        self,
-        train_inputs,
-        train_targets,
-        samples,
-        space: Space,
-        sampling_seed: int = None,
-    ):
-        # samples contains a list of GP hyperparameters
-        self.samples = samples
-        self.sampling_seed = sampling_seed
+    train_x, train_y = data
+    feature_types = get_feature_types_array(domain)
+    K_XX = scale[:, None, None] * batched_forest_gram_matrix(
+        forest, train_x, train_x, feature_types
+    )
+    K_XX_s = K_XX + noise[:, None, None] * np.eye(train_x.shape[0])
 
-        if train_inputs is not None and torch.is_tensor(train_inputs):
-            train_inputs = (train_inputs,)
+    K_inv = np.linalg.inv(K_XX_s)
+    K_xX = scale[:, None, None] * batched_forest_gram_matrix(
+        forest, candidates, train_x, feature_types
+    )
 
-        self.train_inputs = train_inputs
-        self.train_targets = train_targets
-        self.space = space
+    mu = K_xX @ K_inv @ train_y
+    var = scale[:, None, None] - K_xX @ K_inv @ K_xX.transpose((0, 2, 1))
 
-    def __call__(self, x, *args, predict_y=False):
-        f_mean = torch.zeros((len(self.samples), x.shape[0]))
-        f_var = torch.zeros((len(self.samples), x.shape[0], x.shape[0]))
-
-        for i, gp in enumerate(self.gp_samples_iter()):
-            output = gp(x)
-            if predict_y:
-                output = gp.likelihood(output)
-
-            f_mean[i, :] = output.loc
-            f_var[i, :, :] = output.covariance_matrix
-
-        # add jitter
-        f_var += 1e-6 * torch.eye(f_var.shape[-1])
-
-        mix = Categorical(probs=torch.ones((len(self.samples),)))
-        comp = torch.distributions.MultivariateNormal(f_mean, f_var)
-        return MixtureSameFamily(mix, comp)
-
-    def gp_samples_iter(self, likelihood=None):
-        """Return an iterator over the GP samples.
-
-        Note that the GP is the same underlying object, so saving a reference
-        to the GP will result in identical samples."""
-        if likelihood is not None:
-            raise NotImplementedError()
-
-        gp = BARKGP(
-            self.train_inputs,
-            self.train_targets,
-            gpy.likelihoods.GaussianLikelihood(),
-            None,
-        )
-        gp.eval()
-        for sample in self.samples:
-            gp.load_state_dict(sample)
-            gp.tree_model.initialise(self.space)
-            yield gp
-
-    @property
-    def likelihood(self):
-        # likelihood returns the identity functions, so that this works nicely with plots
-        return lambda x: x
-
-    def state_dict(self):
-        return self.samples
-
-    def load_state_dict(self, state):
-        self.samples = state
+    mu = mu.reshape(num_samples, num_candidates)
+    var = np.diagonal(var, axis1=1, axis2=2)
+    return mu, var

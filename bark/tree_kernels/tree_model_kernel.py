@@ -2,7 +2,7 @@ import gpytorch as gpy
 import numpy as np
 import torch
 
-from ..forest_numba import forest_gram_matrix
+from bark.forest import forest_gram_matrix
 
 
 class BARKTreeModelKernel(gpy.kernels.Kernel):

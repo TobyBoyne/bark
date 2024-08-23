@@ -4,7 +4,7 @@ import collections as coll
 
 import numpy as np
 
-from ..forest_numba import FeatureTypeEnum
+from bark.forest import FeatureTypeEnum
 
 
 def _build_tree(tree: np.ndarray, feature_types: np.ndarray) -> "GbmNode":

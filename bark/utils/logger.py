@@ -1,15 +1,11 @@
 """Logging helpers for analysing bottlenecks - not a part of public API."""
 from collections import defaultdict
-from copy import deepcopy
 from time import perf_counter
 
 import numpy as np
 import torch
-from beartype.typing import TYPE_CHECKING, Callable
+from beartype.typing import Callable
 from matplotlib.axes import Axes
-
-if TYPE_CHECKING:
-    from ..tree_kernels import BARKGP
 
 
 class Timer:
@@ -103,10 +99,3 @@ class BOLogger(Logger):
         ax.set_ylim(ylim)
         ax.legend()
         return [scat, line, fill, l_target]
-
-
-class MCMCLogger(Logger):
-    def checkpoint(self, model: "BARKGP"):
-        self.log(samples=deepcopy(model.state_dict()))
-        self.log(noise=model.likelihood.noise, squeeze=True)
-        self.log(scale=model.covar_module.outputscale, squeeze=True)

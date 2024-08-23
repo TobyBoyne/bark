@@ -3,8 +3,6 @@ import numpy as np
 from beartype.typing import Optional
 from matplotlib.patches import Circle
 
-from ...forest import BARKForest, BARKNode, BARKTree, DecisionNode
-
 NODE_SIZE = 0.5
 LEFT = np.array([-1.0, -2.0])
 RIGHT = np.array([1.0, -2.0])

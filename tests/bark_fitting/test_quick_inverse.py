@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from bark.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update
-from bark.forest_numba import (
+from bark.forest import (
     NODE_RECORD_DTYPE,
     FeatureTypeEnum,
     forest_gram_matrix,

@@ -7,7 +7,7 @@ from bofire.benchmarks.api import Hartmann
 
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 from bark.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
-from bark.forest_numba import NODE_RECORD_DTYPE
+from bark.forest import NODE_RECORD_DTYPE
 from bark.tree_kernels.tree_gps import BARKGPNumba
 
 nodes = np.zeros((50, 100), dtype=NODE_RECORD_DTYPE)

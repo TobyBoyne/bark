@@ -4,7 +4,7 @@ import numpy as np
 from numba import njit
 
 from bark.fitting.tree_traversal import singly_internal_nodes, terminal_nodes
-from bark.forest_numba import FeatureTypeEnum
+from bark.forest import FeatureTypeEnum
 
 NODE_PROPOSAL_DTYPE = np.dtype(
     [

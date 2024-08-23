@@ -8,7 +8,7 @@ from bofire.data_models.features.api import (
     DiscreteInput,
 )
 
-from bark.forest_numba import FeatureTypeEnum
+from bark.forest import FeatureTypeEnum
 
 
 def get_feature_by_index(

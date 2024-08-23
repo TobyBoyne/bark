@@ -1,7 +1,7 @@
 import numpy as np
 
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
-from bark.forest_numba import NODE_RECORD_DTYPE, FeatureTypeEnum, forest_gram_matrix
+from bark.forest import NODE_RECORD_DTYPE, FeatureTypeEnum, forest_gram_matrix
 
 nodes = np.array(
     [

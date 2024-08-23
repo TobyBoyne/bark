@@ -8,10 +8,10 @@ from bofire.data_models.domain.api import Domain
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 
-from bark.forest_numba import batched_forest_gram_matrix
+from bark.forest import batched_forest_gram_matrix
+from bark.tree_kernels.tree_gps import LeafGP, LeafMOGP
 from bark.utils.domain import get_cat_idx_from_domain, get_feature_types_array
 
-from ..tree_kernels import BARKGP, BARKMOGP
 from .gbm_model import GbmModel
 from .opt_core import add_gbm_to_opt_model, get_opt_core, get_opt_core_copy
 
@@ -116,10 +116,10 @@ def build_opt_model_from_forest(
     return opt_model
 
 
-def build_opt_model(
+def build_opt_model_from_gp(
     domain: Domain,
     gbm_model: GbmModel,
-    tree_gp: BARKGP,
+    tree_gp: LeafGP | LeafMOGP,
     kappa: float,
     model_core: Optional[gp.Model] = None,
 ):
@@ -138,7 +138,7 @@ def build_opt_model(
     cat_idx = get_cat_idx_from_domain(domain)
     add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
 
-    if isinstance(tree_gp, BARKMOGP):
+    if isinstance(tree_gp, LeafMOGP):
         # multi-fidelity case - evaluate for highest fidelity
         # get tree_gp hyperparameters
         kernel_var = (

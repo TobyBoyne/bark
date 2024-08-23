@@ -8,7 +8,7 @@ from beartype.typing import Optional
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput
 
-from ..forest_numba import NODE_RECORD_DTYPE
+from bark.forest import NODE_RECORD_DTYPE
 
 
 def fit_lgbm_forest(
@@ -74,26 +74,3 @@ def lgbm_to_bark_forest(tree_model: lgb.Booster) -> np.ndarray:
         forest[i] = get_tree(tree_dict["tree_structure"])
 
     return forest
-
-    #     if "leaf_index" in node_dict:
-    #         return LeafNode()
-    #     else:
-    #         var_idx = node_dict["split_feature"]
-    #         threshold = node_dict["threshold"]
-    #         # TODO: double check this:
-    #         if node_dict["decision_type"] == "==":
-    #             threshold = [int(threshold)]
-
-    #         return DecisionNode(
-    #             var_idx=var_idx,
-    #             threshold=threshold,
-    #             left=get_subtree(node_dict["left_child"]),
-    #             right=get_subtree(node_dict["right_child"]),
-    #         )
-
-    # trees = [
-    #     BARKTree(root=get_subtree(tree_dict["tree_structure"]))
-    #     for tree_dict in all_trees
-    # ]
-    # forest = BARKForest(trees=trees, frozen=True)
-    # return forest

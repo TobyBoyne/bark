@@ -2,8 +2,7 @@ import numpy as np
 
 import bark.fitting.bart.tree_traversal as traverse
 from bark.fitting.tree_traversal import singly_internal_nodes, terminal_nodes
-from bark.forest import BARKTree, DecisionNode
-from bark.forest_numba import NODE_RECORD_DTYPE
+from bark.forest import NODE_RECORD_DTYPE, BARKTree, DecisionNode
 
 
 def test_terminal_nodes():
