@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+import tqdm
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
 from numba import njit, prange
@@ -31,6 +32,7 @@ class BARKTrainParams:
     change_weight: float = 1.0
 
     num_chains: int = 1
+    verbose: bool = False
 
     @property
     def proposal_weights(self):
@@ -49,6 +51,7 @@ BARKTRAINPARAMS_DTYPE = np.dtype(
         ("alpha", np.float32),
         ("beta", np.float32),
         ("proposal_weights", np.float32, (3,)),
+        ("verbose", np.bool_),
     ]
 )
 
@@ -63,6 +66,7 @@ def _bark_params_to_struct(params: BARKTrainParams):
             params.alpha,
             params.beta,
             params.proposal_weights,
+            params.verbose,
         ),
         dtype=BARKTRAINPARAMS_DTYPE,
     )
@@ -143,7 +147,7 @@ def _run_bark_sampler_multichain(
     return (node_samples, noise_samples, scale_samples)
 
 
-@njit
+# @njit
 def _run_bark_sampler(
     forest: np.ndarray,
     noise: float,
@@ -170,7 +174,9 @@ def _run_bark_sampler(
     _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
     cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
 
-    for itr in range(params["warmup_steps"]):
+    for itr in tqdm.tqdm(
+        range(params["warmup_steps"]), desc="Warmup", disable=not params["verbose"]
+    ):
         forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
             forest,
             noise,
@@ -185,7 +191,9 @@ def _run_bark_sampler(
             cur_mll,
         )
 
-    for itr in range(params["n_steps"]):
+    for itr in tqdm.tqdm(
+        range(params["n_steps"]), desc="Sampling", disable=not params["verbose"]
+    ):
         forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
             forest,
             noise,

@@ -12,9 +12,9 @@ from botorch import fit_gpytorch_mll
 # with install_import_hook("alfalfa", "beartype.beartype"):
 from alfalfa.bofire_utils.sampling import sample_projected
 from alfalfa.fitting import fit_lgbm_forest, lgbm_to_alfalfa_forest
-from alfalfa.optimizer import build_opt_model, propose
-from alfalfa.optimizer.gbm_model import GbmModel
+from alfalfa.optimizer import propose
 from alfalfa.optimizer.opt_core import get_opt_core_from_domain
+from alfalfa.optimizer.opt_model import build_opt_model_from_forest
 from alfalfa.tree_kernels import AlfalfaGP
 from alfalfa.utils.domain import get_feature_types_array
 
@@ -42,6 +42,7 @@ for itr in range(100):
     booster = fit_lgbm_forest(train_x_transformed, train_y_transformed, domain)
     forest = lgbm_to_alfalfa_forest(booster)
 
+    # fit gp hyperparameters
     likelihood = gpy.likelihoods.GaussianLikelihood()
     train_torch = map(
         lambda x: torch.from_numpy(x.to_numpy()),
@@ -51,12 +52,22 @@ for itr in range(100):
     mll = gpy.mlls.ExactMarginalLogLikelihood(likelihood, tree_gp)
     fit_gpytorch_mll(mll)
 
-    # get new proposal and evaluate bb_func
-    gbm_model = GbmModel(forest, feature_types)
-    opt_model = build_opt_model(
-        benchmark.domain, gbm_model, tree_gp, 1.96, model_core=model_core
+    # define optimization model
+    samples = (forest, likelihood.noise.item(), tree_gp.covar_module.outputscale.item())
+    train_numpy = (
+        train_x_transformed.to_numpy(),
+        train_y_transformed.to_numpy()[:, None],
     )
-    next_x = propose(benchmark.domain, opt_model, gbm_model, model_core)
+    opt_model = build_opt_model_from_forest(
+        domain=benchmark.domain,
+        gp_samples=samples,
+        data=train_numpy,
+        kappa=1.96,
+        model_core=model_core,
+    )
+
+    # get new proposal and evaluate
+    next_x = propose(benchmark.domain, opt_model, model_core)
     candidate = pd.DataFrame(data=[next_x], columns=domain.inputs.get_keys())
     candidate = domain.inputs.inverse_transform(candidate, transform_specs)
     next_y = benchmark.f(candidate)["y"]
@@ -66,5 +77,3 @@ for itr in range(100):
     train_y = pd.concat((train_y, next_y), ignore_index=True)
 
     print(f"{itr}. min_val: {min(train_y):.5f}")
-
-print(benchmark.f(train_x))
