@@ -1,24 +1,29 @@
 import bofire.strategies.api as strategies
 import numpy as np
 import pandas as pd
-from bofire.benchmarks.single import Himmelblau
+from bofire.data_models.enum import CategoricalEncodingEnum
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 
+from bark.benchmarks import XGBoostMNIST
+from bark.bofire_utils.domain import get_feature_types_array
 from bark.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
 from bark.forest import create_empty_forest
 from bark.optimizer.opt_core import get_opt_core_from_domain
 from bark.optimizer.opt_model import build_opt_model_from_forest
 from bark.optimizer.proposals import propose
 
-benchmark = Himmelblau()
+# benchmark = Himmelblau()
+benchmark = XGBoostMNIST(seed=0)
 domain = benchmark.domain
 
 # sample initial points
 sampler = strategies.map(RandomStrategy(domain=domain, seed=42))
-train_x = sampler.ask(10)
+train_x = sampler.ask(2)
 train_y = benchmark.f(train_x)["y"]  # .drop("valid_y", axis="columns")
 cat = benchmark.domain.inputs.get_keys(includes=CategoricalInput)
+transform_specs = {k: CategoricalEncodingEnum.ORDINAL for k in cat}
+feature_types = get_feature_types_array(domain)
 
 # add model_core with constraints if problem has constraints
 model_core = get_opt_core_from_domain(domain)
@@ -33,7 +38,8 @@ scale = np.tile(1.0, (bark_params.num_chains,))
 
 print("\n* * * start bo loop...")
 for itr in range(100):
-    train_x_transformed = train_x.to_numpy()
+    train_x_transformed = domain.inputs.transform(train_x, transform_specs)
+    train_x_transformed = train_x_transformed.to_numpy()
     train_y_transformed = ((train_y - train_y.mean()) / train_y.std()).to_numpy()[
         :, None
     ]
@@ -64,10 +70,13 @@ for itr in range(100):
 
     next_x = propose(benchmark.domain, opt_model, model_core)
     candidate = pd.DataFrame(data=[next_x], columns=domain.inputs.get_keys())
-    next_y = benchmark.f(candidate)["y"]
+    candidate_inv_transform = domain.inputs.inverse_transform(
+        candidate, transform_specs
+    )
+    next_y = benchmark.f(candidate_inv_transform)["y"]
 
     # update progress
-    train_x = pd.concat((train_x, candidate), ignore_index=True)
+    train_x = pd.concat((train_x, candidate_inv_transform), ignore_index=True)
     train_y = pd.concat((train_y, next_y), ignore_index=True)
 
     print(f"{itr}. min_val: {min(train_y):.5f}")

@@ -42,11 +42,11 @@ class XGBoostMNIST(Benchmark):
                     CategoricalInput(
                         key="objective", categories=["multi:softmax", "multi:softprob"]
                     ),
-                    ContinuousInput(key="log_learning_rate", min=-5, max=0),
+                    ContinuousInput(key="log_learning_rate", bounds=[-5, 0]),
                     build_integer_input(key="max_depth", bounds=[1, 10]),
-                    ContinuousInput(key="min_split_loss", min=0, max=10),
-                    ContinuousInput(key="subsample", min=0.001, max=1),
-                    ContinuousInput(key="reg_lambda", min=0, max=5),
+                    ContinuousInput(key="min_split_loss", bounds=[0, 10]),
+                    ContinuousInput(key="subsample", bounds=[0.001, 1]),
+                    ContinuousInput(key="reg_lambda", bounds=[0, 5]),
                 ]
             ),
             outputs=Outputs(
@@ -69,6 +69,7 @@ class XGBoostMNIST(Benchmark):
             xgboost_kwargs = row.to_dict()
             log_learning_rate = xgboost_kwargs.pop("log_learning_rate")
             xgboost_kwargs["learning_rate"] = 10**log_learning_rate
+            xgboost_kwargs["max_depth"] = int(xgboost_kwargs["max_depth"])
 
             ys.append([self._train_xgboost(xgboost_kwargs)])
 
