@@ -4,7 +4,7 @@ import numpy as np
 import tqdm
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
-from numba import njit, prange
+from numba import prange
 
 from bark.bofire_utils.domain import get_feature_bounds
 from bark.fitting.noise_scale_proposals import get_noise_scale_proposal
@@ -86,6 +86,9 @@ def run_bark_sampler(
         get_feature_bounds(feat, ordinal_encoding=True) for feat in domain.inputs.get()
     ]
 
+    # TODO: check that this works for len(categories) > 2
+    bounds = [tuple(map(float, b)) for b in bounds]
+
     feat_type = np.array(
         [
             FeatureTypeEnum.Cat.value
@@ -128,6 +131,7 @@ def _run_bark_sampler_multichain(
     noise_samples = np.zeros((num_chains, num_samples), dtype=np.float32)
     scale_samples = np.zeros((num_chains, num_samples), dtype=np.float32)
 
+    # https://numba.readthedocs.io/en/stable/user/parallel.html#explicit-parallel-loops
     for chain_idx in prange(num_chains):
         node_s, noise_s, scale_s = _run_bark_sampler(
             forest[chain_idx],
@@ -216,7 +220,7 @@ def _run_bark_sampler(
     return node_samples, noise_samples, scale_samples
 
 
-@njit
+# @njit
 def _step_bark_sampler(
     forest: np.ndarray,
     noise: float,
