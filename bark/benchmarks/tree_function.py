@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from bofire.benchmarks.api import Benchmark
@@ -30,7 +31,7 @@ def sample_tree_function_from_structure(forest):
 
 def sample_tree_structure_from_prior(m: int, domain: Domain):
     forest = create_empty_forest(m)
-    alpha = (0.95,)
+    alpha = 0.95
     beta = 2.0
     dim = len(domain.inputs)
     rng = np.random.default_rng(seed=0)
@@ -39,7 +40,7 @@ def sample_tree_structure_from_prior(m: int, domain: Domain):
         while new_nodes:
             node_idx = new_nodes.pop()
             depth = tree[node_idx]["depth"]
-            depth_prior = alpha * (1 - depth) ** (-beta)
+            depth_prior = alpha * (1 + depth) ** (-beta)
             if rng.uniform() > depth_prior:
                 continue
             node_proposal = np.zeros((1,), dtype=NODE_PROPOSAL_DTYPE)[0]
@@ -59,6 +60,7 @@ class TreeFunction(Benchmark):
     This is a good test that BARK is indeed able to optimize on tree functions."""
 
     def __init__(self, dim=5, m=50, **kwargs):
+        super().__init__(**kwargs)
         self._domain = Domain(
             inputs=Inputs(
                 features=[
@@ -73,9 +75,25 @@ class TreeFunction(Benchmark):
             ),
         )
 
-        forest = sample_tree_structure_from_prior(m)
+        forest = sample_tree_structure_from_prior(m, self._domain)
         self._tree_func = sample_tree_function_from_structure(forest)
 
     def _f(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
         ys = self._tree_func(X.to_numpy())
         return pd.DataFrame(data=ys, columns=self.domain.outputs.get_keys())
+
+
+if __name__ == "__main__":
+    benchmark = TreeFunction(dim=1, m=10)
+    x = pd.DataFrame(
+        data=np.linspace(0, 1, 100)[:, None], columns=benchmark.domain.inputs.get_keys()
+    )
+    y = benchmark.f(x)
+    plt.step(x, y)
+    x = pd.DataFrame(
+        data=np.linspace(0.01, 1.02, 100)[:, None],
+        columns=benchmark.domain.inputs.get_keys(),
+    )
+    y = benchmark.f(x)
+    plt.step(x, y)
+    plt.show()
