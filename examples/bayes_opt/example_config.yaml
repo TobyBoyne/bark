@@ -1,0 +1,13 @@
+benchmark: XGBoostMNIST
+benchmark_params:
+  seed: 0
+num_init: 2
+num_iter: 5
+model: BARK
+
+model_params:
+  warmup_steps: 500
+  n_steps: 400
+  thinning: 200
+  num_chains: 4
+  verbose: True

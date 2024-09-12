@@ -15,25 +15,25 @@ from .xgboost_mnist import XGBoostMNIST
 
 BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # unconstrained spaces
-    "friedman": Friedman,
-    "rastrigin": Rastrigin,
-    "styblinski_tang": StyblinskiTang,
-    "schwefel": Schwefel,
-    "combination_func2": CombinationFunc2,
+    "Friedman": Friedman,
+    "Rastrigin": Rastrigin,
+    "StyblinskiTang": StyblinskiTang,
+    "Schwefel": Schwefel,
+    "CombinationFunc2": CombinationFunc2,
     # constrained spaces
-    "g1": G1,
-    "g3": G3,
-    "g4": G4,
-    "g6": G6,
-    "g7": G7,
-    "g10": G10,
-    "alkylation": Alkylation,
+    "G1": G1,
+    "G3": G3,
+    "G4": G4,
+    "G6": G6,
+    "G7": G7,
+    "G10": G10,
+    "Alkylation": Alkylation,
     # mixed spaces
-    "pest": PestControl,
-    "pressure_vessel": PressureVessel,
-    "xgboost": XGBoostMNIST,
+    "PestControl": PestControl,
+    "PressureVessel": PressureVessel,
+    "XGBoostMNIST": XGBoostMNIST,
     # "vae_nas": VAESmall,
-    "cat_ackley": CatAckley,
+    "CatAckley": CatAckley,
     # multi-fidelity
     # "currin": CurrinExp2D,
 }
