@@ -27,12 +27,12 @@ class Config(TypedDict):
     model_params: dict
 
 
-def main(config: Config):
+def main(seed: int, config: Config):
     benchmark = map_benchmark(config["benchmark"], **config.get("benchmark_params", {}))
     domain = benchmark.domain
 
     # sample initial points
-    sampler = strategies.map(RandomStrategy(domain=domain, seed=186))
+    sampler = strategies.map(RandomStrategy(domain=domain, seed=seed))
     train_x = sampler.ask(config["num_init"])
     train_y = benchmark.f(train_x)["y"]  # .drop("valid_y", axis="columns")
     cat = benchmark.domain.inputs.get_keys(includes=CategoricalInput)
@@ -101,12 +101,15 @@ if __name__ == "__main__":
     argparser.add_argument("-s", "--seed", type=str)
     argparser.add_argument("-c", "--config_file", type=str)
     argparser.add_argument("-o", "--output_dir", type=str)
+
     args = argparser.parse_args()
+    seed = args.seed
     config = yaml.safe_load(open(args.config_file))
-    x, y = main(config)
+
+    x, y = main(seed, config)
 
     output_dir = pathlib.Path(args.output_dir) / config["benchmark"] / config["model"]
     output_dir.mkdir(parents=True, exist_ok=True)
-    x.to_csv(output_dir / f"seed={args.seed}_x.csv", index=False)
-    y.to_csv(output_dir / f"seed={args.seed}_y.csv", index=False)
+    x.to_csv(output_dir / f"seed={seed}_x.csv", index=False)
+    y.to_csv(output_dir / f"seed={seed}_y.csv", index=False)
     yaml.dump(config, open(output_dir / "config.yaml", "w"))
