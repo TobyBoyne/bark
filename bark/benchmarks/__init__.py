@@ -5,6 +5,7 @@ from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
 from .mixed import CatAckley, CombinationFunc2, PressureVessel
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
+from .tree_function import TreeFunction
 from .unconstrained import (
     Friedman,
     Rastrigin,
@@ -34,6 +35,7 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     "XGBoostMNIST": XGBoostMNIST,
     # "vae_nas": VAESmall,
     "CatAckley": CatAckley,
+    "TreeFunction": TreeFunction,
     # multi-fidelity
     # "currin": CurrinExp2D,
 }
