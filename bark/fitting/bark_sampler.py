@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 
 import numpy as np
-import tqdm
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
-from numba import prange
+from numba import njit, prange
 
 from bark.bofire_utils.domain import get_feature_bounds
 from bark.fitting.noise_scale_proposals import get_noise_scale_proposal
@@ -47,7 +46,7 @@ BARKTRAINPARAMS_DTYPE = np.dtype(
         ("warmup_steps", np.uint32),
         ("n_steps", np.uint32),
         ("thinning", np.uint32),
-        ("num_chains", np.uint32),
+        ("num_chains", np.int64),
         ("alpha", np.float32),
         ("beta", np.float32),
         ("proposal_weights", np.float32, (3,)),
@@ -109,7 +108,7 @@ def run_bark_sampler(
     return samples
 
 
-# @njit
+@njit(parallel=True)
 def _run_bark_sampler_multichain(
     forest: np.ndarray,
     noise: np.ndarray,
@@ -121,20 +120,21 @@ def _run_bark_sampler_multichain(
     params: np.record,
 ):
     # this function can't be jitted nor parallelized - possibly due to rng
-    np.random.seed(42)
+    # np.random.seed(42)
     num_chains = params["num_chains"]
     num_samples = int(np.ceil(params["n_steps"] / params["thinning"]))
 
-    node_samples = np.zeros(
+    node_samples = np.empty(
         (num_chains, num_samples, *forest.shape[-2:]), dtype=NODE_RECORD_DTYPE
     )
-    noise_samples = np.zeros((num_chains, num_samples), dtype=np.float32)
-    scale_samples = np.zeros((num_chains, num_samples), dtype=np.float32)
+
+    noise_samples = np.empty((num_chains, num_samples), dtype=np.float32)
+    scale_samples = np.empty((num_chains, num_samples), dtype=np.float32)
 
     # https://numba.readthedocs.io/en/stable/user/parallel.html#explicit-parallel-loops
     for chain_idx in prange(num_chains):
         node_s, noise_s, scale_s = _run_bark_sampler(
-            forest[chain_idx],
+            forest[chain_idx, :, :],
             noise[chain_idx],
             scale[chain_idx],
             train_x,
@@ -144,14 +144,14 @@ def _run_bark_sampler_multichain(
             params,
         )
 
-        node_samples[chain_idx] = node_s
-        noise_samples[chain_idx] = noise_s
-        scale_samples[chain_idx] = scale_s
+        node_samples[chain_idx, :, :, :] = node_s
+        noise_samples[chain_idx, :] = noise_s
+        scale_samples[chain_idx, :] = scale_s
 
     return (node_samples, noise_samples, scale_samples)
 
 
-# @njit
+@njit
 def _run_bark_sampler(
     forest: np.ndarray,
     noise: float,
@@ -178,9 +178,7 @@ def _run_bark_sampler(
     _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
     cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
 
-    for itr in tqdm.tqdm(
-        range(params["warmup_steps"]), desc="Warmup", disable=not params["verbose"]
-    ):
+    for itr in range(params["warmup_steps"]):
         forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
             forest,
             noise,
@@ -195,9 +193,7 @@ def _run_bark_sampler(
             cur_mll,
         )
 
-    for itr in tqdm.tqdm(
-        range(params["n_steps"]), desc="Sampling", disable=not params["verbose"]
-    ):
+    for itr in range(params["n_steps"]):
         forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
             forest,
             noise,
@@ -220,7 +216,7 @@ def _run_bark_sampler(
     return node_samples, noise_samples, scale_samples
 
 
-# @njit
+@njit
 def _step_bark_sampler(
     forest: np.ndarray,
     noise: float,
