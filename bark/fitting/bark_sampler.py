@@ -131,9 +131,6 @@ def _run_bark_sampler_multichain(
     feat_types: np.ndarray,
     params: BARKTrainParamsNumba,
 ):
-    # this function can't be jitted nor parallelized
-    # https://github.com/numba/numba/issues/2625
-    # np.random.seed(42)
     num_chains = params.num_chains
     num_samples = params.num_samples
 
@@ -146,9 +143,6 @@ def _run_bark_sampler_multichain(
 
     noise_samples = np.empty((num_chains, num_samples), dtype=np.float32)
     scale_samples = np.empty((num_chains, num_samples), dtype=np.float32)
-
-    # https://numba.readthedocs.io/en/stable/user/parallel.html#explicit-parallel-loops
-    # https://github.com/numba/numba/issues/9728
 
     warmup_steps = params.warmup_steps
     steps_per_sample = params.steps_per_sample
@@ -163,30 +157,34 @@ def _run_bark_sampler_multichain(
             forest_chain, train_x, train_x, feat_types
         )
         K_XX_s = K_XX + noise_chain * np.eye(K_XX.shape[0])
-        # TODO: should use cholesky
+        # should use cholesky
         # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
         # https://github.com/numba/numba-scipy/issues/91
         cur_K_inv = np.linalg.inv(K_XX_s)
         _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
         cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
 
-        #
-
         for itr in range(warmup_steps):
-            pass
-            # forest_chain, noise_chain, scale_chain, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
-            #     forest_chain,
-            #     noise_chain,
-            #     scale_chain,
-            #     train_x,
-            #     train_y,
-            #     bounds,
-            #     feat_types,
-            #     params,
-            #     cur_K_inv,
-            #     cur_K_logdet,
-            #     cur_mll,
-            # )
+            (
+                forest_chain,
+                noise_chain,
+                scale_chain,
+                cur_K_inv,
+                cur_K_logdet,
+                cur_mll,
+            ) = _step_bark_sampler(
+                forest_chain,
+                noise_chain,
+                scale_chain,
+                train_x,
+                train_y,
+                bounds,
+                feat_types,
+                params,
+                cur_K_inv,
+                cur_K_logdet,
+                cur_mll,
+            )
 
         for itr in range(num_samples):
             for step in range(steps_per_sample):
@@ -220,77 +218,6 @@ def _run_bark_sampler_multichain(
 
 
 @njit
-def _run_bark_sampler(
-    forest: np.ndarray,
-    noise: float,
-    scale: float,
-    train_x: np.ndarray,
-    train_y: np.ndarray,
-    bounds: list[list[float]],
-    feat_types: np.ndarray,
-    params: np.record,
-):
-    # forest is (m x N) array of nodes
-    return 1
-    num_samples = np.int64(params["n_steps"] // params["thinning"])
-    s = num_samples * forest.shape[-2] * forest.shape[-1]
-    node_samples_flat = np.empty((s), dtype=NODE_RECORD_DTYPE)
-    node_samples = node_samples_flat.reshape(
-        (num_samples, forest.shape[-2], forest.shape[-1])
-    )
-    noise_samples = np.zeros(num_samples, dtype=np.float32)
-    scale_samples = np.zeros(num_samples, dtype=np.float32)
-    return node_samples, noise_samples, scale_samples
-
-    # # initial values of K_inv and K_logdet
-    # K_XX = scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
-    # K_XX_s = K_XX + noise * np.eye(K_XX.shape[0])
-    # # TODO: should use cholesky
-    # # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
-    # # https://github.com/numba/numba-scipy/issues/91
-    # cur_K_inv = np.linalg.inv(K_XX_s)
-    # _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
-    # cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
-
-    # for itr in range(params["warmup_steps"]):
-    #     forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
-    #         forest,
-    #         noise,
-    #         scale,
-    #         train_x,
-    #         train_y,
-    #         bounds,
-    #         feat_types,
-    #         params,
-    #         cur_K_inv,
-    #         cur_K_logdet,
-    #         cur_mll,
-    #     )
-
-    # for itr in range(params["n_steps"]):
-    #     forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
-    #         forest,
-    #         noise,
-    #         scale,
-    #         train_x,
-    #         train_y,
-    #         bounds,
-    #         feat_types,
-    #         params,
-    #         cur_K_inv,
-    #         cur_K_logdet,
-    #         cur_mll,
-    #     )
-    #     if itr % params["thinning"] == 0:
-    #         slice_idx = itr // params["thinning"]
-    #         node_samples[slice_idx, :, :] = forest
-    #         noise_samples[slice_idx] = noise
-    #         scale_samples[slice_idx] = scale
-
-    # return node_samples, noise_samples, scale_samples
-
-
-@njit
 def _step_bark_sampler(
     forest: np.ndarray,
     noise: float,
@@ -304,7 +231,6 @@ def _step_bark_sampler(
     cur_K_logdet: float,
     cur_mll: float,
 ):
-    # TODO: clean up this function signature
     m = forest.shape[0]
     s_sqrtm = np.sqrt(scale / m)
 
@@ -318,15 +244,13 @@ def _step_bark_sampler(
         )
         new_leaf_vectors = s_sqrtm * get_leaf_vectors(new_nodes, train_x, feat_types)
 
+        # compute the rank-one update for the inverse
         new_K_inv, new_K_logdet = (
             low_rank_inv_update(cur_K_inv, cur_leaf_vectors, subtract=True),
             low_rank_det_update(
                 cur_K_inv, cur_leaf_vectors, cur_K_logdet, subtract=True
             ),
         )
-
-        # K = torch.linalg.inv(K_inv)
-        # actual = torch.linalg.inv(K + cur_leaf_vectors)
 
         new_K_inv, new_K_logdet = (
             low_rank_inv_update(new_K_inv, new_leaf_vectors),
@@ -352,12 +276,9 @@ def _step_bark_sampler(
     new_mll = mll(new_K_inv, new_K_logdet, train_y)
     log_ll = new_mll - cur_mll
     log_alpha = log_q_prior + log_ll
-    # print(">>")
-    # print(noise, scale)
-    # print(new_noise, new_scale)
-    # print(log_q_prior, log_ll)
+
     if np.log(np.random.uniform()) <= min(log_alpha, 0):
-        noise = new_noise
+        # accept - set the new mll and K_inv values
         cur_K_inv = new_K_inv
         cur_K_logdet = new_K_logdet
         cur_mll = new_mll
