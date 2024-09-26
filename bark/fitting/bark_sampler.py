@@ -1,9 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
+import numba as nb
 import numpy as np
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput, DiscreteInput
 from numba import njit, prange
+from numba.experimental import jitclass
 
 from bark.bofire_utils.domain import get_feature_bounds
 from bark.fitting.noise_scale_proposals import get_noise_scale_proposal
@@ -19,8 +21,8 @@ DataT = tuple[np.ndarray, np.ndarray]
 class BARKTrainParams:
     # MCMC run parameters
     warmup_steps: int = 50
-    n_steps: int = 50
-    thinning: int = 5
+    num_samples: int = 5
+    steps_per_sample: int = 10
 
     # node depth prior
     alpha: float = 0.95
@@ -41,34 +43,44 @@ class BARKTrainParams:
         return p / np.sum(p)
 
 
-BARKTRAINPARAMS_DTYPE = np.dtype(
+@jitclass(
     [
-        ("warmup_steps", np.uint32),
-        ("n_steps", np.uint32),
-        ("thinning", np.uint32),
-        ("num_chains", np.int64),
-        ("alpha", np.float32),
-        ("beta", np.float32),
-        ("proposal_weights", np.float32, (3,)),
-        ("verbose", np.bool_),
+        ("warmup_steps", nb.int64),
+        ("num_samples", nb.int64),
+        ("steps_per_sample", nb.int64),
+        ("num_chains", nb.int64),
+        ("alpha", nb.float64),
+        ("beta", nb.float64),
+        ("proposal_weights", nb.float64[:]),
+        ("verbose", nb.bool_),
     ]
 )
+class BARKTrainParamsNumba:
+    def __init__(
+        self,
+        warmup_steps,
+        num_samples,
+        steps_per_sample,
+        num_chains,
+        alpha,
+        beta,
+        proposal_weights,
+        verbose,
+    ):
+        self.warmup_steps = warmup_steps
+        self.num_samples = num_samples
+        self.steps_per_sample = steps_per_sample
+        self.num_chains = num_chains
+        self.alpha = alpha
+        self.beta = beta
+        self.proposal_weights = proposal_weights
+        self.verbose = verbose
 
 
-def _bark_params_to_struct(params: BARKTrainParams):
-    return np.record(
-        (
-            params.warmup_steps,
-            params.n_steps,
-            params.thinning,
-            params.num_chains,
-            params.alpha,
-            params.beta,
-            params.proposal_weights,
-            params.verbose,
-        ),
-        dtype=BARKTRAINPARAMS_DTYPE,
-    )
+def _bark_params_to_jitclass(params: BARKTrainParams):
+    kwargs = asdict(params)
+    kwargs.pop("grow_prune_weight"), kwargs.pop("change_weight")
+    return BARKTrainParamsNumba(proposal_weights=params.proposal_weights, **kwargs)
 
 
 def run_bark_sampler(
@@ -99,7 +111,7 @@ def run_bark_sampler(
         ]
     )
 
-    params_struct = _bark_params_to_struct(params)
+    params_struct = _bark_params_to_jitclass(params)
 
     samples = _run_bark_sampler_multichain(
         forest, noise, scale, train_x, train_y, bounds, feat_type, params_struct
@@ -117,36 +129,92 @@ def _run_bark_sampler_multichain(
     train_y: np.ndarray,
     bounds: list[list[float]],
     feat_types: np.ndarray,
-    params: np.record,
+    params: BARKTrainParamsNumba,
 ):
-    # this function can't be jitted nor parallelized - possibly due to rng
+    # this function can't be jitted nor parallelized
+    # https://github.com/numba/numba/issues/2625
     # np.random.seed(42)
-    num_chains = params["num_chains"]
-    num_samples = int(np.ceil(params["n_steps"] / params["thinning"]))
+    num_chains = params.num_chains
+    num_samples = params.num_samples
 
-    node_samples = np.empty(
-        (num_chains, num_samples, *forest.shape[-2:]), dtype=NODE_RECORD_DTYPE
+    s = num_chains * num_samples * forest.shape[-2] * forest.shape[-1]
+    node_samples_flat = np.empty((s), dtype=NODE_RECORD_DTYPE)
+
+    node_samples = node_samples_flat.reshape(
+        (num_chains, num_samples, *forest.shape[-2:])
     )
 
     noise_samples = np.empty((num_chains, num_samples), dtype=np.float32)
     scale_samples = np.empty((num_chains, num_samples), dtype=np.float32)
 
     # https://numba.readthedocs.io/en/stable/user/parallel.html#explicit-parallel-loops
-    for chain_idx in prange(num_chains):
-        node_s, noise_s, scale_s = _run_bark_sampler(
-            forest[chain_idx, :, :],
-            noise[chain_idx],
-            scale[chain_idx],
-            train_x,
-            train_y,
-            bounds,
-            feat_types,
-            params,
-        )
+    # https://github.com/numba/numba/issues/9728
 
-        node_samples[chain_idx, :, :, :] = node_s
-        noise_samples[chain_idx, :] = noise_s
-        scale_samples[chain_idx, :] = scale_s
+    warmup_steps = params.warmup_steps
+    steps_per_sample = params.steps_per_sample
+
+    for chain_idx in prange(num_chains):
+        forest_chain = forest[chain_idx, :, :]
+        noise_chain = noise[chain_idx]
+        scale_chain = scale[chain_idx]
+
+        # initial values of K_inv and K_logdet
+        K_XX = scale_chain * forest_gram_matrix(
+            forest_chain, train_x, train_x, feat_types
+        )
+        K_XX_s = K_XX + noise_chain * np.eye(K_XX.shape[0])
+        # TODO: should use cholesky
+        # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
+        # https://github.com/numba/numba-scipy/issues/91
+        cur_K_inv = np.linalg.inv(K_XX_s)
+        _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
+        cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
+
+        #
+
+        for itr in range(warmup_steps):
+            pass
+            # forest_chain, noise_chain, scale_chain, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
+            #     forest_chain,
+            #     noise_chain,
+            #     scale_chain,
+            #     train_x,
+            #     train_y,
+            #     bounds,
+            #     feat_types,
+            #     params,
+            #     cur_K_inv,
+            #     cur_K_logdet,
+            #     cur_mll,
+            # )
+
+        for itr in range(num_samples):
+            for step in range(steps_per_sample):
+                (
+                    forest_chain,
+                    noise_chain,
+                    scale_chain,
+                    cur_K_inv,
+                    cur_K_logdet,
+                    cur_mll,
+                ) = _step_bark_sampler(
+                    forest_chain,
+                    noise_chain,
+                    scale_chain,
+                    train_x,
+                    train_y,
+                    bounds,
+                    feat_types,
+                    params,
+                    cur_K_inv,
+                    cur_K_logdet,
+                    cur_mll,
+                )
+
+            slice_idx = itr
+            node_samples[chain_idx, slice_idx] = forest_chain
+            noise_samples[chain_idx, slice_idx] = noise_chain
+            scale_samples[chain_idx, slice_idx] = scale_chain
 
     return (node_samples, noise_samples, scale_samples)
 
@@ -163,57 +231,63 @@ def _run_bark_sampler(
     params: np.record,
 ):
     # forest is (m x N) array of nodes
-    num_samples = params["n_steps"] // params["thinning"]
-    node_samples = np.zeros((num_samples, *forest.shape), dtype=NODE_RECORD_DTYPE)
+    return 1
+    num_samples = np.int64(params["n_steps"] // params["thinning"])
+    s = num_samples * forest.shape[-2] * forest.shape[-1]
+    node_samples_flat = np.empty((s), dtype=NODE_RECORD_DTYPE)
+    node_samples = node_samples_flat.reshape(
+        (num_samples, forest.shape[-2], forest.shape[-1])
+    )
     noise_samples = np.zeros(num_samples, dtype=np.float32)
     scale_samples = np.zeros(num_samples, dtype=np.float32)
-
-    # initial values of K_inv and K_logdet
-    K_XX = scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
-    K_XX_s = K_XX + noise * np.eye(K_XX.shape[0])
-    # TODO: should use cholesky
-    # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
-    # https://github.com/numba/numba-scipy/issues/91
-    cur_K_inv = np.linalg.inv(K_XX_s)
-    _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
-    cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
-
-    for itr in range(params["warmup_steps"]):
-        forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
-            forest,
-            noise,
-            scale,
-            train_x,
-            train_y,
-            bounds,
-            feat_types,
-            params,
-            cur_K_inv,
-            cur_K_logdet,
-            cur_mll,
-        )
-
-    for itr in range(params["n_steps"]):
-        forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
-            forest,
-            noise,
-            scale,
-            train_x,
-            train_y,
-            bounds,
-            feat_types,
-            params,
-            cur_K_inv,
-            cur_K_logdet,
-            cur_mll,
-        )
-        if itr % params["thinning"] == 0:
-            slice_idx = itr // params["thinning"]
-            node_samples[slice_idx, :, :] = forest
-            noise_samples[slice_idx] = noise
-            scale_samples[slice_idx] = scale
-
     return node_samples, noise_samples, scale_samples
+
+    # # initial values of K_inv and K_logdet
+    # K_XX = scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
+    # K_XX_s = K_XX + noise * np.eye(K_XX.shape[0])
+    # # TODO: should use cholesky
+    # # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
+    # # https://github.com/numba/numba-scipy/issues/91
+    # cur_K_inv = np.linalg.inv(K_XX_s)
+    # _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
+    # cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
+
+    # for itr in range(params["warmup_steps"]):
+    #     forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
+    #         forest,
+    #         noise,
+    #         scale,
+    #         train_x,
+    #         train_y,
+    #         bounds,
+    #         feat_types,
+    #         params,
+    #         cur_K_inv,
+    #         cur_K_logdet,
+    #         cur_mll,
+    #     )
+
+    # for itr in range(params["n_steps"]):
+    #     forest, noise, scale, cur_K_inv, cur_K_logdet, cur_mll = _step_bark_sampler(
+    #         forest,
+    #         noise,
+    #         scale,
+    #         train_x,
+    #         train_y,
+    #         bounds,
+    #         feat_types,
+    #         params,
+    #         cur_K_inv,
+    #         cur_K_logdet,
+    #         cur_mll,
+    #     )
+    #     if itr % params["thinning"] == 0:
+    #         slice_idx = itr // params["thinning"]
+    #         node_samples[slice_idx, :, :] = forest
+    #         noise_samples[slice_idx] = noise
+    #         scale_samples[slice_idx] = scale
+
+    # return node_samples, noise_samples, scale_samples
 
 
 @njit
@@ -225,11 +299,12 @@ def _step_bark_sampler(
     train_y: np.ndarray,
     bounds: list[list[float]],
     feat_types: np.ndarray,
-    params: np.record,
+    params: BARKTrainParamsNumba,
     cur_K_inv: np.ndarray,
     cur_K_logdet: float,
     cur_mll: float,
 ):
+    # TODO: clean up this function signature
     m = forest.shape[0]
     s_sqrtm = np.sqrt(scale / m)
 
