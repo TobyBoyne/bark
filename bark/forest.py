@@ -46,7 +46,7 @@ def _pass_one_through_tree(nodes, X, feat_types):
             node_idx = node["right"]
 
 
-@njit(parallel=True)
+@njit(parallel=False)
 def pass_through_tree(nodes, X, feat_types):
     out = np.empty(X.shape[0], dtype=np.uint32)
     for i in prange(X.shape[0]):
@@ -54,7 +54,7 @@ def pass_through_tree(nodes, X, feat_types):
     return out
 
 
-@njit(parallel=True)
+@njit(parallel=False)
 def pass_through_forest(
     nodes,
     X,
@@ -88,7 +88,7 @@ def forest_gram_matrix(
     return sim_mat
 
 
-@njit(parallel=True)
+@njit(parallel=False)
 def batched_forest_gram_matrix(nodes, x1, x2, feat_types):
     batch_dim = nodes.shape[-3]
     sim_mat = np.zeros((batch_dim, x1.shape[0], x2.shape[0]), dtype=np.float64)

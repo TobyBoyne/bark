@@ -1,13 +1,11 @@
-benchmark: XGBoostMNIST
-benchmark_params:
-  seed: 0
-num_init: 2
+benchmark: StyblinskiTang
+num_init: 20
 num_iter: 5
 model: BARK
 
 model_params:
-  warmup_steps: 500
-  n_steps: 400
-  thinning: 200
+  warmup_steps: 100
+  num_samples: 2
+  steps_per_sample: 100
   num_chains: 4
   verbose: True

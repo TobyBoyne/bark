@@ -1,10 +1,14 @@
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numba import njit
 
 from bark.fitting.tree_traversal import singly_internal_nodes, terminal_nodes
 from bark.forest import FeatureTypeEnum
+
+if TYPE_CHECKING:
+    from bark.fitting.bark_sampler import BARKTrainParamsNumba
 
 NODE_PROPOSAL_DTYPE = np.dtype(
     [
@@ -105,9 +109,11 @@ def tree_q_ratio(nodes: np.ndarray, proposal_type: TreeProposalEnum, node_propos
 
 
 @njit
-def tree_prior_ratio(nodes: np.ndarray, proposal_type: int, node_proposal, params):
-    alpha = params["alpha"]
-    beta = params["beta"]
+def tree_prior_ratio(
+    nodes: np.ndarray, proposal_type: int, node_proposal, params: "BARKTrainParamsNumba"
+):
+    alpha = params.alpha
+    beta = params.beta
     depth = nodes[node_proposal["node_idx"]]["depth"]
 
     if proposal_type == TreeProposalEnum.Change:
@@ -169,13 +175,11 @@ def get_tree_proposal(
     nodes: np.ndarray,
     bounds,
     feat_types,
-    params: np.record,
+    params: "BARKTrainParamsNumba",
 ) -> tuple[np.ndarray, float]:
     node_proposal = np.zeros((1,), dtype=NODE_PROPOSAL_DTYPE)[0]
     # numba doesn't support weighted choice
-    proposal_idx = np.searchsorted(
-        np.cumsum(params["proposal_weights"]), np.random.rand()
-    )
+    proposal_idx = np.searchsorted(np.cumsum(params.proposal_weights), np.random.rand())
     proposal_type = [
         TreeProposalEnum.Grow,
         TreeProposalEnum.Prune,
