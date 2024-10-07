@@ -76,7 +76,7 @@ def _get_global_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model)
     ## set solver parameters
     opt_model.Params.LogToConsole = 0
     opt_model.Params.Heuristics = 0.2
-    opt_model.Params.TimeLimit = 100
+    opt_model.Params.TimeLimit = 20
 
     ## optimize opt_model to determine area to focus on
     opt_model.optimize()

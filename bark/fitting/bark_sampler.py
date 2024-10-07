@@ -120,7 +120,7 @@ def run_bark_sampler(
     return samples
 
 
-@njit(parallel=True)
+@njit(parallel=False)
 def _run_bark_sampler_multichain(
     forest: np.ndarray,
     noise: np.ndarray,
@@ -141,8 +141,8 @@ def _run_bark_sampler_multichain(
         (num_chains, num_samples, *forest.shape[-2:])
     )
 
-    noise_samples = np.empty((num_chains, num_samples), dtype=np.float32)
-    scale_samples = np.empty((num_chains, num_samples), dtype=np.float32)
+    noise_samples = np.empty((num_chains, num_samples), dtype=np.float64)
+    scale_samples = np.empty((num_chains, num_samples), dtype=np.float64)
 
     warmup_steps = params.warmup_steps
     steps_per_sample = params.steps_per_sample
@@ -164,7 +164,7 @@ def _run_bark_sampler_multichain(
         _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
         cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
 
-        for itr in range(warmup_steps):
+        for warmup_itr in range(warmup_steps):
             (
                 forest_chain,
                 noise_chain,
@@ -209,10 +209,9 @@ def _run_bark_sampler_multichain(
                     cur_mll,
                 )
 
-            slice_idx = itr
-            node_samples[chain_idx, slice_idx] = forest_chain
-            noise_samples[chain_idx, slice_idx] = noise_chain
-            scale_samples[chain_idx, slice_idx] = scale_chain
+            node_samples[chain_idx, itr] = forest_chain[:, :]
+            noise_samples[chain_idx, itr] = noise_chain
+            scale_samples[chain_idx, itr] = scale_chain
 
     return (node_samples, noise_samples, scale_samples)
 
