@@ -1,10 +1,7 @@
 import numpy as np
 from numba import njit
 
-S_PROP = np.array([[0.1, 0.0], [0.0, 0.5]])
-S_PROP_CHOL = np.linalg.cholesky(S_PROP)
-S_PROP_INV = np.linalg.inv(S_PROP)
-_, S_PROP_LOGDET = np.linalg.slogdet(S_PROP)
+PROPOSAL_STEP_SIZE = np.array([0.2, 0.5])
 
 
 @njit
@@ -22,17 +19,16 @@ def propose_positive_transition(cur_value: np.ndarray) -> np.ndarray:
 
     Args:
         cur_value (float): current value of hyperparameter
-        step_size (float): size of proposed step in log-space
 
     Returns:
         float: proposed value
     """
     cur_log_value = np.log(cur_value + 1e-30)
-    u = np.empty((2, 1), dtype=np.float64)
+    u = np.empty(2, dtype=np.float64)
     for i in range(2):
         u[i] = np.random.normal()
-    new_log_value = cur_log_value + S_PROP_CHOL @ u
-    new_value = np.exp(new_log_value[:, 0])
+    new_log_value = cur_log_value + PROPOSAL_STEP_SIZE * u
+    new_value = np.exp(new_log_value)
     return new_value
 
 
