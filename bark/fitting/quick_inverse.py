@@ -16,6 +16,8 @@ def low_rank_inv_update(
     mul = -1.0 if subtract else 1.0
     den = mul * np.eye(U.shape[-1]) + (U.T @ K_inv @ U)
 
+    # This line raises a NumbaPerformanceWarning
+    # https://github.com/numba/numba/issues/6998
     return K_inv - K_inv @ U @ np.linalg.solve(den, U.T @ K_inv)
 
 
