@@ -100,7 +100,7 @@ def main(seed: int, config: Config):
         train_y = pd.concat((train_y, next_y), ignore_index=True)
 
         logger.info(f"Min value at iteration {itr}: {min(train_y):.5f}")
-
+        np.save("forest.npy", samples[0])
     return train_x, train_y
 
 
