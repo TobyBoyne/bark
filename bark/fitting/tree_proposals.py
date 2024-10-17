@@ -46,7 +46,7 @@ def _get_two_inactive_nodes(nodes):
 
 @njit
 def _assign_node(
-    target, is_leaf, feature_idx, threshold, left, right, depth, active
+    target, is_leaf, feature_idx, threshold, left, right, parent, depth, active
 ) -> None:
     # numba requires individual assignment
     # https://numba.discourse.group/t/assigning-to-numpy-structural-array-using-a-tuple-in-jitclass/549/6
@@ -56,6 +56,7 @@ def _assign_node(
     target["threshold"] = threshold
     target["left"] = left
     target["right"] = right
+    target["parent"] = parent
     target["depth"] = depth
     target["active"] = active
 
@@ -135,13 +136,14 @@ def tree_prior_ratio(
 def grow(nodes: np.ndarray, node_proposal):
     left_idx, right_idx = _get_two_inactive_nodes(nodes)
     depth = nodes[node_proposal["node_idx"]]["depth"]
-    child_node = (1, 0, 0, 0, 0, depth + 1, 1)
+    child_node = (1, 0, 0, 0, 0, node_proposal["node_idx"], depth + 1, 1)
     new_parent_node = (
         0,
         node_proposal["new_feature_idx"],
         node_proposal["new_threshold"],
         left_idx,
         right_idx,
+        nodes[node_proposal["node_idx"]]["parent"],
         depth,
         1,
     )

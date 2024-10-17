@@ -1,6 +1,8 @@
 import numpy as np
 from numba import njit
 
+from bark.forest import FeatureTypeEnum
+
 
 @njit
 def pre_order_traverse(
@@ -41,3 +43,30 @@ def singly_internal_nodes(nodes: np.ndarray) -> np.ndarray:
     )
     singly_internal_idxs = np.argwhere(nodes["active"] & singly_internal_cond)
     return singly_internal_idxs.flatten()
+
+
+@njit
+def get_node_subspace(
+    tree: np.ndarray, node_idx: int, bounds: list[list[float]], feat_types: np.ndarray
+):
+    """Get the subset of the domain that reaches a given node."""
+    subspace = [[b for b in bounds[i]] for i in range(len(bounds))]
+    parent_idx = tree[node_idx]["parent"]
+    while parent_idx != -1:
+        node = tree[node_idx]
+        parent_node = tree[parent_idx]
+        feature_idx = parent_node["feature_idx"]
+
+        if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
+            pass
+            # if node_idx == parent_node["left"]:
+            #     subspace[feature_idx] = [node["threshold"]]
+            # else:
+            #     subspace[feature_idx] = [b for b in subspace[feature_idx] if b != node["threshold"]]
+        else:
+            if node_idx == parent_node["left"]:
+                subspace[feature_idx][1] = node["threshold"]
+            else:
+                subspace[feature_idx][0] = node["threshold"]
+
+    return subspace
