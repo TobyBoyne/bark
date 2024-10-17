@@ -47,10 +47,10 @@ def singly_internal_nodes(nodes: np.ndarray) -> np.ndarray:
 
 @njit
 def get_node_subspace(
-    tree: np.ndarray, node_idx: int, bounds: list[list[float]], feat_types: np.ndarray
+    tree: np.ndarray, node_idx: int, bounds: np.ndarray, feat_types: np.ndarray
 ):
     """Get the subset of the domain that reaches a given node."""
-    subspace = [[b for b in bounds[i]] for i in range(len(bounds))]
+    subspace = bounds.copy()
     parent_idx = tree[node_idx]["parent"]
     while node_idx != 0:
         node = tree[node_idx]

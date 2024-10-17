@@ -62,16 +62,16 @@ def _assign_node(
 
 
 @njit
-def sample_splitting_rule(bounds: list[list[float]], feat_types: np.ndarray):
-    feature_idx = np.random.randint(0, len(bounds))
+def sample_splitting_rule(bounds: np.ndarray, feat_types: np.ndarray):
+    feature_idx = np.random.randint(0, bounds.shape[0])
     if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-        threshold = np.random.randint(0, bounds[feature_idx] + 1)
+        threshold = np.random.randint(0, int(bounds[feature_idx, 1]) + 1)
     elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
         threshold = np.random.randint(
-            int(bounds[feature_idx][0]), int(bounds[feature_idx][1]) + 1
+            int(bounds[feature_idx, 0]), int(bounds[feature_idx, 1]) + 1
         )
     else:
-        threshold = np.random.uniform(bounds[feature_idx][0], bounds[feature_idx][1])
+        threshold = np.random.uniform(bounds[feature_idx, 0], bounds[feature_idx, 1])
 
     return feature_idx, threshold
 
@@ -160,7 +160,7 @@ def change(nodes: np.ndarray, node_proposal):
 @njit
 def get_tree_proposal(
     nodes: np.ndarray,
-    bounds,
+    bounds: np.ndarray,
     feat_types,
     params: "BARKTrainParamsNumba",
 ) -> tuple[np.ndarray, float]:

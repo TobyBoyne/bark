@@ -81,7 +81,7 @@ def _get_global_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model)
     ## optimize opt_model to determine area to focus on
     opt_model.optimize()
 
-    var_bnds = [get_feature_bounds(feat, ordinal_encoding=True) for feat in input_feats]
+    var_bnds = [get_feature_bounds(feat, encoding="ordinal") for feat in input_feats]
 
     # get active leaf area
     for label, gbm_model in opt_model._gbm_models.items():

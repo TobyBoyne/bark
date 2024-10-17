@@ -93,11 +93,10 @@ def run_bark_sampler(
 
     # unpack the domain
     bounds = [
-        get_feature_bounds(feat, ordinal_encoding=True) for feat in domain.inputs.get()
+        get_feature_bounds(feat, encoding="bitmask") for feat in domain.inputs.get()
     ]
 
-    # TODO: check that this works for len(categories) > 2
-    bounds = [tuple(map(float, b)) for b in bounds]
+    bounds = np.array(bounds)
 
     feat_type = get_feature_types_array(domain)
 
@@ -117,7 +116,7 @@ def _run_bark_sampler_multichain(
     scale: np.ndarray,
     train_x: np.ndarray,
     train_y: np.ndarray,
-    bounds: list[list[float]],
+    bounds: np.ndarray,
     feat_types: np.ndarray,
     params: BARKTrainParamsNumba,
 ):
@@ -213,7 +212,7 @@ def _step_bark_sampler(
     scale: float,
     train_x: np.ndarray,
     train_y: np.ndarray,
-    bounds: list[list[float]],
+    bounds: np.ndarray,
     feat_types: np.ndarray,
     params: BARKTrainParamsNumba,
     cur_K_inv: np.ndarray,
