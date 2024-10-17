@@ -30,7 +30,7 @@ def get_feature_bounds(
         cats = feature.categories
         bitmask_ub = (1 << len(cats)) - 1
         if encoding == "bitmask":
-            return (0, bitmask_ub)
+            return (bitmask_ub, bitmask_ub)
         elif encoding == "ordinal":
             return list(range(len(cats)))
         return cats

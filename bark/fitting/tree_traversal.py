@@ -53,20 +53,33 @@ def get_node_subspace(
     subspace = bounds.copy()
     parent_idx = tree[node_idx]["parent"]
     while node_idx != 0:
-        node = tree[node_idx]
         parent_node = tree[parent_idx]
         feature_idx = parent_node["feature_idx"]
 
         if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-            pass
-            # if node_idx == parent_node["left"]:
-            #     subspace[feature_idx] = [node["threshold"]]
-            # else:
-            #     subspace[feature_idx] = [b for b in subspace[feature_idx] if b != node["threshold"]]
+            if node_idx == parent_node["left"]:
+                subspace[feature_idx, 1] = int(parent_node["threshold"]) & int(
+                    subspace[feature_idx, 1]
+                )
+            else:
+                max_threshold = (1 << int(subspace[feature_idx, 1]).bit_length()) - 1
+                neg_threshold = max_threshold - parent_node["threshold"]
+                subspace[feature_idx, 1] = int(neg_threshold) & int(
+                    subspace[feature_idx, 1]
+                )
         else:
             if node_idx == parent_node["left"]:
-                subspace[feature_idx][1] = node["threshold"]
+                subspace[feature_idx, 1] = min(
+                    parent_node["threshold"], subspace[feature_idx, 1]
+                )
             else:
-                subspace[feature_idx][0] = node["threshold"]
+                int_delta = (
+                    1 if feat_types[feature_idx] == FeatureTypeEnum.Int.value else 0
+                )
+                subspace[feature_idx, 0] = max(
+                    parent_node["threshold"] + int_delta, subspace[feature_idx, 0]
+                )
+
+        node_idx, parent_idx = parent_idx, tree[parent_idx]["parent"]
 
     return subspace

@@ -301,14 +301,13 @@ class GbmNode(GbmType):
         threshold = tree[node_idx]["threshold"]
 
         self.split_var = feature_idx
-        cat_threshold = [
-            (int(threshold) >> i) & 1 for i in range(int(threshold).bit_length())
-        ]
-        self.split_code_pred = (
-            threshold
-            if feature_types[feature_idx] != FeatureTypeEnum.Cat.value
-            else cat_threshold
-        )
+        if feature_types[feature_idx] == FeatureTypeEnum.Cat.value:
+            threshold = [
+                i
+                for i in range(int(threshold).bit_length())
+                if (int(threshold) >> i) & 1
+            ]
+        self.split_code_pred = threshold
         # TODO: check categorical features
         child_idx = tree[node_idx]["left"]
         if tree[child_idx]["is_leaf"]:

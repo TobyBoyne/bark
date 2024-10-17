@@ -1,15 +1,19 @@
 import numpy as np
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
 from bark.fitting.tree_proposals import NODE_PROPOSAL_DTYPE, grow
-from bark.forest import FeatureTypeEnum, create_empty_forest, forest_gram_matrix
+from bark.fitting.tree_traversal import get_node_subspace
+from bark.forest import FeatureTypeEnum, create_empty_forest
 
 forest = create_empty_forest(m=2)
 
-bounds = [
-    [0, 1],
-    [0, 1, 2, 3],
-]
+bounds = np.array(
+    [
+        (0, 0b11),
+        (0, 0b1111),
+    ]
+)
+
+
 feat_types = np.array([FeatureTypeEnum.Cat.value, FeatureTypeEnum.Cat.value])
 
 node_proposal = np.zeros((1,), dtype=NODE_PROPOSAL_DTYPE)[0]
@@ -29,5 +33,10 @@ X = np.array(
     ]
 )
 
-K = forest_gram_matrix(forest, X, X, feat_types)
-print(K)
+sub = get_node_subspace(forest[0], 1, bounds, feat_types)
+print(f"{sub[1, 1]:b}")
+
+cat_threshold = [
+    i for i in range(int(sub[1, 1]).bit_length()) if (int(sub[1, 1]) >> i) & 1
+]
+print(cat_threshold)
