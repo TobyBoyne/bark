@@ -52,7 +52,7 @@ def get_node_subspace(
     """Get the subset of the domain that reaches a given node."""
     subspace = [[b for b in bounds[i]] for i in range(len(bounds))]
     parent_idx = tree[node_idx]["parent"]
-    while parent_idx != -1:
+    while node_idx != 0:
         node = tree[node_idx]
         parent_node = tree[parent_idx]
         feature_idx = parent_node["feature_idx"]

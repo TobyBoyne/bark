@@ -65,7 +65,7 @@ def _assign_node(
 def sample_splitting_rule(bounds: list[list[float]], feat_types: np.ndarray):
     feature_idx = np.random.randint(0, len(bounds))
     if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-        threshold = np.random.randint(0, len(bounds[feature_idx]))
+        threshold = np.random.randint(0, bounds[feature_idx] + 1)
     elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
         threshold = np.random.randint(
             int(bounds[feature_idx][0]), int(bounds[feature_idx][1]) + 1
@@ -74,21 +74,6 @@ def sample_splitting_rule(bounds: list[list[float]], feat_types: np.ndarray):
         threshold = np.random.uniform(bounds[feature_idx][0], bounds[feature_idx][1])
 
     return feature_idx, threshold
-
-
-@njit
-def splitting_rule_logprob(
-    bounds: list[list[float]], feat_types: np.ndarray, feature_idx: int
-):
-    # this function might not be necessary
-    if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-        threshold_prob = -np.log(len(bounds[feature_idx]))
-    elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
-        threshold_prob = -np.log(bounds[feature_idx][1] - bounds[feature_idx][0] + 1)
-    else:
-        threshold_prob = -np.log((bounds[feature_idx][1] - bounds[feature_idx][0]))
-
-    return -np.log(len(bounds)) + threshold_prob
 
 
 @njit

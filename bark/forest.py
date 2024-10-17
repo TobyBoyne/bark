@@ -37,7 +37,8 @@ def _pass_one_through_tree(nodes, X, feat_types):
             return node_idx
 
         if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-            cond = X[feature_idx] == node["threshold"]
+            bit = 1 << int(X[feature_idx])
+            cond = bit & int(node["threshold"])
         else:
             cond = X[feature_idx] <= node["threshold"]
 
