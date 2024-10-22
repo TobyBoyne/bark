@@ -2,6 +2,7 @@ import numpy as np
 from numba import njit
 
 from bark.forest import FeatureTypeEnum
+from bark.utils.bit_operations import next_power_of_2
 
 
 @njit
@@ -62,7 +63,7 @@ def get_node_subspace(
                     subspace[feature_idx, 1]
                 )
             else:
-                max_threshold = (1 << int(subspace[feature_idx, 1]).bit_length()) - 1
+                max_threshold = next_power_of_2(int(subspace[feature_idx, 1])) - 1
                 neg_threshold = max_threshold - parent_node["threshold"]
                 subspace[feature_idx, 1] = int(neg_threshold) & int(
                     subspace[feature_idx, 1]

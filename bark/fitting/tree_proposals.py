@@ -4,8 +4,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numba import njit
 
-from bark.fitting.tree_traversal import singly_internal_nodes, terminal_nodes
+from bark.fitting.tree_traversal import (
+    get_node_subspace,
+    singly_internal_nodes,
+    terminal_nodes,
+)
 from bark.forest import FeatureTypeEnum
+from bark.utils.bit_operations import sample_binary_mask
 
 if TYPE_CHECKING:
     from bark.fitting.bark_sampler import BARKTrainParamsNumba
@@ -65,8 +70,11 @@ def _assign_node(
 def sample_splitting_rule(bounds: np.ndarray, feat_types: np.ndarray):
     feature_idx = np.random.randint(0, bounds.shape[0])
     if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-        threshold = np.random.randint(0, int(bounds[feature_idx, 1]) + 1)
+        mask = int(bounds[feature_idx, 1])
+        threshold = sample_binary_mask(mask)
+
     elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
+        # TODO: handle case where bounds are the same
         threshold = np.random.randint(
             int(bounds[feature_idx, 0]), int(bounds[feature_idx, 1]) + 1
         )
@@ -190,10 +198,21 @@ def get_tree_proposal(
         proposal_type == TreeProposalEnum.Grow
         or proposal_type == TreeProposalEnum.Change
     ):
+        subspace = get_node_subspace(
+            nodes, node_proposal["node_idx"], bounds, feat_types
+        )
         (
             node_proposal["new_feature_idx"],
             node_proposal["new_threshold"],
-        ) = sample_splitting_rule(bounds, feat_types)
+        ) = sample_splitting_rule(subspace, feat_types)
+
+        # if the new threshold is 0, there were no valid splits
+        if (
+            node_proposal["new_threshold"] == 0
+            and feat_types[node_proposal["new_feature_idx"]]
+            == FeatureTypeEnum.Cat.value
+        ):
+            return nodes, -np.inf
 
     # I have no idea why this happens
     # tree_q_ratio has some side effect with the node_idx
