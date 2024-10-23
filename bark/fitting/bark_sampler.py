@@ -3,14 +3,13 @@ from dataclasses import asdict, dataclass
 import numba as nb
 import numpy as np
 from bofire.data_models.domain.api import Domain
-from bofire.data_models.features.api import CategoricalInput, DiscreteInput
 from numba import njit, prange
 from numba.experimental import jitclass
 
-from bark.bofire_utils.domain import get_feature_bounds
+from bark.bofire_utils.domain import get_feature_bounds, get_feature_types_array
 from bark.fitting.noise_scale_proposals import get_noise_scale_proposal
 from bark.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
-from bark.fitting.tree_proposals import FeatureTypeEnum, get_tree_proposal
+from bark.fitting.tree_proposals import get_tree_proposal
 from bark.forest import NODE_RECORD_DTYPE, forest_gram_matrix, get_leaf_vectors
 
 ModelT = tuple[np.ndarray, float, float]
@@ -94,22 +93,12 @@ def run_bark_sampler(
 
     # unpack the domain
     bounds = [
-        get_feature_bounds(feat, ordinal_encoding=True) for feat in domain.inputs.get()
+        get_feature_bounds(feat, encoding="bitmask") for feat in domain.inputs.get()
     ]
 
-    # TODO: check that this works for len(categories) > 2
-    bounds = [tuple(map(float, b)) for b in bounds]
+    bounds = np.array(bounds)
 
-    feat_type = np.array(
-        [
-            FeatureTypeEnum.Cat.value
-            if isinstance(feat, CategoricalInput)
-            else FeatureTypeEnum.Int.value
-            if isinstance(feat, DiscreteInput)
-            else FeatureTypeEnum.Cont.value
-            for feat in domain.inputs.get()
-        ]
-    )
+    feat_type = get_feature_types_array(domain)
 
     params_struct = _bark_params_to_jitclass(params)
 
@@ -127,7 +116,7 @@ def _run_bark_sampler_multichain(
     scale: np.ndarray,
     train_x: np.ndarray,
     train_y: np.ndarray,
-    bounds: list[list[float]],
+    bounds: np.ndarray,
     feat_types: np.ndarray,
     params: BARKTrainParamsNumba,
 ):
@@ -223,7 +212,7 @@ def _step_bark_sampler(
     scale: float,
     train_x: np.ndarray,
     train_y: np.ndarray,
-    bounds: list[list[float]],
+    bounds: np.ndarray,
     feat_types: np.ndarray,
     params: BARKTrainParamsNumba,
     cur_K_inv: np.ndarray,

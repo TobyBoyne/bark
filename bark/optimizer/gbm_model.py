@@ -5,6 +5,7 @@ import collections as coll
 import numpy as np
 
 from bark.forest import FeatureTypeEnum
+from bark.utils.bit_operations import next_power_of_2_exponent
 
 
 def _build_tree(tree: np.ndarray, feature_types: np.ndarray) -> "GbmNode":
@@ -301,11 +302,13 @@ class GbmNode(GbmType):
         threshold = tree[node_idx]["threshold"]
 
         self.split_var = feature_idx
-        self.split_code_pred = (
-            threshold
-            if feature_types[feature_idx] != FeatureTypeEnum.Cat.value
-            else [int(threshold)]
-        )
+        if feature_types[feature_idx] == FeatureTypeEnum.Cat.value:
+            threshold = [
+                i
+                for i in range(next_power_of_2_exponent(int(threshold)))
+                if (int(threshold) >> i) & 1
+            ]
+        self.split_code_pred = threshold
         # TODO: check categorical features
         child_idx = tree[node_idx]["left"]
         if tree[child_idx]["is_leaf"]:
