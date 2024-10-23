@@ -1,4 +1,6 @@
 """Utils for working with Bofire domains"""
+from typing import Literal
+
 import numpy as np
 from bofire.data_models.domain.api import Domain, Features, Inputs, Outputs
 from bofire.data_models.features.api import (
@@ -22,11 +24,16 @@ def get_index_by_feature_key(features: Features, key: str) -> int:
 
 
 def get_feature_bounds(
-    feature: AnyFeature, ordinal_encoding: bool = False
+    feature: AnyFeature, encoding: Literal["bitmask", "ordinal"] | None = None
 ) -> tuple[float, float] | list[str] | list[int]:
     if isinstance(feature, CategoricalInput):
         cats = feature.categories
-        return list(range(len(cats))) if ordinal_encoding else cats
+        bitmask_ub = (1 << len(cats)) - 1
+        if encoding == "bitmask":
+            return (0, bitmask_ub)
+        elif encoding == "ordinal":
+            return list(range(len(cats)))
+        return cats
     elif isinstance(feature, DiscreteInput):
         return (feature.lower_bound, feature.upper_bound)
     elif isinstance(feature, ContinuousInput):

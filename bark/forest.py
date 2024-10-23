@@ -13,6 +13,7 @@ NODE_RECORD_DTYPE = np.dtype(
         ("threshold", np.float32),
         ("left", np.uint32),
         ("right", np.uint32),
+        ("parent", np.uint32),
         ("depth", np.uint32),
         ("active", np.uint8),
     ]
@@ -36,7 +37,8 @@ def _pass_one_through_tree(nodes, X, feat_types):
             return node_idx
 
         if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-            cond = X[feature_idx] == node["threshold"]
+            bit = 1 << int(X[feature_idx])
+            cond = bit & int(node["threshold"])
         else:
             cond = X[feature_idx] <= node["threshold"]
 
@@ -99,5 +101,5 @@ def batched_forest_gram_matrix(nodes, x1, x2, feat_types):
 
 def create_empty_forest(m: int, node_limit: int = 100):
     forest = np.zeros((m, node_limit), dtype=NODE_RECORD_DTYPE)
-    forest[:, 0] = (1, 0, 0, 0, 0, 0, 1)
+    forest[:, 0] = (1, 0, 0, 0, 0, -1, 0, 1)
     return forest
