@@ -52,7 +52,7 @@ def lgbm_to_bark_forest(tree_model: lgb.Booster) -> np.ndarray:
         while stack:
             node_idx, node_dict = stack.pop()
             if "leaf_index" in node_dict:
-                out[node_idx] = (1, 0, 0, 0, 0, 0, 1)
+                out[node_idx] = (1, 0, 0, 0, 0, -1, 0, 1)
 
             else:
                 out[node_idx] = (
@@ -61,6 +61,7 @@ def lgbm_to_bark_forest(tree_model: lgb.Booster) -> np.ndarray:
                     node_dict["threshold"],
                     next_inactive,
                     next_inactive + 1,
+                    -1,  # parent
                     0,
                     1,
                 )

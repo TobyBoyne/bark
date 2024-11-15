@@ -5,7 +5,7 @@ model: BARK
 
 model_params:
   warmup_steps: 1000
-  num_samples: 2
-  steps_per_sample: 100
+  num_samples: 10
+  steps_per_sample: 50
   num_chains: 4
   verbose: True

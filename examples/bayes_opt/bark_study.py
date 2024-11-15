@@ -87,7 +87,7 @@ def main(seed: int, config: Config):
         forest = samples[0][:, -1, :, :]
         noise = samples[1][:, -1]
         scale = samples[2][:, -1]
-        # opt_model.Params.LogFile = "gurobi.log"
+        opt_model.Params.LogFile = "gurobi.log"
         next_x = propose(benchmark.domain, opt_model, model_core)
         candidate = pd.DataFrame(data=[next_x], columns=domain.inputs.get_keys())
         candidate_inv_transform = domain.inputs.inverse_transform(
@@ -100,7 +100,7 @@ def main(seed: int, config: Config):
         train_y = pd.concat((train_y, next_y), ignore_index=True)
 
         logger.info(f"Min value at iteration {itr}: {min(train_y):.5f}")
-        np.save("forest.npy", samples[0])
+        # np.save("forest.npy", samples[0])
     return train_x, train_y
 
 

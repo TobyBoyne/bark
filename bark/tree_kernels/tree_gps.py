@@ -74,7 +74,8 @@ def forest_predict(
     data: tuple[np.ndarray, np.ndarray],
     candidates: np.ndarray,
     domain: Domain,
-) -> np.ndarray:
+    diag: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
     forest, noise, scale = model
     forest = forest.reshape(-1, *forest.shape[-2:])
     noise = noise.reshape(-1)
@@ -99,5 +100,6 @@ def forest_predict(
     var = scale[:, None, None] - K_xX @ K_inv @ K_xX.transpose((0, 2, 1))
 
     mu = mu.reshape(num_samples, num_candidates)
-    var = np.diagonal(var, axis1=1, axis2=2)
+    if diag:
+        var = np.diagonal(var, axis1=1, axis2=2)
     return mu, var
