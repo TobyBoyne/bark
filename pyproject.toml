@@ -30,6 +30,7 @@ ucimlrepo = "^0.0.6"
 numba = "^0.60.0"
 xgboost = "^2.1.1"
 bofire = {extras = ["cheminfo", "optimization"], version = "^0.0.14"}
+numba-scipy = "^0.4.0"
 
 
 [tool.poetry.group.dev.dependencies]

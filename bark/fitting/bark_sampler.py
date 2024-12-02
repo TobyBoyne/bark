@@ -23,6 +23,12 @@ class BARKTrainParams:
     num_samples: int = 5
     steps_per_sample: int = 10
 
+    # noise and scale proposal parameters
+    use_softplus_transform: bool = True
+    sample_scale: bool = False
+    gamma_prior_shape: float = 2.5
+    gamma_prior_rate: float = 9.0
+
     # node depth prior
     alpha: float = 0.95
     beta: float = 2.0
@@ -52,6 +58,10 @@ class BARKTrainParams:
         ("beta", nb.float64),
         ("proposal_weights", nb.float64[:]),
         ("verbose", nb.bool_),
+        ("use_softplus_transform", nb.bool_),
+        ("sample_scale", nb.bool_),
+        ("gamma_prior_shape", nb.float64),
+        ("gamma_prior_rate", nb.float64),
     ]
 )
 class BARKTrainParamsNumba:
@@ -65,6 +75,10 @@ class BARKTrainParamsNumba:
         beta,
         proposal_weights,
         verbose,
+        use_softplus_transform,
+        sample_scale,
+        gamma_prior_shape,
+        gamma_prior_rate,
     ):
         self.warmup_steps = warmup_steps
         self.num_samples = num_samples
@@ -74,6 +88,10 @@ class BARKTrainParamsNumba:
         self.beta = beta
         self.proposal_weights = proposal_weights
         self.verbose = verbose
+        self.use_softplus_transform = use_softplus_transform
+        self.sample_scale = sample_scale
+        self.gamma_prior_shape = gamma_prior_shape
+        self.gamma_prior_rate = gamma_prior_rate
 
 
 def _bark_params_to_jitclass(params: BARKTrainParams):
@@ -255,7 +273,7 @@ def _step_bark_sampler(
             cur_mll = new_mll
             forest[tree_idx] = new_nodes
 
-    (new_noise, new_scale), log_q_prior = get_noise_scale_proposal(noise, scale)
+    (new_noise, new_scale), log_q_prior = get_noise_scale_proposal(noise, scale, params)
     K_XX = new_scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
     K_XX_s = K_XX + new_noise * np.eye(K_XX.shape[0])
     new_K_inv = np.linalg.inv(K_XX_s)
