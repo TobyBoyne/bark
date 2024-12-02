@@ -1,20 +1,81 @@
+import botorch
 import numpy as np
 import pandas as pd
+import torch
 from bofire.data_models.domain.api import Domain
 from bofire.surrogates.trainable import Surrogate, TrainableSurrogate
+from bofire.utils.torch_tools import tkwargs
 
-from bark.bofire_utils.data_models.surrogates import BARKSurrogate as DataModel
+from bark.bofire_utils.data_models.surrogates import BARKSurrogate as BARKDataModel
+from bark.bofire_utils.data_models.surrogates import LeafGPSurrogate as LeafGPDataModel
+from bark.bofire_utils.domain import get_feature_types_array
 from bark.fitting.bark_sampler import run_bark_sampler
+from bark.fitting.lgbm_fitting import fit_lgbm_forest, lgbm_to_bark_forest
 from bark.forest import create_empty_forest
+from bark.tree_kernels.tree_gps import forest_predict
+from bark.tree_kernels.tree_model_kernel import BARKTreeModelKernel
+
+
+class LeafGPSurrogate(Surrogate, TrainableSurrogate):
+    def __init__(
+        self,
+        data_model: LeafGPDataModel,
+        **kwargs,
+    ):
+        self.noise_prior = data_model.noise_prior
+        super().__init__(data_model=data_model, **kwargs)
+
+    model: botorch.models.SingleTaskGP | None = None
+    training_specs: dict = {}
+
+    def model_as_tuple(self):
+        return (
+            self.forest,
+            self.model.likelihood.noise.item(),
+            self.model.covar_module.outputscale.item(),
+        )
+
+    def _fit(self, X: pd.DataFrame, Y: pd.DataFrame):
+        transformed_X = self.inputs.transform(X, self.input_preprocessing_specs)
+
+        tX, tY = (
+            torch.from_numpy(transformed_X.values).to(**tkwargs),
+            torch.from_numpy(Y.values).to(**tkwargs),
+        )
+
+        domain = Domain(inputs=self.inputs, outputs=self.outputs)
+        booster = fit_lgbm_forest(transformed_X, Y, self.domain)  # TODO: add params
+        forest = lgbm_to_bark_forest(booster)
+
+        self.model = botorch.models.SingleTaskGP(
+            train_X=tX,
+            train_Y=tY,
+            covar_module=BARKTreeModelKernel(
+                forest=forest,
+                feat_types=get_feature_types_array(domain),
+            ),
+            outcome_transform=(
+                Standardize(m=tY.shape[-1])
+                if self.output_scaler == ScalerEnum.STANDARDIZE
+                else None
+            ),
+            input_transform=scaler,
+        )
+
+        self.model.likelihood.noise_covar.noise_prior = priors.map(self.noise_prior)
+
+        mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
+        fit_gpytorch_mll(mll, options=self.training_specs, max_attempts=10)
 
 
 class BARKSurrogate(Surrogate, TrainableSurrogate):
-    def __init__(self, data_model: DataModel, **kwargs):
+    def __init__(self, data_model: BARKDataModel, **kwargs):
         self.warmup_steps = data_model.warmup_steps
         self.num_samples = data_model.num_samples
         self.steps_per_sample = data_model.steps_per_sample
         self.alpha = data_model.alpha
         self.beta = data_model.beta
+        self.num_chains = data_model.num_chains
         self.num_trees = data_model.num_trees
         self.proposal_weights = self._get_proposal_weights(data_model)
         self.verbose = data_model.verbose
@@ -23,11 +84,19 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         super().__init__(data_model)
 
     def _init_bark(self):
-        self.forest = create_empty_forest(self.num_trees)
-        self.noise = np.array([0.1])
-        self.scale = np.array([1.0])
+        forest = create_empty_forest(self.num_trees)
 
-    def _get_proposal_weights(self, data_model: DataModel):
+        self.forest = np.tile(forest, (self.num_chains, 1, 1, 1))
+        self.noise = np.tile(0.1, (self.num_chains, 1))
+        self.scale = np.tile(1.0, (self.num_chains, 1))
+
+        # store training data for posterior predictions
+        self.train_data = None
+
+    def model_as_tuple(self):
+        return (self.forest, self.noise, self.scale)
+
+    def _get_proposal_weights(self, data_model: BARKDataModel):
         p = np.array(
             [
                 data_model.grow_prune_weight,
@@ -40,14 +109,33 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
     def _fit(self, X: pd.DataFrame, Y: pd.DataFrame, **kwargs):
         transformed_X = self.inputs.transform(X, self.input_preprocessing_specs)
         # TODO: use inputs directly
+        # TODO: (important!) Check that the splits are only on the transformed domain
+        # ie. if X is transformed to [0, 1] make sure BARK only splits on [0, 1]
         domain = Domain(inputs=self.inputs, outputs=self.outputs)
+        self.train_data = (transformed_X.to_numpy(), Y.to_numpy())
+
+        # set BARK initialisation from most recent sample
+        most_recent_sample = (
+            self.forest[:, -1, :, :],
+            self.noise[:, -1],
+            self.scale[:, -1],
+        )
+
         samples = run_bark_sampler(
-            (self.forest, self.noise, self.scale),
-            (transformed_X.to_numpy(), Y.to_numpy()),
+            most_recent_sample,
+            self.train_data,
             domain,
             self,
         )
         self.forest, self.noise, self.scale = samples
 
-    def _predict(self, X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        raise NotImplementedError
+    def _predict(self, transformed_X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        candidates = transformed_X.to_numpy()
+        domain = Domain(inputs=self.inputs, outputs=self.outputs)
+        return forest_predict(
+            (self.forest, self.noise, self.scale),
+            self.train_data,
+            candidates,
+            domain,
+            diag=True,
+        )
