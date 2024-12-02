@@ -6,14 +6,31 @@ from bofire.data_models.domain.api import Domain
 from bofire.surrogates.trainable import Surrogate, TrainableSurrogate
 from bofire.utils.torch_tools import tkwargs
 
-from bark.bofire_utils.data_models.surrogates import BARKSurrogate as BARKDataModel
+from bark.bofire_utils.data_models.surrogates import (
+    BARKSurrogate as BARKSurrogateDataModel,
+)
 from bark.bofire_utils.data_models.surrogates import LeafGPSurrogate as LeafGPDataModel
 from bark.bofire_utils.domain import get_feature_types_array
-from bark.fitting.bark_sampler import run_bark_sampler
+from bark.fitting.bark_sampler import BARKTrainParamsNumba, run_bark_sampler
 from bark.fitting.lgbm_fitting import fit_lgbm_forest, lgbm_to_bark_forest
 from bark.forest import create_empty_forest
 from bark.tree_kernels.tree_gps import forest_predict
 from bark.tree_kernels.tree_model_kernel import BARKTreeModelKernel
+
+
+def _bark_params_to_jitclass(data_model: BARKSurrogateDataModel):
+    proposal_weights = np.array(
+        [
+            data_model.grow_prune_weight,
+            data_model.grow_prune_weight,
+            data_model.change_weight,
+        ]
+    )
+    proposal_weights /= np.sum(proposal_weights)
+
+    kwargs = data_model.model_dump()
+    kwargs.pop("grow_prune_weight"), kwargs.pop("change_weight")
+    return BARKTrainParamsNumba(proposal_weights=proposal_weights, **kwargs)
 
 
 class LeafGPSurrogate(Surrogate, TrainableSurrogate):
@@ -69,7 +86,7 @@ class LeafGPSurrogate(Surrogate, TrainableSurrogate):
 
 
 class BARKSurrogate(Surrogate, TrainableSurrogate):
-    def __init__(self, data_model: BARKDataModel, **kwargs):
+    def __init__(self, data_model: BARKSurrogateDataModel, **kwargs):
         self.warmup_steps = data_model.warmup_steps
         self.num_samples = data_model.num_samples
         self.steps_per_sample = data_model.steps_per_sample
@@ -77,8 +94,12 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         self.beta = data_model.beta
         self.num_chains = data_model.num_chains
         self.num_trees = data_model.num_trees
-        self.proposal_weights = self._get_proposal_weights(data_model)
         self.verbose = data_model.verbose
+        self.use_softplus_transform = data_model.use_softplus_transform
+        self.sample_scale = data_model.sample_scale
+        self.gamma_prior_shape = data_model.gamma_prior_shape
+        self.gamma_prior_rate = data_model.gamma_prior_rate
+        self.bark_params = _bark_params_to_jitclass(data_model)
         self._init_bark()
 
         super().__init__(data_model)
@@ -96,23 +117,15 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
     def model_as_tuple(self):
         return (self.forest, self.noise, self.scale)
 
-    def _get_proposal_weights(self, data_model: BARKDataModel):
-        p = np.array(
-            [
-                data_model.grow_prune_weight,
-                data_model.grow_prune_weight,
-                data_model.change_weight,
-            ]
-        )
-        return p / np.sum(p)
-
     def _fit(self, X: pd.DataFrame, Y: pd.DataFrame, **kwargs):
         transformed_X = self.inputs.transform(X, self.input_preprocessing_specs)
         # TODO: use inputs directly
         # TODO: (important!) Check that the splits are only on the transformed domain
         # ie. if X is transformed to [0, 1] make sure BARK only splits on [0, 1]
         domain = Domain(inputs=self.inputs, outputs=self.outputs)
-        self.train_data = (transformed_X.to_numpy(), Y.to_numpy())
+        Y = Y.to_numpy()
+        Y_standardized = (Y - Y.mean()) / Y.std()
+        self.train_data = (transformed_X.to_numpy(), Y_standardized)
 
         # set BARK initialisation from most recent sample
         most_recent_sample = (
@@ -125,7 +138,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
             most_recent_sample,
             self.train_data,
             domain,
-            self,
+            self.bark_params,
         )
         self.forest, self.noise, self.scale = samples
 
@@ -133,7 +146,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         candidates = transformed_X.to_numpy()
         domain = Domain(inputs=self.inputs, outputs=self.outputs)
         return forest_predict(
-            (self.forest, self.noise, self.scale),
+            self.model_as_tuple(),
             self.train_data,
             candidates,
             domain,

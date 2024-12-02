@@ -1,5 +1,3 @@
-from dataclasses import asdict, dataclass
-
 import numba as nb
 import numpy as np
 from bofire.data_models.domain.api import Domain
@@ -16,36 +14,36 @@ ModelT = tuple[np.ndarray, float, float]
 DataT = tuple[np.ndarray, np.ndarray]
 
 
-@dataclass
-class BARKTrainParams:
-    # MCMC run parameters
-    warmup_steps: int = 50
-    num_samples: int = 5
-    steps_per_sample: int = 10
+# @dataclass
+# class BARKTrainParams:
+#     # MCMC run parameters
+#     warmup_steps: int = 50
+#     num_samples: int = 5
+#     steps_per_sample: int = 10
 
-    # noise and scale proposal parameters
-    use_softplus_transform: bool = True
-    sample_scale: bool = False
-    gamma_prior_shape: float = 2.5
-    gamma_prior_rate: float = 9.0
+#     # noise and scale proposal parameters
+#     use_softplus_transform: bool = True
+#     sample_scale: bool = False
+#     gamma_prior_shape: float = 2.5
+#     gamma_prior_rate: float = 9.0
 
-    # node depth prior
-    alpha: float = 0.95
-    beta: float = 2.0
+#     # node depth prior
+#     alpha: float = 0.95
+#     beta: float = 2.0
 
-    # transition type probabilities
-    grow_prune_weight: float = 0.5
-    change_weight: float = 1.0
+#     # transition type probabilities
+#     grow_prune_weight: float = 0.5
+#     change_weight: float = 1.0
 
-    num_chains: int = 1
-    verbose: bool = False
+#     num_chains: int = 1
+#     verbose: bool = False
 
-    @property
-    def proposal_weights(self):
-        p = np.array(
-            [self.grow_prune_weight, self.grow_prune_weight, self.change_weight]
-        )
-        return p / np.sum(p)
+#     @property
+#     def proposal_weights(self):
+#         p = np.array(
+#             [self.grow_prune_weight, self.grow_prune_weight, self.change_weight]
+#         )
+#         return p / np.sum(p)
 
 
 @jitclass(
@@ -94,14 +92,8 @@ class BARKTrainParamsNumba:
         self.gamma_prior_rate = gamma_prior_rate
 
 
-def _bark_params_to_jitclass(params: BARKTrainParams):
-    kwargs = asdict(params)
-    kwargs.pop("grow_prune_weight"), kwargs.pop("change_weight")
-    return BARKTrainParamsNumba(proposal_weights=params.proposal_weights, **kwargs)
-
-
 def run_bark_sampler(
-    model: ModelT, data: DataT, domain: Domain, params: BARKTrainParams
+    model: ModelT, data: DataT, domain: Domain, params: BARKTrainParamsNumba
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Generate samples from the BARK posterior"""
 
