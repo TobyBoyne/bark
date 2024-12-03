@@ -45,23 +45,23 @@ DataT = tuple[np.ndarray, np.ndarray]
 #         )
 #         return p / np.sum(p)
 
+BARK_JITCLASS_SPEC = [
+    ("warmup_steps", nb.int64),
+    ("num_samples", nb.int64),
+    ("steps_per_sample", nb.int64),
+    ("num_chains", nb.int64),
+    ("alpha", nb.float64),
+    ("beta", nb.float64),
+    ("proposal_weights", nb.float64[:]),
+    ("verbose", nb.bool_),
+    ("use_softplus_transform", nb.bool_),
+    ("sample_scale", nb.bool_),
+    ("gamma_prior_shape", nb.float64),
+    ("gamma_prior_rate", nb.float64),
+]
 
-@jitclass(
-    [
-        ("warmup_steps", nb.int64),
-        ("num_samples", nb.int64),
-        ("steps_per_sample", nb.int64),
-        ("num_chains", nb.int64),
-        ("alpha", nb.float64),
-        ("beta", nb.float64),
-        ("proposal_weights", nb.float64[:]),
-        ("verbose", nb.bool_),
-        ("use_softplus_transform", nb.bool_),
-        ("sample_scale", nb.bool_),
-        ("gamma_prior_shape", nb.float64),
-        ("gamma_prior_rate", nb.float64),
-    ]
-)
+
+@jitclass(BARK_JITCLASS_SPEC)
 class BARKTrainParamsNumba:
     def __init__(
         self,
@@ -110,10 +110,8 @@ def run_bark_sampler(
 
     feat_type = get_feature_types_array(domain)
 
-    params_struct = _bark_params_to_jitclass(params)
-
     samples = _run_bark_sampler_multichain(
-        forest, noise, scale, train_x, train_y, bounds, feat_type, params_struct
+        forest, noise, scale, train_x, train_y, bounds, feat_type, params
     )
 
     return samples

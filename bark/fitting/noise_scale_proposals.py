@@ -62,7 +62,7 @@ def get_noise_scale_proposal(
 ) -> tuple[tuple[float, float], float]:
     # TODO: consider a better sampler
     if params.use_softplus_transform:
-        return get_noise_scale_proposal_softplus(noise, scale)
+        return get_noise_scale_proposal_softplus(noise, scale, params)
 
     if not params.sample_scale:
         raise NotImplementedError(

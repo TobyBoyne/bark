@@ -11,10 +11,14 @@ from bark.bofire_utils.data_models.surrogates import (
 )
 from bark.bofire_utils.data_models.surrogates import LeafGPSurrogate as LeafGPDataModel
 from bark.bofire_utils.domain import get_feature_types_array
-from bark.fitting.bark_sampler import BARKTrainParamsNumba, run_bark_sampler
+from bark.fitting.bark_sampler import (
+    BARK_JITCLASS_SPEC,
+    BARKTrainParamsNumba,
+    run_bark_sampler,
+)
 from bark.fitting.lgbm_fitting import fit_lgbm_forest, lgbm_to_bark_forest
 from bark.forest import create_empty_forest
-from bark.tree_kernels.tree_gps import forest_predict
+from bark.tree_kernels.tree_gps import forest_predict, mixture_of_gaussians_as_normal
 from bark.tree_kernels.tree_model_kernel import BARKTreeModelKernel
 
 
@@ -28,8 +32,8 @@ def _bark_params_to_jitclass(data_model: BARKSurrogateDataModel):
     )
     proposal_weights /= np.sum(proposal_weights)
 
-    kwargs = data_model.model_dump()
-    kwargs.pop("grow_prune_weight"), kwargs.pop("change_weight")
+    keys = list(zip(*BARK_JITCLASS_SPEC))[0]
+    kwargs = {k: v for k, v in data_model.model_dump().items() if k in keys}
     return BARKTrainParamsNumba(proposal_weights=proposal_weights, **kwargs)
 
 
@@ -117,6 +121,11 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
     def model_as_tuple(self):
         return (self.forest, self.noise, self.scale)
 
+    @property
+    def is_fitted(self) -> bool:
+        """Return True if model is fitted, else False."""
+        return self.model_as_tuple() is not None
+
     def _fit(self, X: pd.DataFrame, Y: pd.DataFrame, **kwargs):
         transformed_X = self.inputs.transform(X, self.input_preprocessing_specs)
         # TODO: use inputs directly
@@ -145,10 +154,19 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
     def _predict(self, transformed_X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         candidates = transformed_X.to_numpy()
         domain = Domain(inputs=self.inputs, outputs=self.outputs)
-        return forest_predict(
+        mu, var = forest_predict(
             self.model_as_tuple(),
             self.train_data,
             candidates,
             domain,
             diag=True,
         )
+        mu_f, var_f = mixture_of_gaussians_as_normal(mu, var)
+        # reshape to (n, 1) for the single output
+        return mu_f.reshape(-1, 1), var_f.reshape(-1, 1)
+
+    def _dumps(self):
+        pass
+
+    def loads(self, data: str):
+        pass

@@ -2,6 +2,7 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from bofire.data_models.types import InputTransformSpecs
 from bofire.strategies.predictives.predictive import PredictiveStrategy
 
 from bark.bofire_utils.data_models.strategies import TreeKernelStrategy as DataModel
@@ -27,7 +28,7 @@ class TreeKernelStrategy(PredictiveStrategy):
         self.tree_surrogate.fit(experiments)
 
     def _predict(self, experiments: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
-        return self.tree_surrogate.predict(experiments)
+        return self.tree_surrogate._predict(experiments)
 
     def _ask(self, candidate_count: int) -> pd.DataFrame:
         assert candidate_count == 1, "BARK only supports single candidates"
@@ -41,6 +42,37 @@ class TreeKernelStrategy(PredictiveStrategy):
             model_core=self.model_core,
         )
 
-        next_x = propose(self.domain, opt_model, self.model_core)
-        candidate = pd.DataFrame(data=[next_x], columns=self.domain.inputs.get_keys())
-        return candidate
+        candidate = propose(self.domain, opt_model, self.model_core)
+        return self._postprocess_candidate(candidate)
+
+    def _postprocess_candidate(self, candidate: list) -> pd.DataFrame:
+        df_candidate = pd.DataFrame(
+            data=[candidate], columns=self.domain.inputs.get_keys()
+        )
+
+        df_candidate = self.domain.inputs.inverse_transform(
+            df_candidate, self.input_preprocessing_specs
+        )
+
+        preds = self.predict(df_candidate)
+        return pd.concat((df_candidate, preds), axis=1)
+
+    @property
+    def input_preprocessing_specs(self) -> InputTransformSpecs:
+        return self.surrogate_specs.input_preprocessing_specs
+
+    def has_sufficient_experiments(
+        self,
+    ) -> bool:
+        if self.experiments is None:
+            return False
+        if (
+            len(
+                self.domain.outputs.preprocess_experiments_all_valid_outputs(
+                    experiments=self.experiments,
+                ),
+            )
+            > 1
+        ):
+            return True
+        return False

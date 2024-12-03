@@ -1,6 +1,6 @@
 benchmark: StyblinskiTang
 num_init: 20
-num_iter: 1
+num_iter: 3
 model: BARK
 
 model_params:

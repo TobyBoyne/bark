@@ -68,10 +68,9 @@ if __name__ == "__main__":
     seed = args.seed
     config = yaml.safe_load(open(args.config_file))
 
-    x, y = main(seed, config)
+    experiments = main(seed, config)
 
     output_dir = pathlib.Path(args.output_dir) / config["benchmark"] / config["model"]
     output_dir.mkdir(parents=True, exist_ok=True)
-    x.to_csv(output_dir / f"seed={seed}_x.csv", index=False)
-    y.to_csv(output_dir / f"seed={seed}_y.csv", index=False)
+    experiments.to_csv(output_dir / f"seed={seed}.csv", index=False)
     yaml.dump(config, open(output_dir / "config.yaml", "w"))
