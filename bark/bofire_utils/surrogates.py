@@ -104,7 +104,10 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         self.gamma_prior_shape = data_model.gamma_prior_shape
         self.gamma_prior_rate = data_model.gamma_prior_rate
         self.bark_params = _bark_params_to_jitclass(data_model)
-        self._init_bark()
+
+        self.forest = None
+        self.noise = None
+        self.scale = None
 
         super().__init__(data_model)
 
@@ -118,8 +121,9 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         # store training data for posterior predictions
         self.train_data = None
 
-    def model_as_tuple(self):
-        return (self.forest, self.noise, self.scale)
+    def model_as_tuple(self) -> None | tuple[np.ndarray, np.ndarray, np.ndarray]:
+        model = (self.forest, self.noise, self.scale)
+        return None if any(x is None for x in model) else model
 
     @property
     def is_fitted(self) -> bool:
@@ -129,13 +133,16 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
     def _fit(self, X: pd.DataFrame, Y: pd.DataFrame, **kwargs):
         transformed_X = self.inputs.transform(X, self.input_preprocessing_specs)
         # TODO: use inputs directly
-        # TODO: (important!) Check that the splits are only on the transformed domain
-        # ie. if X is transformed to [0, 1] make sure BARK only splits on [0, 1]
         domain = Domain(inputs=self.inputs, outputs=self.outputs)
         Y = Y.to_numpy()
         Y_standardized = (Y - Y.mean()) / Y.std()
         self.train_data = (transformed_X.to_numpy(), Y_standardized)
 
+        if not self.is_fitted:
+            self._init_bark()
+        else:
+            # BARK should already be warmed-up from previous iterations
+            self.bark_params.warmup_steps = 0
         # set BARK initialisation from most recent sample
         most_recent_sample = (
             self.forest[:, -1, :, :],
@@ -170,3 +177,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
 
     def loads(self, data: str):
         pass
+
+
+class BARKPriorSurrogate(Surrogate, TrainableSurrogate):
+    """Samples from the BARK prior distribution."""

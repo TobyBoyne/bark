@@ -43,7 +43,6 @@ def main(seed: int, config: Config):
             ),
         )
     )
-    # TODO: burn-in steps on first iteration
     strategy.tell(experiments)
 
     logger.info("Start BO loop")
