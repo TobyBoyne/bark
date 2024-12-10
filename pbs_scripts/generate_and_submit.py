@@ -38,7 +38,7 @@ if __name__ == "__main__":
     is_array_job = args.n_replicates is not None
     if is_array_job:
         n_replicates = args.n_replicates
-        jobs_directive = f"PBS -J 1-{n_replicates}"
+        jobs_directive = f"#PBS -J 1-{n_replicates}"
     else:
         jobs_directive = ""
     JOB_ID_CUT = r"JOBID=`echo ${PBS_JOBID} | cut -d'[' -f1`"
@@ -53,8 +53,10 @@ if __name__ == "__main__":
     if is_array_job:
         logging.info(f"Ignoring seed {args.seed} for array job - using PBS_ARRAY_INDEX")
         seed = r"${PBS_ARRAY_INDEX}"
+        array_id = r"$PBS_ARRAYID"
     else:
         seed = args.seed
+        array_id = ""
 
     with open("pbs_job.template", "r") as file:
         template = file.read()
@@ -75,6 +77,7 @@ if __name__ == "__main__":
         duration=duration,
         config_path=config_path,
         seed=seed,
+        array_id=array_id,
     )
 
     tmp_save = f"{args.job_name}_{ran_at}.sh"
@@ -86,6 +89,9 @@ if __name__ == "__main__":
         capture_output=True,
     )
 
+    if returned.returncode != 0:
+        raise RuntimeError(f"Failed to submit job: {returned.stderr.decode('utf-8')} - check generated script {tmp_save}")
+    
     # Get PBS job ID from qsub output
     stdout = returned.stdout.decode('utf-8').strip()
     job_id = stdout.removesuffix('.pbs')
