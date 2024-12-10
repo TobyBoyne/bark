@@ -46,9 +46,7 @@ def propose(
     cat_idx = get_cat_idx_from_domain(domain)
     input_features = domain.inputs.get()
 
-    next_x_area, next_val = _get_global_sol(
-        input_features, cat_idx, opt_model
-    )
+    next_x_area, next_val = _get_global_sol(input_features, cat_idx, opt_model)
 
     # add epsilon if input constr. exist
     # i.e. tree splits are rounded to the 5th decimal when adding them to the model,
@@ -95,7 +93,8 @@ def _get_global_sol(
     errors = []
     for label, gbm_model in opt_model._gbm_models.items():
         present_solns = [
-            (tree_id, leaf_enc) for tree_id, leaf_enc in label_leaf_index(opt_model, label)
+            (tree_id, leaf_enc)
+            for tree_id, leaf_enc in label_leaf_index(opt_model, label)
             if hasattr(opt_model._z_l[label, tree_id, leaf_enc], "x")
         ]
         if not present_solns:
@@ -135,30 +134,9 @@ def _get_leaf_center(x_area, input_feats: Inputs, cat_idx: set[int]):
             lb, ub = x_area[idx]
             xi = lb + (ub - lb) / 2
             if isinstance(feat, DiscreteInput):
-                xi = int(xi)
-
-            # TODO: address binary variables
-            # if space.dims[idx].is_bin:
-            #     # for bin vars
-            #     if lb == 0 and ub == 1:
-            #         xi = int(np.random.randint(0, 2))
-            #     elif lb <= 0.1:
-            #         xi = 0
-            #     elif ub >= 0.9:
-            #         xi = 1
-            #     else:
-            #         raise ValueError(
-            #             "problem with binary split, go to 'get_leaf_center'"
-            #         )
-
-            # if idx in space.int_idx:
-            #     # for int vars
-            #     lb, ub = round(lb), round(ub)
-            #     m = lb + (ub - lb) / 2
-            #     xi = int(np.random.choice([int(m), round(m)], size=1)[0])
-
-            # else:
-            #     # for conti vars
+                xi_floor = int(np.floor(xi))
+                xi_remainder = xi - xi_floor
+                xi = xi_floor + np.random.binomial(1, xi_remainder, size=1).item()
 
         next_x.append(xi)
     return next_x
