@@ -1,5 +1,3 @@
-from dataclasses import asdict, dataclass
-
 import numba as nb
 import numpy as np
 from bofire.data_models.domain.api import Domain
@@ -16,44 +14,54 @@ ModelT = tuple[np.ndarray, float, float]
 DataT = tuple[np.ndarray, np.ndarray]
 
 
-@dataclass
-class BARKTrainParams:
-    # MCMC run parameters
-    warmup_steps: int = 50
-    num_samples: int = 5
-    steps_per_sample: int = 10
+# @dataclass
+# class BARKTrainParams:
+#     # MCMC run parameters
+#     warmup_steps: int = 50
+#     num_samples: int = 5
+#     steps_per_sample: int = 10
 
-    # node depth prior
-    alpha: float = 0.95
-    beta: float = 2.0
+#     # noise and scale proposal parameters
+#     use_softplus_transform: bool = True
+#     sample_scale: bool = False
+#     gamma_prior_shape: float = 2.5
+#     gamma_prior_rate: float = 9.0
 
-    # transition type probabilities
-    grow_prune_weight: float = 0.5
-    change_weight: float = 1.0
+#     # node depth prior
+#     alpha: float = 0.95
+#     beta: float = 2.0
 
-    num_chains: int = 1
-    verbose: bool = False
+#     # transition type probabilities
+#     grow_prune_weight: float = 0.5
+#     change_weight: float = 1.0
 
-    @property
-    def proposal_weights(self):
-        p = np.array(
-            [self.grow_prune_weight, self.grow_prune_weight, self.change_weight]
-        )
-        return p / np.sum(p)
+#     num_chains: int = 1
+#     verbose: bool = False
+
+#     @property
+#     def proposal_weights(self):
+#         p = np.array(
+#             [self.grow_prune_weight, self.grow_prune_weight, self.change_weight]
+#         )
+#         return p / np.sum(p)
+
+BARK_JITCLASS_SPEC = [
+    ("warmup_steps", nb.int64),
+    ("num_samples", nb.int64),
+    ("steps_per_sample", nb.int64),
+    ("num_chains", nb.int64),
+    ("alpha", nb.float64),
+    ("beta", nb.float64),
+    ("proposal_weights", nb.float64[:]),
+    ("verbose", nb.bool_),
+    ("use_softplus_transform", nb.bool_),
+    ("sample_scale", nb.bool_),
+    ("gamma_prior_shape", nb.float64),
+    ("gamma_prior_rate", nb.float64),
+]
 
 
-@jitclass(
-    [
-        ("warmup_steps", nb.int64),
-        ("num_samples", nb.int64),
-        ("steps_per_sample", nb.int64),
-        ("num_chains", nb.int64),
-        ("alpha", nb.float64),
-        ("beta", nb.float64),
-        ("proposal_weights", nb.float64[:]),
-        ("verbose", nb.bool_),
-    ]
-)
+@jitclass(BARK_JITCLASS_SPEC)
 class BARKTrainParamsNumba:
     def __init__(
         self,
@@ -65,6 +73,10 @@ class BARKTrainParamsNumba:
         beta,
         proposal_weights,
         verbose,
+        use_softplus_transform,
+        sample_scale,
+        gamma_prior_shape,
+        gamma_prior_rate,
     ):
         self.warmup_steps = warmup_steps
         self.num_samples = num_samples
@@ -74,16 +86,14 @@ class BARKTrainParamsNumba:
         self.beta = beta
         self.proposal_weights = proposal_weights
         self.verbose = verbose
-
-
-def _bark_params_to_jitclass(params: BARKTrainParams):
-    kwargs = asdict(params)
-    kwargs.pop("grow_prune_weight"), kwargs.pop("change_weight")
-    return BARKTrainParamsNumba(proposal_weights=params.proposal_weights, **kwargs)
+        self.use_softplus_transform = use_softplus_transform
+        self.sample_scale = sample_scale
+        self.gamma_prior_shape = gamma_prior_shape
+        self.gamma_prior_rate = gamma_prior_rate
 
 
 def run_bark_sampler(
-    model: ModelT, data: DataT, domain: Domain, params: BARKTrainParams
+    model: ModelT, data: DataT, domain: Domain, params: BARKTrainParamsNumba
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Generate samples from the BARK posterior"""
 
@@ -100,10 +110,8 @@ def run_bark_sampler(
 
     feat_type = get_feature_types_array(domain)
 
-    params_struct = _bark_params_to_jitclass(params)
-
     samples = _run_bark_sampler_multichain(
-        forest, noise, scale, train_x, train_y, bounds, feat_type, params_struct
+        forest, noise, scale, train_x, train_y, bounds, feat_type, params
     )
 
     return samples
@@ -255,7 +263,7 @@ def _step_bark_sampler(
             cur_mll = new_mll
             forest[tree_idx] = new_nodes
 
-    (new_noise, new_scale), log_q_prior = get_noise_scale_proposal(noise, scale)
+    (new_noise, new_scale), log_q_prior = get_noise_scale_proposal(noise, scale, params)
     K_XX = new_scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
     K_XX_s = K_XX + new_noise * np.eye(K_XX.shape[0])
     new_K_inv = np.linalg.inv(K_XX_s)

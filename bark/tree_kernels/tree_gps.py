@@ -74,7 +74,8 @@ def forest_predict(
     data: tuple[np.ndarray, np.ndarray],
     candidates: np.ndarray,
     domain: Domain,
-) -> np.ndarray:
+    diag: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
     forest, noise, scale = model
     forest = forest.reshape(-1, *forest.shape[-2:])
     noise = noise.reshape(-1)
@@ -99,5 +100,24 @@ def forest_predict(
     var = scale[:, None, None] - K_xX @ K_inv @ K_xX.transpose((0, 2, 1))
 
     mu = mu.reshape(num_samples, num_candidates)
-    var = np.diagonal(var, axis1=1, axis2=2)
+    if diag:
+        var = np.diagonal(var, axis1=1, axis2=2)
     return mu, var
+
+
+def mixture_of_gaussians_as_normal(
+    mu: np.ndarray,
+    var: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Find the mean and variance of a mixture of Gaussians.
+
+    Since we take samples from the posterior, where each sample has a normal
+    distribution over the output, we obtain a prediction that is a mixture of
+    Gaussians. If f(y) = \sum_j (1/J)*N(y; mu_j, var_j), then the mean and variance
+    of f(y) are given by:
+    E[Y] = (1/J) * \sum_j mu_j
+    Var[Y] = (1/J) * \sum_j {var_j + \mu_j^2} - ((1/J) * \sum_j mu_j)^2
+    """
+    mu_y = np.mean(mu, axis=0)
+    var_y = np.mean(var + mu**2, axis=0) - mu_y**2
+    return mu_y, var_y
