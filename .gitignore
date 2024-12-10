@@ -6,5 +6,7 @@ models
 *.csv
 *.json
 *.log
+*.pbs.ER
+*.pbs.OU
 results/
 venv/

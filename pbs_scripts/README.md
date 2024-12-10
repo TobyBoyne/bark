@@ -20,7 +20,4 @@ Then make sure gurobi has access to a license, by making a `~/gurobi.lic` file w
 TOKENSERVER=gurobi.cc.ic.ac.uk
 ```
 
-Then simply edit the PBS script to select the correct config, and number of replicates and run!
-```bash
-...
-```
+Then you can use the script `generate_and_submit.py` to create the correct PBS job and submit it. This is essentially a wrapper for PBS so you don't need to be familiar with it as well as enabling a command line interface with default values.
