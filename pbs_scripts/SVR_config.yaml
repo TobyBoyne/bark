@@ -1,0 +1,11 @@
+benchmark: SVRBench
+num_init: 30 # Max(2*D,30)
+num_iter: 100
+model: BARK
+
+model_params:
+  num_chains: 4
+  num_samples: 10
+  steps_per_sample: 50
+  warmup_steps: 1000
+  verbose: True

@@ -1,0 +1,16 @@
+#!/bin/bash
+#PBS -l select=${nodes}:ncpus=${cpus}:mem=${mem}gb
+#PBS -l walltime=${duration}
+${jobs_directive}
+#PBS -o ${out_dir}/stdout
+#PBS -e ${out_dir}/stderr
+#PBS -N ${job_name}
+
+${define_jobid}
+
+eval "$$(~/miniforge3/bin/conda shell.bash hook)"
+conda activate bark
+cd $${PBS_O_WORKDIR}
+echo "Running ${job_name} from $${PBS_O_WORKDIR} at $$(date)"
+
+python ../examples/bayes_opt/bark_study_strategy.py -s ${seed} -c ${config_path} -o ${out_dir}
