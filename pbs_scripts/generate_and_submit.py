@@ -29,9 +29,9 @@ if __name__ == "__main__":
                     help='Number of nodes to request')
     parser.add_argument('--cpus', type=int, default=1,
                     help='Number of CPUs per node')
-    parser.add_argument('--mem', type=int, default=4,
+    parser.add_argument('--mem', type=int, default=32,
                     help='Memory in GB per node')
-    parser.add_argument('--duration', type=str, default=1,
+    parser.add_argument('--duration', type=str, default=7,
                     help='Duration of the job in hours')
     args = parser.parse_args()
 
