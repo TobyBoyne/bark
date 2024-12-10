@@ -12,6 +12,7 @@ from .unconstrained import (
     StyblinskiTang,
 )
 from .xgboost_mnist import XGBoostMNIST
+from .svr_bench import SVRBench
 
 BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # unconstrained spaces
@@ -36,6 +37,7 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     "CatAckley": CatAckley,
     # multi-fidelity
     # "currin": CurrinExp2D,
+    "SVRBench": SVRBench,
 }
 
 
