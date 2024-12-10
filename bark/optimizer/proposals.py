@@ -46,7 +46,9 @@ def propose(
     cat_idx = get_cat_idx_from_domain(domain)
     input_features = domain.inputs.get()
 
-    next_x_area, next_val = _get_global_sol(input_features, cat_idx, opt_model)
+    next_x_area, next_val = _get_global_sol(
+        input_features, cat_idx, opt_model
+    )
 
     # add epsilon if input constr. exist
     # i.e. tree splits are rounded to the 5th decimal when adding them to the model,
@@ -68,7 +70,12 @@ def propose(
     return next_center
 
 
-def _get_global_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
+def _get_global_sol(
+    input_feats: Inputs,
+    cat_idx: set[int],
+    opt_model: gp.Model,
+    time_limit: int = 100,
+):
     # provides global solution to the optimization problem
 
     # build main model
@@ -76,7 +83,7 @@ def _get_global_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model)
     ## set solver parameters
     opt_model.Params.LogToConsole = 0
     opt_model.Params.Heuristics = 0.2
-    opt_model.Params.TimeLimit = 100
+    opt_model.Params.TimeLimit = time_limit
     opt_model.Params.MIPGap = 0.10
 
     ## optimize opt_model to determine area to focus on
@@ -85,14 +92,23 @@ def _get_global_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model)
     var_bnds = [get_feature_bounds(feat, encoding="ordinal") for feat in input_feats]
 
     # get active leaf area
+    errors = []
     for label, gbm_model in opt_model._gbm_models.items():
+        present_solns = [
+            (tree_id, leaf_enc) for tree_id, leaf_enc in label_leaf_index(opt_model, label)
+            if hasattr(opt_model._z_l[label, tree_id, leaf_enc], "x")
+        ]
+        if not present_solns:
+            errors.append(label)
         active_enc = [
             (tree_id, leaf_enc)
-            for tree_id, leaf_enc in label_leaf_index(opt_model, label)
+            for tree_id, leaf_enc in present_solns
             if round(opt_model._z_l[label, tree_id, leaf_enc].x) == 1.0
         ]
         gbm_model.update_var_bounds(active_enc, var_bnds)
-
+    if errors:
+        # Would use exceptiongroups but not supported by python 3.10
+        raise ValueError(f"No active solutions found for labels {errors}")
     # reading x_val
     next_x = get_opt_sol(input_feats, cat_idx, opt_model)
 
