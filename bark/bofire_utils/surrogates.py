@@ -108,6 +108,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         self.forest = None
         self.noise = None
         self.scale = None
+        self.train_data = None
 
         super().__init__(data_model)
 
@@ -117,9 +118,6 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         self.forest = np.tile(forest, (self.num_chains, 1, 1, 1))
         self.noise = np.tile(0.1, (self.num_chains, 1))
         self.scale = np.tile(1.0, (self.num_chains, 1))
-
-        # store training data for posterior predictions
-        self.train_data = None
 
     def model_as_tuple(self) -> None | tuple[np.ndarray, np.ndarray, np.ndarray]:
         model = (self.forest, self.noise, self.scale)
