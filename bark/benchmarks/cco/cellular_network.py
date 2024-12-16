@@ -34,9 +34,7 @@ class CCOBench(Benchmark):
         """Initialize CCO benchmark.
         
         Args:
-            data: Power maps data dictionary
             n_int_values: Number of integer values for downtilt (6 or 11)
-            scalarize: Whether to return scalar objective or vector of objectives
         """
         super().__init__(**kwargs)
         
