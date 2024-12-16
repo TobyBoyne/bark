@@ -13,6 +13,7 @@ from .unconstrained import (
 )
 from .xgboost_mnist import XGBoostMNIST
 from .svr_bench import SVRBench
+from .cco.cellular_network import CCOBench
 
 BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # unconstrained spaces
@@ -38,6 +39,7 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # multi-fidelity
     # "currin": CurrinExp2D,
     "SVRBench": SVRBench,
+    "CCOBench": CCOBench,
 }
 
 
