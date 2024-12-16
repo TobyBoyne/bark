@@ -5,7 +5,7 @@ from numba import njit
 @njit
 def next_power_of_2(x):
     p = 1
-    while x > p:
+    while x >= p:
         p <<= 1
     return p
 
@@ -14,7 +14,7 @@ def next_power_of_2(x):
 def next_power_of_2_exponent(x):
     p = 1
     e = 0
-    while x > p:
+    while x >= p:
         p <<= 1
         e += 1
     return e

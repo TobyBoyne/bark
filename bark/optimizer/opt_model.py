@@ -25,6 +25,7 @@ def build_opt_model_from_forest(
 ):
     opt_model = get_opt_core_copy(model_core)
     train_x, train_y = data
+    train_y = (train_y - train_y.mean()) / train_y.std()
 
     # unpack samples
     forest_samples, noise_samples, scale_samples = gp_samples

@@ -328,7 +328,7 @@ class GbmNode(GbmType):
             )
 
     def __repr__(self):
-        return ", ".join([str(x) for x in [self.split_var, self.split_code_pred]])
+        return f"GbmNode(feat_idx={self.split_var}, threshold={self.split_code_pred}, left={self.left}, right={self.right})"
 
     def _get_next_node(self, direction):
         return self.right if int(direction) else self.left
@@ -450,7 +450,7 @@ class LeafNode(GbmType):
         self.leaf_id = leaf_id
 
     def __repr__(self):
-        return ", ".join([str(x) for x in ["LeafNode", self.split_code_pred]])
+        return "L"
 
     def switch_to_maximisation(self):
         """Changes the sign of tree model prediction by changing signs of
