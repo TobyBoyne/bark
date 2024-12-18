@@ -1,3 +1,5 @@
+import logging
+
 import gurobipy as gp
 import numpy as np
 from beartype.typing import Optional
@@ -12,26 +14,26 @@ from .opt_core import (
     label_leaf_index,
 )
 
+logging.getLogger("gurobipy").setLevel(logging.ERROR)
+
 
 def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
     # get optimal solution from gurobi model
     next_x = []
     for idx, feat in enumerate(input_feats):
         x_val = None
-        if idx in cat_idx:
-            # check which category is active
-            for cat_i in range(len(feat.categories)):
-                if opt_model._cat_var_dict[idx][cat_i].x > 0.5:
-                    x_val = cat_i
-        else:
-            try:
+        try:
+            if idx in cat_idx:
+                # check which category is active
+                for cat_i in range(len(feat.categories)):
+                    if opt_model._cat_var_dict[idx][cat_i].x > 0.5:
+                        x_val = cat_i
+            else:
                 x_val = opt_model._cont_var_dict[idx].x
-            except AttributeError:
-                pass
 
-        if x_val is None:
+        except AttributeError:
             raise ValueError(
-                f"'get_opt_sol' wasn't able to extract solution for feature {idx}"
+                f"Gurobi was unable to converge; ended with status code {opt_model.Status} (failed on{feat.key}). See https://docs.gurobi.com/projects/optimizer/en/current/reference/numericcodes/statuscodes.html#secstatuscodes for more information."
             )
 
         next_x.append(x_val)
@@ -68,7 +70,12 @@ def propose(
     return next_center
 
 
-def _get_global_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
+def _get_global_sol(
+    input_feats: Inputs,
+    cat_idx: set[int],
+    opt_model: gp.Model,
+    time_limit: int = 100,
+):
     # provides global solution to the optimization problem
 
     # build main model
@@ -76,22 +83,36 @@ def _get_global_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model)
     ## set solver parameters
     opt_model.Params.LogToConsole = 0
     opt_model.Params.Heuristics = 0.2
-    opt_model.Params.TimeLimit = 100
+    opt_model.Params.TimeLimit = time_limit
+    opt_model.Params.MIPGap = 0.10
+    opt_model.Params.LogFile = "gurobi.log"
+    opt_model.Params.MIPFocus = 0
+    opt_model.Params.NonConvex = 0
 
     ## optimize opt_model to determine area to focus on
     opt_model.optimize()
 
-    var_bnds = [get_feature_bounds(feat, ordinal_encoding=True) for feat in input_feats]
+    var_bnds = [get_feature_bounds(feat, encoding="ordinal") for feat in input_feats]
 
     # get active leaf area
+    errors = []
     for label, gbm_model in opt_model._gbm_models.items():
-        active_enc = [
+        present_solns = [
             (tree_id, leaf_enc)
             for tree_id, leaf_enc in label_leaf_index(opt_model, label)
+            if hasattr(opt_model._z_l[label, tree_id, leaf_enc], "x")
+        ]
+        if not present_solns:
+            errors.append(label)
+        active_enc = [
+            (tree_id, leaf_enc)
+            for tree_id, leaf_enc in present_solns
             if round(opt_model._z_l[label, tree_id, leaf_enc].x) == 1.0
         ]
         gbm_model.update_var_bounds(active_enc, var_bnds)
-
+    if errors:
+        # Would use exceptiongroups but not supported by python 3.10
+        raise ValueError(f"No active solutions found for labels {errors}")
     # reading x_val
     next_x = get_opt_sol(input_feats, cat_idx, opt_model)
 
@@ -118,30 +139,9 @@ def _get_leaf_center(x_area, input_feats: Inputs, cat_idx: set[int]):
             lb, ub = x_area[idx]
             xi = lb + (ub - lb) / 2
             if isinstance(feat, DiscreteInput):
-                xi = int(xi)
-
-            # TODO: address binary variables
-            # if space.dims[idx].is_bin:
-            #     # for bin vars
-            #     if lb == 0 and ub == 1:
-            #         xi = int(np.random.randint(0, 2))
-            #     elif lb <= 0.1:
-            #         xi = 0
-            #     elif ub >= 0.9:
-            #         xi = 1
-            #     else:
-            #         raise ValueError(
-            #             "problem with binary split, go to 'get_leaf_center'"
-            #         )
-
-            # if idx in space.int_idx:
-            #     # for int vars
-            #     lb, ub = round(lb), round(ub)
-            #     m = lb + (ub - lb) / 2
-            #     xi = int(np.random.choice([int(m), round(m)], size=1)[0])
-
-            # else:
-            #     # for conti vars
+                xi_floor = int(np.floor(xi))
+                xi_remainder = xi - xi_floor
+                xi = xi_floor + np.random.binomial(1, xi_remainder, size=1).item()
 
         next_x.append(xi)
     return next_x

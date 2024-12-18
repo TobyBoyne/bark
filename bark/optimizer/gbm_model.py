@@ -5,6 +5,9 @@ import collections as coll
 import numpy as np
 
 from bark.forest import FeatureTypeEnum
+from bark.utils.bit_operations import next_power_of_2_exponent
+
+ThresholdT = float | list[int]
 
 
 def _build_tree(tree: np.ndarray, feature_types: np.ndarray) -> "GbmNode":
@@ -46,19 +49,19 @@ class GbmModel:
 
         self.n_trees = len(self.trees)
 
-    def get_leaf_encodings(self, tree):
+    def get_leaf_encodings(self, tree: int):
         yield from self.trees[tree].get_leaf_encodings()
 
-    def get_branch_encodings(self, tree):
+    def get_branch_encodings(self, tree: int):
         yield from self.trees[tree].get_branch_encodings()
 
-    def get_leaf_weight(self, tree, encoding):
+    def get_leaf_weight(self, tree: int, encoding):
         return self.trees[tree].get_leaf_weight(encoding)
 
-    def get_leaf_weights(self, tree):
+    def get_leaf_weights(self, tree: int):
         return self.trees[tree].get_leaf_weights()
 
-    def get_branch_partition_pair(self, tree, encoding):
+    def get_branch_partition_pair(self, tree: int, encoding):
         return self.trees[tree].get_branch_partition_pair(encoding)
 
     def get_left_leaves(self, tree, encoding):
@@ -67,25 +70,25 @@ class GbmModel:
     def get_right_leaves(self, tree, encoding):
         yield from (encoding + s for s in self.trees[tree].get_right_leaves(encoding))
 
-    def get_branch_partition_pairs(self, tree, leaf_encoding):
+    def get_branch_partition_pairs(self, tree: int, leaf_encoding):
         yield from self.trees[tree].get_branch_partition_pairs(leaf_encoding)
 
-    def get_participating_variables(self, tree, leaf):
+    def get_participating_variables(self, tree: int, leaf):
         return set(self.trees[tree].get_participating_variables(leaf))
 
-    def get_all_participating_variables(self, tree):
+    def get_all_participating_variables(self, tree: int):
         return set(self.trees[tree].get_all_participating_variables())
 
-    def get_var_lower(self, tree, leaf, var, lower):
+    def get_var_lower(self, tree: int, leaf, var, lower):
         return self.trees[tree].get_var_lower(leaf, var, lower)
 
-    def get_var_upper(self, tree, leaf, var, upper):
+    def get_var_upper(self, tree: int, leaf, var, upper):
         return self.trees[tree].get_var_upper(leaf, var, upper)
 
-    def get_var_interval(self, tree, leaf, var, var_interval):
+    def get_var_interval(self, tree: int, leaf, var, var_interval):
         return self.trees[tree].get_var_interval(leaf, var, var_interval)
 
-    def get_var_break_points(self):
+    def get_var_break_points(self) -> dict[int, list[float]]:
         var_breakpoints = {}
         for tree in self.trees:
             for var, breakpoint in tree.get_all_partition_pairs():
@@ -197,6 +200,9 @@ class GbmModel:
 
 
 class GbmType:
+    split_var: int
+    split_code_pred: ThresholdT
+
     def _populate_active_splits(self, active_splits, X):
         if isinstance(self.split_code_pred, list):
             if X[self.split_var] in self.split_code_pred:
@@ -297,15 +303,17 @@ class GbmNode(GbmType):
     """
 
     def __init__(self, tree: np.ndarray, node_idx: int, feature_types: np.ndarray):
-        feature_idx = tree[node_idx]["feature_idx"]
-        threshold = tree[node_idx]["threshold"]
+        feature_idx: int = tree[node_idx]["feature_idx"]
+        threshold: ThresholdT = tree[node_idx]["threshold"]
 
         self.split_var = feature_idx
-        self.split_code_pred = (
-            threshold
-            if feature_types[feature_idx] != FeatureTypeEnum.Cat.value
-            else [int(threshold)]
-        )
+        if feature_types[feature_idx] == FeatureTypeEnum.Cat.value:
+            threshold = [
+                i
+                for i in range(next_power_of_2_exponent(int(threshold)))
+                if (int(threshold) >> i) & 1
+            ]
+        self.split_code_pred = threshold
         # TODO: check categorical features
         child_idx = tree[node_idx]["left"]
         if tree[child_idx]["is_leaf"]:
@@ -325,7 +333,7 @@ class GbmNode(GbmType):
             )
 
     def __repr__(self):
-        return ", ".join([str(x) for x in [self.split_var, self.split_code_pred]])
+        return f"GbmNode(feat_idx={self.split_var}, threshold={self.split_code_pred}, left={self.left}, right={self.right})"
 
     def _get_next_node(self, direction):
         return self.right if int(direction) else self.left
@@ -447,7 +455,7 @@ class LeafNode(GbmType):
         self.leaf_id = leaf_id
 
     def __repr__(self):
-        return ", ".join([str(x) for x in ["LeafNode", self.split_code_pred]])
+        return "L"
 
     def switch_to_maximisation(self):
         """Changes the sign of tree model prediction by changing signs of

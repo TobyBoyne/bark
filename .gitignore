@@ -7,3 +7,4 @@ models
 *.json
 *.log
 results/
+venv/

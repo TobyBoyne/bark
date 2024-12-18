@@ -1,5 +1,8 @@
 import argparse
+import logging
 import pathlib
+import sys
+from time import perf_counter
 from typing import TypedDict
 
 import bofire.strategies.api as strategies
@@ -16,6 +19,9 @@ from bark.forest import create_empty_forest
 from bark.optimizer.opt_core import get_opt_core_from_domain
 from bark.optimizer.opt_model import build_opt_model_from_forest
 from bark.optimizer.proposals import propose
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 class Config(TypedDict):
@@ -48,7 +54,7 @@ def main(seed: int, config: Config):
     noise = np.tile(0.1, (bark_params.num_chains,))
     scale = np.tile(1.0, (bark_params.num_chains,))
 
-    print("\n* * * start bo loop...")
+    logger.info("Start BO loop")
     for itr in range(config["num_iter"]):
         train_x_transformed = domain.inputs.transform(train_x, transform_specs)
         train_x_transformed = train_x_transformed.to_numpy()
@@ -56,6 +62,8 @@ def main(seed: int, config: Config):
             :, None
         ]
         data_numpy = (train_x_transformed, train_y_transformed)
+        t = perf_counter()
+        logger.info("Start sampling")
         samples = run_bark_sampler(
             model=(forest, noise, scale),
             data=data_numpy,
@@ -64,7 +72,7 @@ def main(seed: int, config: Config):
         )
 
         bark_params.warmup_steps = 0
-        print("Training complete")
+        logger.info(f"Finished sampling: took {perf_counter() - t} seconds")
 
         # get new proposal and evaluate bb_func
         opt_model = build_opt_model_from_forest(
@@ -79,7 +87,7 @@ def main(seed: int, config: Config):
         forest = samples[0][:, -1, :, :]
         noise = samples[1][:, -1]
         scale = samples[2][:, -1]
-
+        opt_model.Params.LogFile = "gurobi.log"
         next_x = propose(benchmark.domain, opt_model, model_core)
         candidate = pd.DataFrame(data=[next_x], columns=domain.inputs.get_keys())
         candidate_inv_transform = domain.inputs.inverse_transform(
@@ -91,8 +99,8 @@ def main(seed: int, config: Config):
         train_x = pd.concat((train_x, candidate_inv_transform), ignore_index=True)
         train_y = pd.concat((train_y, next_y), ignore_index=True)
 
-        print(f"{itr}. min_val: {min(train_y):.5f}")
-
+        logger.info(f"Min value at iteration {itr}: {min(train_y):.5f}")
+        # np.save("forest.npy", samples[0])
     return train_x, train_y
 
 

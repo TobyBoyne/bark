@@ -13,6 +13,7 @@ NODE_RECORD_DTYPE = np.dtype(
         ("threshold", np.float32),
         ("left", np.uint32),
         ("right", np.uint32),
+        ("parent", np.uint32),
         ("depth", np.uint32),
         ("active", np.uint8),
     ]
@@ -36,7 +37,8 @@ def _pass_one_through_tree(nodes, X, feat_types):
             return node_idx
 
         if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-            cond = X[feature_idx] == node["threshold"]
+            bit = 1 << int(X[feature_idx])
+            cond = bit & int(node["threshold"])
         else:
             cond = X[feature_idx] <= node["threshold"]
 
@@ -46,7 +48,7 @@ def _pass_one_through_tree(nodes, X, feat_types):
             node_idx = node["right"]
 
 
-@njit(parallel=True)
+@njit(parallel=False)
 def pass_through_tree(nodes, X, feat_types):
     out = np.empty(X.shape[0], dtype=np.uint32)
     for i in prange(X.shape[0]):
@@ -54,7 +56,7 @@ def pass_through_tree(nodes, X, feat_types):
     return out
 
 
-@njit(parallel=True)
+@njit(parallel=False)
 def pass_through_forest(
     nodes,
     X,
@@ -88,7 +90,7 @@ def forest_gram_matrix(
     return sim_mat
 
 
-@njit(parallel=True)
+@njit(parallel=False)
 def batched_forest_gram_matrix(nodes, x1, x2, feat_types):
     batch_dim = nodes.shape[-3]
     sim_mat = np.zeros((batch_dim, x1.shape[0], x2.shape[0]), dtype=np.float64)
@@ -97,7 +99,20 @@ def batched_forest_gram_matrix(nodes, x1, x2, feat_types):
     return sim_mat
 
 
+# @njit(parallel=False)
+def batched_forest_gram_matrix_no_null(nodes, x1, x2, feat_types):
+    """Compute the gram matrix after removing empty trees."""
+    sim_mat = batched_forest_gram_matrix(nodes, x1, x2, feat_types)
+
+    num_trees = nodes.shape[-2]
+    num_null_trees = np.sum(nodes[:, :, 0]["is_leaf"], axis=-1)[:, None, None]
+    num_non_null_trees = num_trees - num_null_trees
+
+    scale = nodes.shape[-2] / np.maximum(num_non_null_trees, 1)
+    return (sim_mat - num_null_trees / num_trees) * scale
+
+
 def create_empty_forest(m: int, node_limit: int = 100):
     forest = np.zeros((m, node_limit), dtype=NODE_RECORD_DTYPE)
-    forest[:, 0] = (1, 0, 0, 0, 0, 0, 1)
+    forest[:, 0] = (1, 0, 0, 0, 0, -1, 0, 1)
     return forest

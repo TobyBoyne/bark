@@ -7,7 +7,7 @@ import pandas as pd
 import sympy
 from bofire.data_models.constraints.api import (
     AnyConstraint,
-    EqalityConstraint,
+    EqualityConstraint,
     InequalityConstraint,
     IntrapointConstraint,
     LinearConstraint,
@@ -87,7 +87,7 @@ class FunctionalConstraint(NonlinearConstraint):
         raise NotImplementedError()
 
 
-class QuadraticEqualityConstraint(QuadraticConstraint, EqalityConstraint):
+class QuadraticEqualityConstraint(QuadraticConstraint, EqualityConstraint):
     type: Literal["QuadraticEqualityConstraint"] = "QuadraticEqualityConstraint"
 
 
@@ -95,7 +95,7 @@ class QuadraticInequalityConstraint(QuadraticConstraint, InequalityConstraint):
     type: Literal["QuadraticInequalityConstraint"] = "QuadraticInequalityConstraint"
 
 
-class FunctionalEqualityConstraint(FunctionalConstraint, EqalityConstraint):
+class FunctionalEqualityConstraint(FunctionalConstraint, EqualityConstraint):
     type: Literal["FunctionalEqualityConstraint"] = "FunctionalEqualityConstraint"
 
 
@@ -114,7 +114,9 @@ ExtendedAnyConstraint = (
 
 def _expr_to_equality(expr: GurobiExpressionT, constraint: ExtendedAnyConstraint):
     rhs = constraint.rhs
-    return (expr == rhs) if isinstance(constraint, EqalityConstraint) else (expr <= rhs)
+    return (
+        (expr == rhs) if isinstance(constraint, EqualityConstraint) else (expr <= rhs)
+    )
 
 
 def apply_constraint_to_model(
