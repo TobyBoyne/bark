@@ -1,3 +1,5 @@
+import logging
+
 import gurobipy as gp
 import numpy as np
 from beartype.typing import Optional
@@ -12,26 +14,26 @@ from .opt_core import (
     label_leaf_index,
 )
 
+logging.getLogger("gurobipy").setLevel(logging.ERROR)
+
 
 def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
     # get optimal solution from gurobi model
     next_x = []
     for idx, feat in enumerate(input_feats):
         x_val = None
-        if idx in cat_idx:
-            # check which category is active
-            for cat_i in range(len(feat.categories)):
-                if opt_model._cat_var_dict[idx][cat_i].x > 0.5:
-                    x_val = cat_i
-        else:
-            try:
+        try:
+            if idx in cat_idx:
+                # check which category is active
+                for cat_i in range(len(feat.categories)):
+                    if opt_model._cat_var_dict[idx][cat_i].x > 0.5:
+                        x_val = cat_i
+            else:
                 x_val = opt_model._cont_var_dict[idx].x
-            except AttributeError:
-                pass
 
-        if x_val is None:
+        except AttributeError:
             raise ValueError(
-                f"'get_opt_sol' wasn't able to extract solution for feature {idx}"
+                f"Gurobi was unable to converge; ended with status code {opt_model.Status} (failed on{feat.key}). See https://docs.gurobi.com/projects/optimizer/en/current/reference/numericcodes/statuscodes.html#secstatuscodes for more information."
             )
 
         next_x.append(x_val)
@@ -83,6 +85,9 @@ def _get_global_sol(
     opt_model.Params.Heuristics = 0.2
     opt_model.Params.TimeLimit = time_limit
     opt_model.Params.MIPGap = 0.10
+    opt_model.Params.LogFile = "gurobi.log"
+    opt_model.Params.MIPFocus = 0
+    opt_model.Params.NonConvex = 0
 
     ## optimize opt_model to determine area to focus on
     opt_model.optimize()
