@@ -1,8 +1,11 @@
+import logging
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from bofire.data_models.strategies.api import RandomStrategy as RandomStrategyDM
 from bofire.data_models.types import InputTransformSpecs
+from bofire.strategies.api import RandomStrategy
 from bofire.strategies.predictives.predictive import PredictiveStrategy
 
 from bark.bofire_utils.data_models.strategies import TreeKernelStrategy as DataModel
@@ -12,6 +15,8 @@ from bark.bofire_utils.surrogates import BARKSurrogate
 from bark.optimizer.opt_core import get_opt_core_from_domain
 from bark.optimizer.opt_model import build_opt_model_from_forest
 from bark.optimizer.proposals import propose
+
+logger = logging.getLogger(__name__)
 
 
 class TreeKernelStrategy(PredictiveStrategy):
@@ -42,7 +47,14 @@ class TreeKernelStrategy(PredictiveStrategy):
             model_core=self.model_core,
         )
 
-        candidate = propose(self.domain, opt_model, self.model_core)
+        try:
+            candidate = propose(self.domain, opt_model, self.model_core)
+        except ValueError:
+            logger.warning("Failed to optimize acqf, proposing random candidate.")
+            random_strategy_dm = RandomStrategyDM(domain=self.domain, seed=self.seed)
+            random_strategy = RandomStrategy(random_strategy_dm)
+            candidate_df = random_strategy.ask(1)[self.domain.inputs.get_keys()]
+            candidate = candidate_df.iloc[0].to_list()
         return self._postprocess_candidate(candidate)
 
     def _postprocess_candidate(self, candidate: list) -> pd.DataFrame:
