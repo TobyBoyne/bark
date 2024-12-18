@@ -80,11 +80,13 @@ class WeldedBeam(Benchmark):
             ),
         )
 
+    def unpack_inputs(self, x):
+        vars = {k: x[i] for i, k in enumerate(self.domain.inputs.get_keys())}
+        return vars["w"], vars["m"], vars["h"], vars["l"], vars["t"], vars["b"]
 
-    @staticmethod
-    def _get_beam_params(x):
+    def _get_beam_params(self, x):
         """Calculate beam parameters for a single configuration"""
-        w, m, h, l, t, b = x
+        w, m, h, l, t, b = self.unpack_inputs(x)
         
         if w == 0:
             # TODO: think if we want to use sqrt from corelib or sth else?
@@ -111,7 +113,7 @@ class WeldedBeam(Benchmark):
         
         costs = []
         for xi in x:
-            w, m, h, l, t, b = xi
+            w, m, h, l, t, b = self.unpack_inputs(xi)
             C1, C2, _, _, _ = self.material_params[int(m)]
             cost = (1 + C1) * (w * t + l) * h**2 + C2 * t * b * (self.L + l)
             costs.append(cost)
@@ -121,7 +123,7 @@ class WeldedBeam(Benchmark):
 
     def _constraint_g1(self, x, model_core=None):
         """Shear stress constraint"""
-        w, m, h, l, t, b = x
+        w, m, h, l, t, b = self.unpack_inputs(x)
         A, J, R, cos_theta = self._get_beam_params(x)
         _, _, sigma_d, _, _ = self.material_params[int(m)]
         
@@ -133,7 +135,7 @@ class WeldedBeam(Benchmark):
 
     def _constraint_g2(self, x, model_core=None):
         """Normal stress constraint"""
-        w, m, h, l, t, b = x
+        w, m, h, l, t, b = self.unpack_inputs(x)
         _, _, sigma_d, _, _ = self.material_params[int(m)]
         
         sigma = 6 * self.F * self.L / (t**2 * b)
@@ -141,12 +143,12 @@ class WeldedBeam(Benchmark):
 
     def _constraint_g3(self, x, model_core=None):
         """Width constraint"""
-        _, _, h, _, _, b = x
+        _, _, h, _, _, b = self.unpack_inputs(x)
         return h - b
 
     def _constraint_g4(self, x, model_core=None):
         """Buckling load constraint"""
-        w, m, h, l, t, b = x
+        w, m, h, l, t, b = self.unpack_inputs(x)
         _, _, _, E, G = self.material_params[int(m)]
         
         P_c = (4.013 * t * b**3 * sqrt(E * G) / (6 * self.L**2) * 
@@ -155,7 +157,7 @@ class WeldedBeam(Benchmark):
 
     def _constraint_g5(self, x, model_core=None):
         """Deflection constraint"""
-        w, m, h, l, t, b = x
+        w, m, h, l, t, b = self.unpack_inputs(x)
         _, _, _, E, _ = self.material_params[int(m)]
         
         delta = 4 * self.F * self.L**3 / (E * t**3 * b)
