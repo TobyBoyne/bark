@@ -99,6 +99,19 @@ def batched_forest_gram_matrix(nodes, x1, x2, feat_types):
     return sim_mat
 
 
+# @njit(parallel=False)
+def batched_forest_gram_matrix_no_null(nodes, x1, x2, feat_types):
+    """Compute the gram matrix after removing empty trees."""
+    sim_mat = batched_forest_gram_matrix(nodes, x1, x2, feat_types)
+
+    num_trees = nodes.shape[-2]
+    num_null_trees = np.sum(nodes[:, :, 0]["is_leaf"], axis=-1)[:, None, None]
+    num_non_null_trees = num_trees - num_null_trees
+
+    scale = nodes.shape[-2] / np.maximum(num_non_null_trees, 1)
+    return (sim_mat - num_null_trees / num_trees) * scale
+
+
 def create_empty_forest(m: int, node_limit: int = 100):
     forest = np.zeros((m, node_limit), dtype=NODE_RECORD_DTYPE)
     forest[:, 0] = (1, 0, 0, 0, 0, -1, 0, 1)

@@ -1,3 +1,5 @@
+import logging
+
 import gurobipy as gp
 import numpy as np
 from beartype.typing import Optional
@@ -11,6 +13,8 @@ from .opt_core import (
     get_opt_core_copy,
     label_leaf_index,
 )
+
+logging.getLogger("gurobipy").setLevel(logging.ERROR)
 
 
 def get_opt_sol(input_feats: Inputs, cat_idx: set[int], opt_model: gp.Model):
@@ -82,7 +86,7 @@ def _get_global_sol(
     opt_model.Params.TimeLimit = time_limit
     opt_model.Params.MIPGap = 0.10
     opt_model.Params.LogFile = "gurobi.log"
-    opt_model.Params.MIPFocus = 3
+    opt_model.Params.MIPFocus = 0
     opt_model.Params.NonConvex = 0
 
     ## optimize opt_model to determine area to focus on

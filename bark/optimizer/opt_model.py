@@ -9,7 +9,7 @@ from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 
 from bark.bofire_utils.domain import get_cat_idx_from_domain, get_feature_types_array
-from bark.forest import batched_forest_gram_matrix
+from bark.forest import batched_forest_gram_matrix_no_null
 from bark.tree_kernels.tree_gps import LeafGP, LeafMOGP
 
 from .gbm_model import GbmModel
@@ -51,7 +51,7 @@ def build_opt_model_from_forest(
     feature_types = get_feature_types_array(domain)
     add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
 
-    K_XX = scale_samples[:, None, None] * batched_forest_gram_matrix(
+    K_XX = scale_samples[:, None, None] * batched_forest_gram_matrix_no_null(
         forest_samples, train_x, train_x, feature_types
     )
     K_XX_s = K_XX + noise_samples[:, None, None] * np.eye(num_data)
@@ -111,10 +111,57 @@ def build_opt_model_from_forest(
     opt_model.setObjective(expr=obj, sense=GRB.MINIMIZE)
 
     ## add mu variable
-    opt_model._sub_z_mu = MVar.fromlist(sub_k.values())
-    opt_model._mu_coeff = lin_term
+    # opt_model._sub_z_mu = MVar.fromlist(sub_k.values())
+    # opt_model._mu_coeff = lin_term
 
     return opt_model
+
+
+def warm_start_from_candidate(
+    # domain: Domain,
+    # model: tuple[np.ndarray, float, float],
+    # data: tuple[np.ndarray, np.ndarray],
+    # kappa: float,
+    # model_core: gp.Model,
+    candidates: np.ndarray,
+    domain: Domain,
+    opt_model: gp.Model,
+):
+    """
+
+    ."""
+    gbm_model_dict = opt_model._gbm_models
+    opt_model.NumStart = candidates.shape[0]
+    opt_model.update()
+
+    test_arr = []
+
+    for start in range(opt_model.NumStart):
+        opt_model.params.StartNumber = start
+        opt_model.update()
+        x = candidates[start]
+
+        # set continuous variables
+        for idx, var_name in enumerate(domain.inputs.get_keys()):
+            opt_model.getVarByName(var_name).Start = x[idx]
+        # TODO: set cat variables
+
+        # set leaf variables
+        for i, (gbm_name, gbm_model) in enumerate(gbm_model_dict.items()):
+            gbm_model: GbmModel
+            act_leaves_x = gbm_model.get_active_leaves(x)
+            z_arr = []
+            for key, z in opt_model._z_l.items():
+                z_gbm_name, z_tree_idx, z_leaf_encoding = key
+                if z_gbm_name != gbm_name:
+                    continue
+
+                z.Start = 1 if act_leaves_x[z_tree_idx] == z_leaf_encoding else 0
+
+                # opt_model.addConstr(z == (1 if act_leaves_x[z_tree_idx] == z_leaf_encoding else 0))
+                z_arr.append(1 if act_leaves_x[z_tree_idx] == z_leaf_encoding else 0)
+
+            test_arr.append(z_arr)
 
 
 def build_opt_model_from_gp(
