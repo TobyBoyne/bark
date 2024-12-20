@@ -1,0 +1,16 @@
+benchmark: TreeFunction
+benchmark_params:
+  dim: 10
+  m: 50
+
+num_train: 100
+num_test: 1000
+model: BARK
+
+model_params:
+  warmup_steps: 1000
+  num_samples: 10
+  steps_per_sample: 50
+  num_chains: 4
+  m: 25
+  verbose: True

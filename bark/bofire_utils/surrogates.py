@@ -19,7 +19,6 @@ from bark.fitting.bark_sampler import (
 from bark.fitting.lgbm_fitting import fit_lgbm_forest, lgbm_to_bark_forest
 from bark.forest import create_empty_forest
 from bark.tree_kernels.tree_gps import forest_predict, mixture_of_gaussians_as_normal
-from bark.tree_kernels.tree_model_kernel import BARKTreeModelKernel
 
 
 def _bark_params_to_jitclass(data_model: BARKSurrogateDataModel):
@@ -168,7 +167,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         )
         mu_f, var_f = mixture_of_gaussians_as_normal(mu, var)
         # reshape to (n, 1) for the single output
-        return mu_f.reshape(-1, 1), var_f.reshape(-1, 1)
+        return mu_f.reshape(-1, 1), np.sqrt(var_f.reshape(-1, 1))
 
     def _dumps(self):
         pass
