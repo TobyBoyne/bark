@@ -357,11 +357,7 @@ class SimulatedRSRP:
         """
         # Check if the configurations format has the right shape
         try:
-            assert (
-                len(downtilts)
-                == len(tx_powers)
-                == self.num_total_sectors
-            )
+            assert len(downtilts) == len(tx_powers) == self.num_total_sectors
         except AssertionError:
             logging.error("Configurations shape doesn't fit")
 
@@ -577,7 +573,7 @@ class SimulatedRSRP:
 
     @staticmethod
     def get_metadata(
-        downtilts_maps: Dict[float, "SimulatedRSRP.Powermap"]
+        downtilts_maps: Dict[float, "SimulatedRSRP.Powermap"],
     ) -> "SimulatedRSRP.Metadata":
         """Analyze the maps and get information about sizes, resolution,
         and number of total sectors.

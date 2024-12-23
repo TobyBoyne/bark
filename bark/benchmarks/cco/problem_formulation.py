@@ -9,7 +9,6 @@ from typing import Tuple, Union
 
 import numpy as np
 
-
 """
 Problem formulation for the RF Coverage and Capacity Optimization (CCO) problem.
 """
@@ -39,7 +38,6 @@ class CCORasterBlanketFormulation:
     ):
         self.weak_coverage_threshold = weak_coverage_threshold
         self.over_coverage_threshold = over_coverage_threshold
-
 
     def get_reward_components(
         self, rsrp_map: np.ndarray, interference_map: np.ndarray
