@@ -5,7 +5,11 @@ from typing import TypedDict
 
 import yaml
 from bofire.data_models.domain.api import Domain
-from bofire.data_models.strategies.api import RandomStrategy, SoboStrategy
+from bofire.data_models.strategies.api import (
+    EntingStrategy,
+    RandomStrategy,
+    SoboStrategy,
+)
 
 from bark.benchmarks import map_benchmark
 from bark.bofire_utils.data_models.strategies.api import TreeKernelStrategy
@@ -52,6 +56,8 @@ def _get_strategy_datamodel(config: Config, domain: Domain):
                 **config.get("model_params", {}),
             ),
         )
+    if config["model"] == "Entmoot":
+        return EntingStrategy(domain=domain, seed=seed)
 
     raise KeyError(f"Strategy {config['model']} not found")
 
