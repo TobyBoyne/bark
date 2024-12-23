@@ -1,3 +1,5 @@
+from typing import NamedTuple
+
 import gpytorch as gpy
 import numpy as np
 from beartype.typing import Optional
@@ -6,7 +8,13 @@ from bofire.data_models.domain.api import Domain
 from bark.bofire_utils.domain import get_feature_types_array
 from bark.forest import FeatureTypeEnum, batched_forest_gram_matrix
 
-from .tree_model_kernel import BARKTreeModelKernel
+from .tree_model_kernel import TreeAgreementKernel
+
+
+class BARKModel(NamedTuple):
+    forest: np.ndarray
+    noise: np.ndarray
+    scale: np.ndarray
 
 
 class LeafGP(gpy.models.ExactGP):
@@ -23,7 +31,7 @@ class LeafGP(gpy.models.ExactGP):
 
         if feat_types is None:
             feat_types = np.full((train_inputs.shape[0],), FeatureTypeEnum.Cont.value)
-        tree_kernel = BARKTreeModelKernel(forest, feat_types)
+        tree_kernel = TreeAgreementKernel(forest, feat_types)
         self.covar_module = gpy.kernels.ScaleKernel(tree_kernel)
 
     def forward(self, x):
@@ -52,7 +60,7 @@ class LeafMOGP(gpy.models.ExactGP):
             feat_types = np.full((train_inputs.shape[0],), FeatureTypeEnum.Cont.value)
 
         self.mean_module = gpy.means.ZeroMean()
-        self.covar_module = BARKTreeModelKernel(forest, feat_types)
+        self.covar_module = TreeAgreementKernel(forest, feat_types)
         self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=num_tasks, rank=1)
         self.num_tasks = num_tasks
 
@@ -70,7 +78,7 @@ class LeafMOGP(gpy.models.ExactGP):
 
 
 def forest_predict(
-    model: tuple[np.ndarray, np.ndarray, np.ndarray],
+    model: BARKModel,
     data: tuple[np.ndarray, np.ndarray],
     candidates: np.ndarray,
     domain: Domain,

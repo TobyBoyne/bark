@@ -5,7 +5,7 @@ import torch
 from bark.forest import forest_gram_matrix
 
 
-class BARKTreeModelKernel(gpy.kernels.Kernel):
+class TreeAgreementKernel(gpy.kernels.Kernel):
     is_stationary = False
 
     def __init__(self, forest: np.ndarray, feat_types: np.ndarray):

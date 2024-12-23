@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import gurobipy as gp
 from beartype.typing import Optional
 from bofire.data_models.domain.api import Domain
@@ -10,6 +12,9 @@ from bofire.data_models.features.api import (
 from gurobipy import GRB, quicksum
 
 from bark.bofire_utils.constraints import apply_constraint_to_model
+
+if TYPE_CHECKING:
+    from bark.optimizer.gbm_model import GbmModel
 
 
 def get_opt_core(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
@@ -53,7 +58,7 @@ def get_opt_core(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
     return model
 
 
-def get_opt_core_copy(opt_core: gp.Model):
+def get_opt_core_copy(opt_core: gp.Model) -> gp.Model:
     """Create a copy of an optimization core."""
     new_opt_core = opt_core.copy()
     new_opt_core._n_feat = opt_core._n_feat
@@ -114,13 +119,13 @@ def get_opt_core_from_domain(domain: Domain, env: Optional[gp.Env] = None) -> gp
 ## gbt model helper functions
 
 
-def label_leaf_index(model, label):
+def label_leaf_index(model: gp.Model, label: str):
     for tree in range(model._num_trees(label)):
         for leaf in model._leaves(label, tree):
             yield (tree, leaf)
 
 
-def tree_index(model):
+def tree_index(model: gp.Model):
     for label in model._gbm_set:
         for tree in range(model._num_trees(label)):
             yield (label, tree)
@@ -129,7 +134,7 @@ def tree_index(model):
 tree_index.dimen = 2
 
 
-def leaf_index(model):
+def leaf_index(model: gp.Model):
     for label, tree in tree_index(model):
         for leaf in model._leaves(label, tree):
             yield (label, tree, leaf)
@@ -138,7 +143,7 @@ def leaf_index(model):
 leaf_index.dimen = 3
 
 
-def misic_interval_index(model):
+def misic_interval_index(model: gp.Model):
     for var in model._breakpoint_index:
         for j in range(len(model._breakpoints(var))):
             yield (var, j)
@@ -147,7 +152,7 @@ def misic_interval_index(model):
 misic_interval_index.dimen = 2
 
 
-def misic_split_index(model):
+def misic_split_index(model: gp.Model):
     gbm_models = model._gbm_models
     for label, tree in tree_index(model):
         for encoding in gbm_models[label].get_branch_encodings(tree):
@@ -157,7 +162,7 @@ def misic_split_index(model):
 misic_split_index.dimen = 3
 
 
-def alt_interval_index(model):
+def alt_interval_index(model: gp.Model):
     for var in model.breakpoint_index:
         for j in range(1, len(model.breakpoints[var]) + 1):
             yield (var, j)
@@ -172,7 +177,9 @@ def add_gbm_to_opt_model(cat_idx: set[int], gbm_model_dict: dict, model: gp.Mode
     add_gbm_constraints(cat_idx, model)
 
 
-def add_gbm_parameters(cat_idx, gbm_model_dict, model):
+def add_gbm_parameters(
+    cat_idx: set[int], gbm_model_dict: dict[str, "GbmModel"], model: gp.Model
+):
     model._gbm_models = gbm_model_dict
 
     model._gbm_set = set(gbm_model_dict.keys())
@@ -192,15 +199,13 @@ def add_gbm_parameters(cat_idx, gbm_model_dict, model):
     for i in range(model._n_feat):
         if i in cat_idx:
             continue
-        else:
-            s = set()
-            for vb in vbs:
-                try:
-                    s = s.union(set(vb[i]))
-                except KeyError:
-                    pass
-            if s:
-                all_breakpoints[i] = sorted(s)
+        s = set()
+        for vb in vbs:
+            if i in vb:
+                s = s.union(set(vb[i]))
+
+        if s:
+            all_breakpoints[i] = sorted(s)
 
     model._breakpoint_index = list(all_breakpoints.keys())
 
@@ -211,7 +216,7 @@ def add_gbm_parameters(cat_idx, gbm_model_dict, model):
     )
 
 
-def add_gbm_variables(model):
+def add_gbm_variables(model: gp.Model):
     model._z_l = model.addVars(
         leaf_index(model), lb=0, ub=1, name="z_l", vtype=GRB.BINARY
     )
