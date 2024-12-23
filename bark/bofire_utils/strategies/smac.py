@@ -75,7 +75,7 @@ class SMACStrategy(PredictiveStrategy):
         if self.smac is None:
             raise ValueError("SMAC not initialized")
         config = self.smac.ask()
-        return _postprocess_candidate(config)
+        return self._postprocess_candidate(config)
 
     def _postprocess_candidate(self, config: Configuration) -> pd.DataFrane:
         return pd.DataFrame(config)
