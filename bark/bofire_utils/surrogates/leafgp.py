@@ -94,6 +94,13 @@ class LeafGPSurrogate(Surrogate, TrainableSurrogate):
             )
         return preds, stds
 
+    @property
+    def train_data(self):
+        return (
+            self.model.train_inputs[0].detach().cpu().numpy(),
+            self.model.train_targets.detach().cpu().numpy().reshape(-1, 1),
+        )
+
     def _dumps(self):
         pass
 

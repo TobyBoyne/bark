@@ -8,8 +8,9 @@ from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import RandomStrategy, SoboStrategy
 
 from bark.benchmarks import map_benchmark
-from bark.bofire_utils.data_models.api import BARKSurrogate, TreeKernelStrategy
-from bark.bofire_utils.data_models.mapper import strategy_map
+from bark.bofire_utils.data_models.strategies.api import TreeKernelStrategy
+from bark.bofire_utils.data_models.strategies.mapper import strategy_map
+from bark.bofire_utils.data_models.surrogates.api import BARKSurrogate, LeafGPSurrogate
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -31,7 +32,7 @@ class Config(TypedDict):
 def _get_strategy_datamodel(config: Config, domain: Domain):
     if config["model"] == "Sobo":
         return SoboStrategy(domain=domain, seed=seed)
-    elif config["model"] == "BARK":
+    if config["model"] == "BARK":
         return TreeKernelStrategy(
             domain=domain,
             seed=seed,
@@ -41,8 +42,18 @@ def _get_strategy_datamodel(config: Config, domain: Domain):
                 **config.get("model_params", {}),
             ),
         )
-    else:
-        raise KeyError(f"Model {config['model']} not found")
+    if config["model"] == "LeafGP":
+        return TreeKernelStrategy(
+            domain=domain,
+            seed=seed,
+            surrogate_specs=LeafGPSurrogate(
+                inputs=domain.inputs,
+                outputs=domain.outputs,
+                **config.get("model_params", {}),
+            ),
+        )
+
+    raise KeyError(f"Strategy {config['model']} not found")
 
 
 def main(seed: int, config: Config):

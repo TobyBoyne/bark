@@ -22,7 +22,13 @@ from bofire.data_models.objectives.api import (
 )
 from bofire.data_models.strategies.predictives.predictive import PredictiveStrategy
 
-from bark.bofire_utils.data_models.surrogates.bark import BARKSurrogate
+from bark.bofire_utils.data_models.surrogates.bark import (
+    BARKPriorSurrogate,
+    BARKSurrogate,
+)
+from bark.bofire_utils.data_models.surrogates.leafgp import LeafGPSurrogate
+
+AnyTreeSurrogate = BARKSurrogate | BARKPriorSurrogate | LeafGPSurrogate
 
 
 class TreeKernelStrategy(PredictiveStrategy):
@@ -33,7 +39,7 @@ class TreeKernelStrategy(PredictiveStrategy):
 
     type: Literal["TreeKernelStrategy"] = "TreeKernelStrategy"
 
-    surrogate_specs: BARKSurrogate  # = Field(
+    surrogate_specs: AnyTreeSurrogate  # = Field(
     #    default_factory=lambda: TreeKernelStrategy, validate_default=True
     # )
 
