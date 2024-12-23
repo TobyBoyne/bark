@@ -12,10 +12,6 @@ from bofire.data_models.surrogates.trainable import TrainableSurrogate
 from pydantic import field_validator
 
 
-class LeafGPSurrogate(Surrogate, TrainableSurrogate):
-    pass
-
-
 class BARKSurrogate(Surrogate, TrainableSurrogate):
     type: Literal["BARKSurrogate"] = "BARKSurrogate"
     # MCMC run parameters
@@ -71,3 +67,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
             bool: True if the output type is valid for the surrogate chosen, False otherwise
         """
         return isinstance(my_type, type(ContinuousOutput))
+
+
+class BARKPriorSurrogate(Surrogate):
+    pass

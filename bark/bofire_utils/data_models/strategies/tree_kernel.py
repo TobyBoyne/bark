@@ -22,7 +22,7 @@ from bofire.data_models.objectives.api import (
 )
 from bofire.data_models.strategies.predictives.predictive import PredictiveStrategy
 
-from bark.bofire_utils.data_models.surrogates import BARKSurrogate
+from bark.bofire_utils.data_models.surrogates.bark import BARKSurrogate
 
 
 class TreeKernelStrategy(PredictiveStrategy):
