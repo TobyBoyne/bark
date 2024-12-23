@@ -21,6 +21,26 @@ from bark.forest import create_empty_forest
 from bark.tree_kernels.tree_gps import forest_predict, mixture_of_gaussians_as_normal
 
 
+class Standardize:
+    def __init__(self):
+        self.mean = 0.0
+        self.std = 1.0
+
+    def __call__(self, y: np.ndarray, train: bool) -> np.ndarray:
+        if train:
+            self.mean = y.mean()
+            self.std = max(y.std(), 1e-6)
+        return (y - self.mean) / self.std
+
+    def untransform(self, y: np.ndarray) -> np.ndarray:
+        return y * self.std + self.mean
+
+    def untransform_mu_var(
+        self, mu: np.ndarray, var: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        return self.untransform(mu), var * self.std**2
+
+
 def _bark_params_to_jitclass(data_model: BARKSurrogateDataModel):
     proposal_weights = np.array(
         [
@@ -108,6 +128,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         self.noise = None
         self.scale = None
         self.train_data = None
+        self.scaler = Standardize()
 
         super().__init__(data_model)
 
@@ -132,7 +153,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
         # TODO: use inputs directly
         domain = Domain(inputs=self.inputs, outputs=self.outputs)
         Y = Y.to_numpy()
-        Y_standardized = (Y - Y.mean()) / Y.std()
+        Y_standardized = self.scaler(Y, train=True)
         self.train_data = (transformed_X.to_numpy(), Y_standardized)
 
         if not self.is_fitted:
@@ -165,6 +186,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
             domain,
             diag=True,
         )
+        mu, var = self.scaler.untransform_mu_var(mu, var)
         mu_f, var_f = mixture_of_gaussians_as_normal(mu, var)
         # reshape to (n, 1) for the single output
         return mu_f.reshape(-1, 1), np.sqrt(var_f.reshape(-1, 1))

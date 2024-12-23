@@ -6,7 +6,7 @@ from typing import TypedDict
 import yaml
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import RandomStrategy
-from bofire.data_models.surrogates.api import BotorchSurrogate
+from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
 
 import bark.utils.metrics as metrics
 from bark.benchmarks import map_benchmark
@@ -32,7 +32,7 @@ class Config(TypedDict):
 
 def _get_surrogate_datamodel(config: Config, domain: Domain):
     if config["model"] == "GP":
-        return BotorchSurrogate(inputs=domain.inputs, outputs=domain.outputs)
+        return SingleTaskGPSurrogate(inputs=domain.inputs, outputs=domain.outputs)
     elif config["model"] == "BARK":
         return BARKSurrogate(
             inputs=domain.inputs,

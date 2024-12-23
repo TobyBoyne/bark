@@ -8,9 +8,9 @@ num_test: 1000
 model: BARK
 
 model_params:
-  warmup_steps: 1000
-  num_samples: 10
+  warmup_steps: 500
+  num_samples: 4
   steps_per_sample: 50
   num_chains: 4
-  m: 25
+  num_trees: 50
   verbose: True
