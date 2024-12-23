@@ -1,6 +1,7 @@
 from beartype.typing import Type, Union
 from bofire.benchmarks.benchmark import Benchmark
 
+from .cco.cellular_network import CCOBench
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
 from .mixed import CatAckley, CombinationFunc2, PressureVessel
 from .multi_fidelity import CurrinExp2D
@@ -40,6 +41,7 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # multi-fidelity
     # "currin": CurrinExp2D,
     "SVRBench": SVRBench,
+    "CCOBench": CCOBench,
 }
 
 
