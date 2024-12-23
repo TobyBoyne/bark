@@ -42,7 +42,7 @@ class Friedman(Benchmark):
 class Rastrigin(Benchmark):
     # adapted from: https://github.com/solab-ntu/opt-prob-collect/blob/master/opt_prob/non_cons.py
     def __init__(self, dim: int = 10, **kwargs):
-        super().__init__(kwargs)
+        super().__init__(**kwargs)
         self.dim = dim
 
         self._domain = Domain(

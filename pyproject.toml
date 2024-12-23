@@ -31,6 +31,7 @@ numba = "^0.60.0"
 xgboost = "^2.1.1"
 bofire = {extras = ["cheminfo", "optimization"], version = "^0.0.14"}
 numba-scipy = "^0.4.0"
+entmoot = "^2.0.2"
 
 
 [tool.poetry.group.dev.dependencies]

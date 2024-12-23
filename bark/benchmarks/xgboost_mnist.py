@@ -16,8 +16,8 @@ from bark.bofire_utils.domain import build_integer_input
 
 
 class XGBoostMNIST(Benchmark):
-    def __init__(self, seed: int, split=0.3):
-        super().__init__(seed)
+    def __init__(self, seed: int, split=0.3, **kwargs):
+        super().__init__(**kwargs)
         data = datasets.load_digits()
         (
             self.train_x,
