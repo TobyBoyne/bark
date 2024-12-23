@@ -11,9 +11,9 @@ from bofire.strategies.predictives.predictive import PredictiveStrategy
 from bark.bofire_utils.data_models.strategies.tree_kernel import (
     TreeKernelStrategy as DataModel,
 )
+from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
 
 # from bark.bofire_utils.data_models.mapper import surrogate_map
-from bark.bofire_utils.surrogates.bark import BARKSurrogate
 from bark.optimizer.opt_core import get_opt_core_from_domain
 from bark.optimizer.opt_model import build_opt_model_from_forest
 from bark.optimizer.proposals import propose
@@ -27,7 +27,7 @@ class TreeKernelStrategy(PredictiveStrategy):
 
         self.surrogate_specs = data_model.surrogate_specs
         # TODO: this will fail if using LeafGPSurrogate
-        self.tree_surrogate = BARKSurrogate(data_model=self.surrogate_specs)
+        self.tree_surrogate = surrogate_map(data_model=self.surrogate_specs)
 
         self.model_core = get_opt_core_from_domain(self.domain)
 

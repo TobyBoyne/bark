@@ -60,7 +60,7 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
 
     @classmethod
     def is_output_implemented(cls, my_type: Type[AnyOutput]) -> bool:
-        """Abstract method to check output type for surrogate models
+        """Method to check output type for surrogate models
         Args:
             my_type: continuous or categorical output
         Returns:

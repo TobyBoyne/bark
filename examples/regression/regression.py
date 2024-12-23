@@ -10,7 +10,7 @@ from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
 
 import bark.utils.metrics as metrics
 from bark.benchmarks import map_benchmark
-from bark.bofire_utils.data_models.api import BARKSurrogate
+from bark.bofire_utils.data_models.api import BARKSurrogate, LeafGPSurrogate
 from bark.bofire_utils.data_models.mapper import strategy_map, surrogate_map
 
 logger = logging.getLogger(__name__)
@@ -33,14 +33,20 @@ class Config(TypedDict):
 def _get_surrogate_datamodel(config: Config, domain: Domain):
     if config["model"] == "GP":
         return SingleTaskGPSurrogate(inputs=domain.inputs, outputs=domain.outputs)
-    elif config["model"] == "BARK":
+    if config["model"] == "BARK":
         return BARKSurrogate(
             inputs=domain.inputs,
             outputs=domain.outputs,
             **config.get("model_params", {}),
         )
-    else:
-        raise KeyError(f"Model {config['model']} not found")
+    if config["model"] == "LeafGP":
+        return LeafGPSurrogate(
+            inputs=domain.inputs,
+            outputs=domain.outputs,
+            **config.get("model_params", {}),
+        )
+
+    raise KeyError(f"Model {config['model']} not found")
 
 
 def main(seed: int, config: Config):
