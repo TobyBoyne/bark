@@ -1,44 +1,19 @@
-import botorch
 import numpy as np
 import pandas as pd
-import torch
 from bofire.data_models.domain.api import Domain
 from bofire.surrogates.trainable import Surrogate, TrainableSurrogate
-from bofire.utils.torch_tools import tkwargs
 
-from bark.bofire_utils.data_models.surrogates import (
+from bark.bofire_utils.data_models.surrogates.bark import (
     BARKSurrogate as BARKSurrogateDataModel,
 )
-from bark.bofire_utils.data_models.surrogates import LeafGPSurrogate as LeafGPDataModel
-from bark.bofire_utils.domain import get_feature_types_array
+from bark.bofire_utils.standardize import Standardize
 from bark.fitting.bark_sampler import (
     BARK_JITCLASS_SPEC,
     BARKTrainParamsNumba,
     run_bark_sampler,
 )
-from bark.fitting.lgbm_fitting import fit_lgbm_forest, lgbm_to_bark_forest
 from bark.forest import create_empty_forest
 from bark.tree_kernels.tree_gps import forest_predict, mixture_of_gaussians_as_normal
-
-
-class Standardize:
-    def __init__(self):
-        self.mean = 0.0
-        self.std = 1.0
-
-    def __call__(self, y: np.ndarray, train: bool) -> np.ndarray:
-        if train:
-            self.mean = y.mean()
-            self.std = max(y.std(), 1e-6)
-        return (y - self.mean) / self.std
-
-    def untransform(self, y: np.ndarray) -> np.ndarray:
-        return y * self.std + self.mean
-
-    def untransform_mu_var(
-        self, mu: np.ndarray, var: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        return self.untransform(mu), var * self.std**2
 
 
 def _bark_params_to_jitclass(data_model: BARKSurrogateDataModel):
@@ -54,58 +29,6 @@ def _bark_params_to_jitclass(data_model: BARKSurrogateDataModel):
     keys = list(zip(*BARK_JITCLASS_SPEC))[0]
     kwargs = {k: v for k, v in data_model.model_dump().items() if k in keys}
     return BARKTrainParamsNumba(proposal_weights=proposal_weights, **kwargs)
-
-
-class LeafGPSurrogate(Surrogate, TrainableSurrogate):
-    def __init__(
-        self,
-        data_model: LeafGPDataModel,
-        **kwargs,
-    ):
-        self.noise_prior = data_model.noise_prior
-        super().__init__(data_model=data_model, **kwargs)
-
-    model: botorch.models.SingleTaskGP | None = None
-    training_specs: dict = {}
-
-    def model_as_tuple(self):
-        return (
-            self.forest,
-            self.model.likelihood.noise.item(),
-            self.model.covar_module.outputscale.item(),
-        )
-
-    def _fit(self, X: pd.DataFrame, Y: pd.DataFrame):
-        transformed_X = self.inputs.transform(X, self.input_preprocessing_specs)
-
-        tX, tY = (
-            torch.from_numpy(transformed_X.values).to(**tkwargs),
-            torch.from_numpy(Y.values).to(**tkwargs),
-        )
-
-        domain = Domain(inputs=self.inputs, outputs=self.outputs)
-        booster = fit_lgbm_forest(transformed_X, Y, self.domain)  # TODO: add params
-        forest = lgbm_to_bark_forest(booster)
-
-        self.model = botorch.models.SingleTaskGP(
-            train_X=tX,
-            train_Y=tY,
-            covar_module=BARKTreeModelKernel(
-                forest=forest,
-                feat_types=get_feature_types_array(domain),
-            ),
-            outcome_transform=(
-                Standardize(m=tY.shape[-1])
-                if self.output_scaler == ScalerEnum.STANDARDIZE
-                else None
-            ),
-            input_transform=scaler,
-        )
-
-        self.model.likelihood.noise_covar.noise_prior = priors.map(self.noise_prior)
-
-        mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
-        fit_gpytorch_mll(mll, options=self.training_specs, max_attempts=10)
 
 
 class BARKSurrogate(Surrogate, TrainableSurrogate):
