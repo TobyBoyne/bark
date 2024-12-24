@@ -54,7 +54,7 @@ def build_opt_model_from_forest(
     K_XX = scale_samples[:, None, None] * batched_forest_gram_matrix_no_null(
         forest_samples, train_x, train_x, feature_types
     )
-    K_XX_s = K_XX + noise_samples[:, None, None] * np.eye(num_data)
+    K_XX_s = K_XX + (1e-6 + noise_samples[:, None, None]) * np.eye(num_data)
     # cholesky decomposition doesn't support batching
     K_inv = np.linalg.inv(K_XX_s)
 
