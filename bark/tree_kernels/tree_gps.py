@@ -97,7 +97,7 @@ def forest_predict(
     K_XX = scale[:, None, None] * batched_forest_gram_matrix(
         forest, train_x, train_x, feature_types
     )
-    K_XX_s = K_XX + noise[:, None, None] * np.eye(train_x.shape[0])
+    K_XX_s = K_XX + (1e-6 + noise[:, None, None]) * np.eye(train_x.shape[0])
 
     K_inv = np.linalg.inv(K_XX_s)
     K_xX = scale[:, None, None] * batched_forest_gram_matrix(

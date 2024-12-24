@@ -153,7 +153,7 @@ def _run_bark_sampler_multichain(
         K_XX = scale_chain * forest_gram_matrix(
             forest_chain, train_x, train_x, feat_types
         )
-        K_XX_s = K_XX + noise_chain * np.eye(K_XX.shape[0])
+        K_XX_s = K_XX + (1e-6 + noise_chain) * np.eye(K_XX.shape[0])
         # should use cholesky
         # https://numba.discourse.group/t/how-can-i-improve-the-runtime-of-this-linear-system-solve/2406
         # https://github.com/numba/numba-scipy/issues/91
@@ -265,7 +265,7 @@ def _step_bark_sampler(
 
     (new_noise, new_scale), log_q_prior = get_noise_scale_proposal(noise, scale, params)
     K_XX = new_scale * forest_gram_matrix(forest, train_x, train_x, feat_types)
-    K_XX_s = K_XX + new_noise * np.eye(K_XX.shape[0])
+    K_XX_s = K_XX + (1e-6 + new_noise) * np.eye(K_XX.shape[0])
     new_K_inv = np.linalg.inv(K_XX_s)
     _, new_K_logdet = np.linalg.slogdet(K_XX_s)
 
