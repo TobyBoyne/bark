@@ -4,9 +4,14 @@ from bofire.data_models.domain.api import Domain
 from bofire.surrogates.trainable import Surrogate, TrainableSurrogate
 
 from bark.bofire_utils.data_models.surrogates.bark import (
+    BARKPriorSurrogate as BARKPriorSurrogateDataModel,
+)
+from bark.bofire_utils.data_models.surrogates.bark import (
     BARKSurrogate as BARKSurrogateDataModel,
 )
+from bark.bofire_utils.domain import get_feature_bounds, get_feature_types_array
 from bark.bofire_utils.standardize import Standardize
+from bark.fitting.bark_prior_sampler import sample_forest_prior, sample_noise_prior
 from bark.fitting.bark_sampler import (
     BARK_JITCLASS_SPEC,
     BARKTrainParamsNumba,
@@ -123,3 +128,77 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
 
 class BARKPriorSurrogate(Surrogate, TrainableSurrogate):
     """Samples from the BARK prior distribution."""
+
+    def __init__(self, data_model: BARKPriorSurrogateDataModel, **kwargs):
+        self.alpha = data_model.alpha
+        self.beta = data_model.beta
+        self.num_trees = data_model.num_trees
+
+        self.gamma_prior_shape = data_model.gamma_prior_shape
+        self.gamma_prior_rate = data_model.gamma_prior_rate
+        self.num_samples = data_model.num_samples
+        self.forest = None
+        self.noise = None
+        self.scale = None
+        self.train_data = None
+        self.scaler = Standardize()
+
+        super().__init__(data_model)
+
+        self.sample_rng = np.random.default_rng(data_model.sample_seed)
+
+    def model_as_tuple(self) -> None | tuple[np.ndarray, np.ndarray, np.ndarray]:
+        model = (self.forest, self.noise, self.scale)
+        return None if any(x is None for x in model) else model
+
+    def _fit(self, X: pd.DataFrame, Y: pd.DataFrame, **kwargs):
+        # we only use a fit method here to store train_data, and to
+        # use the same interface as BARKSurrogate
+        transformed_X = self.inputs.transform(X, self.input_preprocessing_specs)
+        domain = Domain(inputs=self.inputs, outputs=self.outputs)
+        Y = Y.to_numpy()
+        Y_standardized = self.scaler(Y, train=True)
+        self.train_data = (transformed_X.to_numpy(), Y_standardized)
+
+        bounds = np.array(
+            [get_feature_bounds(feat, encoding="bitmask") for feat in self.inputs.get()]
+        )
+        feat_types = get_feature_types_array(domain)
+
+        self.forest = sample_forest_prior(
+            m=self.num_trees,
+            bounds=bounds,
+            feat_types=feat_types,
+            alpha=self.alpha,
+            beta=self.beta,
+            num_samples=self.num_samples,
+            rng=self.sample_rng,
+        )
+        self.noise = sample_noise_prior(
+            gamma_shape=self.gamma_prior_shape,
+            gamma_rate=self.gamma_prior_rate,
+            num_samples=self.num_samples,
+            rng=self.sample_rng,
+        )
+        self.scale = np.ones((self.num_samples,))
+
+    def _predict(self, transformed_X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        candidates = transformed_X.to_numpy()
+        domain = Domain(inputs=self.inputs, outputs=self.outputs)
+        mu, var = forest_predict(
+            self.model_as_tuple(),
+            self.train_data,
+            candidates,
+            domain,
+            diag=True,
+        )
+        mu, var = self.scaler.untransform_mu_var(mu, var)
+        mu_f, var_f = mixture_of_gaussians_as_normal(mu, var)
+        # reshape to (n, 1) for the single output
+        return mu_f.reshape(-1, 1), np.sqrt(var_f.reshape(-1, 1))
+
+    def _dumps(self):
+        pass
+
+    def loads(self, data: str):
+        pass

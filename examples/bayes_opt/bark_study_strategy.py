@@ -14,7 +14,11 @@ from bofire.data_models.strategies.api import (
 from bark.benchmarks import map_benchmark
 from bark.bofire_utils.data_models.strategies.api import TreeKernelStrategy
 from bark.bofire_utils.data_models.strategies.mapper import strategy_map
-from bark.bofire_utils.data_models.surrogates.api import BARKSurrogate, LeafGPSurrogate
+from bark.bofire_utils.data_models.surrogates.api import (
+    BARKPriorSurrogate,
+    BARKSurrogate,
+    LeafGPSurrogate,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -58,6 +62,16 @@ def _get_strategy_datamodel(config: Config, domain: Domain):
         )
     if config["model"] == "Entmoot":
         return EntingStrategy(domain=domain, seed=seed)
+    if config["model"] == "BARKPrior":
+        return TreeKernelStrategy(
+            domain=domain,
+            seed=seed,
+            surrogate_specs=BARKPriorSurrogate(
+                inputs=domain.inputs,
+                outputs=domain.outputs,
+                **config.get("model_params", {}),
+            ),
+        )
 
     raise KeyError(f"Strategy {config['model']} not found")
 
