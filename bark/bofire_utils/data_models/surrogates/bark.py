@@ -70,6 +70,8 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
 
 
 class BARKPriorSurrogate(Surrogate):
+    type: Literal["BARKPriorSurrogate"] = "BARKPriorSurrogate"
+
     # node depth prior
     alpha: float = 0.95
     beta: float = 2.0

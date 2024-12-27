@@ -12,17 +12,15 @@ from bark.fitting.tree_traversal import get_node_subspace
 from bark.forest import create_empty_forest
 
 
-def sample_forest_prior(
+def _sample_single_forest(
     m: int,
     bounds: np.ndarray,
     feat_types: np.ndarray,
     alpha: float,
     beta: float,
-    rng: np.random.Generator | None = None,
+    rng: np.random.Generator,
 ):
     forest = create_empty_forest(m)
-    if rng is None:
-        rng = np.random.default_rng()
 
     for j in range(m):
         tree = forest[j, :]
@@ -52,9 +50,29 @@ def sample_forest_prior(
     return forest
 
 
+def sample_forest_prior(
+    m: int,
+    bounds: np.ndarray,
+    feat_types: np.ndarray,
+    alpha: float,
+    beta: float,
+    num_samples: int,
+    rng: np.random.Generator | None = None,
+):
+    if rng is None:
+        rng = np.random.default_rng()
+
+    forests = [
+        _sample_single_forest(m, bounds, feat_types, alpha, beta, rng)
+        for _ in range(num_samples)
+    ]
+    return np.array(forests)
+
+
 def sample_noise_prior(
     gamma_shape: float,
     gamma_rate: float,
+    num_samples: int,
     rng: np.random.Generator | None = None,
 ) -> float:
-    return rng.gamma(shape=gamma_shape, scale=1 / gamma_rate)
+    return rng.gamma(shape=gamma_shape, scale=1 / gamma_rate, size=(num_samples,))

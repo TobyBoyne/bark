@@ -171,14 +171,16 @@ class BARKPriorSurrogate(Surrogate, TrainableSurrogate):
             feat_types=feat_types,
             alpha=self.alpha,
             beta=self.beta,
+            num_samples=self.num_samples,
             rng=self.sample_rng,
         )
         self.noise = sample_noise_prior(
             gamma_shape=self.gamma_prior_shape,
             gamma_rate=self.gamma_prior_rate,
+            num_samples=self.num_samples,
             rng=self.sample_rng,
         )
-        self.scale = 1.0
+        self.scale = np.ones((self.num_samples,))
 
     def _predict(self, transformed_X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         candidates = transformed_X.to_numpy()
@@ -194,3 +196,9 @@ class BARKPriorSurrogate(Surrogate, TrainableSurrogate):
         mu_f, var_f = mixture_of_gaussians_as_normal(mu, var)
         # reshape to (n, 1) for the single output
         return mu_f.reshape(-1, 1), np.sqrt(var_f.reshape(-1, 1))
+
+    def _dumps(self):
+        pass
+
+    def loads(self, data: str):
+        pass
