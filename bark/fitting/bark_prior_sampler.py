@@ -9,7 +9,7 @@ from bark.fitting.tree_proposals import (
     sample_splitting_rule,
 )
 from bark.fitting.tree_traversal import get_node_subspace
-from bark.forest import create_empty_forest
+from bark.forest import FeatureTypeEnum, create_empty_forest
 
 
 def _sample_single_forest(
@@ -41,6 +41,21 @@ def _sample_single_forest(
                 node_proposal.new_feature_idx,
                 node_proposal.new_threshold,
             ) = sample_splitting_rule(subspace, feat_types)
+
+            if (
+                node_proposal.new_threshold == 0
+                and feat_types[node_proposal.new_feature_idx]
+                == FeatureTypeEnum.Cat.value
+            ):
+                continue
+
+            if (
+                node_proposal.new_threshold
+                == subspace[node_proposal.new_feature_idx, 1]
+                and feat_types[node_proposal.new_feature_idx]
+                == FeatureTypeEnum.Int.value
+            ):
+                continue
 
             left, right = _get_two_inactive_nodes(tree)
             tree = grow(tree, node_proposal)
