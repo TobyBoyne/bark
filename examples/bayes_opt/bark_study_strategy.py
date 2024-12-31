@@ -137,8 +137,8 @@ if __name__ == "__main__":
 
     output_dir = (
         pathlib.Path(args.output_dir)
-        / benchmark_config["benchmark"]
-        / model_config["model"]
+        / benchmark_config.get("benchmark_save_name", benchmark_config["benchmark"])
+        / model_config.get("model_save_name", model_config["model"])
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     experiments.to_csv(output_dir / f"seed={seed}.csv", index=False)
