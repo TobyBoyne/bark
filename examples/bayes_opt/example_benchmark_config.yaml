@@ -1,0 +1,3 @@
+benchmark: StyblinskiTang
+num_init: 20
+num_iter: 3

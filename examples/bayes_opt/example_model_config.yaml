@@ -1,0 +1,12 @@
+
+# model: BARK
+# model_params:
+#   warmup_steps: 1000
+#   num_samples: 4
+#   steps_per_sample: 50
+#   num_chains: 4
+#   verbose: True
+
+model: BARKPrior
+model_params:
+  num_samples: 5

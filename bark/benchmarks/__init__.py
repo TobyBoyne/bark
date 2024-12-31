@@ -3,7 +3,7 @@ from bofire.benchmarks.benchmark import Benchmark
 
 from .cco.cellular_network import CCOBench
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
-from .mixed import CatAckley, CombinationFunc2, PressureVessel
+from .mixed import CombinationFunc2, DiscreteAckley, DiscreteRosenbrock, PressureVessel
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
 from .svr_bench import SVRBench
@@ -36,7 +36,8 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     "PressureVessel": PressureVessel,
     "XGBoostMNIST": XGBoostMNIST,
     # "vae_nas": VAESmall,
-    "CatAckley": CatAckley,
+    "DiscreteAckley": DiscreteAckley,
+    "DiscreteRosenbrock": DiscreteRosenbrock,
     "TreeFunction": TreeFunction,
     # multi-fidelity
     # "currin": CurrinExp2D,
