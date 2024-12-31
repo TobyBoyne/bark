@@ -1,7 +1,6 @@
 import argparse
 import logging
 import pathlib
-from typing import TypedDict
 
 import yaml
 from bofire.data_models.domain.api import Domain
@@ -10,6 +9,7 @@ from bofire.data_models.strategies.api import (
     RandomStrategy,
     SoboStrategy,
 )
+from typing_extensions import NotRequired, TypedDict
 
 from bark.benchmarks import map_benchmark
 from bark.bofire_utils.data_models.strategies.api import TreeKernelStrategy
@@ -28,69 +28,89 @@ logging.basicConfig(
 )
 
 
-class Config(TypedDict):
+class BenchmarkConfig(TypedDict):
     benchmark: str
-    benchmark_params: dict
-    num_init: int
-    num_iter: int
+    benchmark_save_name: NotRequired[str]
+    benchmark_params: NotRequired[dict]
+    num_init: NotRequired[int]
+    num_iter: NotRequired[int]
+
+
+class ModelConfig(TypedDict):
     model: str
-    model_params: dict
+    model_save_name: NotRequired[str]
+    model_params: NotRequired[dict]
 
 
-def _get_strategy_datamodel(config: Config, domain: Domain):
-    if config["model"] == "Sobo":
+def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
+    model_params = model_config.get("model_params", {})
+    model_name = model_config["model"]
+    if model_name == "Sobo":
         return SoboStrategy(domain=domain, seed=seed)
-    if config["model"] == "BARK":
+    if model_name == "BARK":
         return TreeKernelStrategy(
             domain=domain,
             seed=seed,
             surrogate_specs=BARKSurrogate(
                 inputs=domain.inputs,
                 outputs=domain.outputs,
-                **config.get("model_params", {}),
+                **model_params,
             ),
         )
-    if config["model"] == "LeafGP":
+    if model_name == "LeafGP":
         return TreeKernelStrategy(
             domain=domain,
             seed=seed,
             surrogate_specs=LeafGPSurrogate(
                 inputs=domain.inputs,
                 outputs=domain.outputs,
-                **config.get("model_params", {}),
+                **model_params,
             ),
         )
-    if config["model"] == "Entmoot":
+    if model_name == "Entmoot":
         return EntingStrategy(domain=domain, seed=seed)
-    if config["model"] == "BARKPrior":
+    if model_name == "BARKPrior":
         return TreeKernelStrategy(
             domain=domain,
             seed=seed,
             surrogate_specs=BARKPriorSurrogate(
                 inputs=domain.inputs,
                 outputs=domain.outputs,
-                **config.get("model_params", {}),
+                **model_params,
             ),
         )
 
-    raise KeyError(f"Strategy {config['model']} not found")
+    raise KeyError(f"Strategy {model_name} not found")
 
 
-def main(seed: int, config: Config):
-    benchmark = map_benchmark(config["benchmark"], **config.get("benchmark_params", {}))
+def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig):
+    benchmark = map_benchmark(
+        benchmark_config["benchmark"], **benchmark_config.get("benchmark_params", {})
+    )
     domain = benchmark.domain
 
+    if "num_init" not in benchmark_config:
+        benchmark_config["num_init"] = min(30, 2 * len(domain.inputs))
+
+    if "num_iter" not in benchmark_config:
+        benchmark_config["num_iter"] = 100
+
     # sample initial points
+    logger.info(
+        f"Benchmark: {benchmark_config['benchmark']}\nModel: {model_config['model']}"
+    )
+    logger.info(f"Sample {benchmark_config['num_init']} initial points")
+
     sampler = strategy_map(RandomStrategy(domain=domain, seed=seed))
-    train_x = sampler.ask(config["num_init"])
+    train_x = sampler.ask(benchmark_config["num_init"])
     experiments = benchmark.f(train_x, return_complete=True)
 
-    strategy_dm = _get_strategy_datamodel(config, domain)
+    strategy_dm = _get_strategy_datamodel(model_config, domain)
     strategy = strategy_map(strategy_dm)
     strategy.tell(experiments)
 
     logger.info("Start BO loop")
-    for itr in range(config["num_iter"]):
+    for itr in range(benchmark_config["num_iter"]):
         logger.info(f"Ask for datapoint {itr=}")
         candidate = strategy.ask(1)
         logger.info("Evaluate")
@@ -103,17 +123,25 @@ def main(seed: int, config: Config):
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("-s", "--seed", type=str)
-    argparser.add_argument("-c", "--config_file", type=str)
+    argparser.add_argument("-s", "--seed", type=int)
+    argparser.add_argument("-c", "--config_file_benchmark", type=str)
+    argparser.add_argument("-m", "--config_file_model", type=str)
     argparser.add_argument("-o", "--output_dir", type=str)
 
     args = argparser.parse_args()
     seed = args.seed
-    config = yaml.safe_load(open(args.config_file))
+    benchmark_config: BenchmarkConfig = yaml.safe_load(open(args.config_file_benchmark))
+    model_config: ModelConfig = yaml.safe_load(open(args.config_file_model))
 
-    experiments = main(seed, config)
+    experiments = main(seed, benchmark_config, model_config)
 
-    output_dir = pathlib.Path(args.output_dir) / config["benchmark"] / config["model"]
+    output_dir = (
+        pathlib.Path(args.output_dir)
+        / benchmark_config["benchmark"]
+        / model_config["model"]
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     experiments.to_csv(output_dir / f"seed={seed}.csv", index=False)
+
+    config = {**benchmark_config, **model_config}
     yaml.dump(config, open(output_dir / "config.yaml", "w"))
