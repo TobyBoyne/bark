@@ -12,7 +12,10 @@ from bofire.data_models.strategies.api import (
 from typing_extensions import NotRequired, TypedDict
 
 from bark.benchmarks import map_benchmark
-from bark.bofire_utils.data_models.strategies.api import TreeKernelStrategy
+from bark.bofire_utils.data_models.strategies.api import (
+    SMACStrategy,
+    TreeKernelStrategy,
+)
 from bark.bofire_utils.data_models.strategies.mapper import strategy_map
 from bark.bofire_utils.data_models.surrogates.api import (
     BARKPriorSurrogate,
@@ -78,6 +81,11 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
                 outputs=domain.outputs,
                 **model_params,
             ),
+        )
+    if model_name == "SMAC":
+        return SMACStrategy(
+            domain=domain,
+            seed=seed,
         )
 
     raise KeyError(f"Strategy {model_name} not found")
