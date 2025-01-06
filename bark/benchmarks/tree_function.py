@@ -3,7 +3,9 @@ import numpy as np
 import pandas as pd
 from bofire.benchmarks.api import Benchmark
 from bofire.data_models.domain.api import Domain, Inputs, Outputs
+from bofire.data_models.enum import CategoricalEncodingEnum
 from bofire.data_models.features.api import (
+    CategoricalInput,
     ContinuousInput,
     ContinuousOutput,
 )
@@ -60,15 +62,20 @@ class TreeFunction(Benchmark):
 
     This is a good test that BARK is indeed able to optimize on tree functions."""
 
-    def __init__(self, dim=5, m=50, function_seed=1, **kwargs):
+    def __init__(self, dim=5, cat_dim=0, num_cat=5, m=50, function_seed=1, **kwargs):
         super().__init__(**kwargs)
+        categories = [chr(i + ord("a")) for i in range(num_cat)]
         self._domain = Domain(
             inputs=Inputs(
                 features=[
                     *(
                         ContinuousInput(key=f"x_{i}", bounds=(0.0, 1.0))
                         for i in range(dim)
-                    )
+                    ),
+                    *(
+                        CategoricalInput(key=f"c_{i}", categories=categories)
+                        for i in range(cat_dim)
+                    ),
                 ]
             ),
             outputs=Outputs(
@@ -81,7 +88,12 @@ class TreeFunction(Benchmark):
         self._tree_func = sample_tree_function_from_structure(forest, self._domain, rng)
 
     def _f(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
-        ys = self._tree_func(X.to_numpy())
+        specs = {
+            k: CategoricalEncodingEnum.ORDINAL
+            for k in self.domain.inputs.get_keys(includes=CategoricalInput)
+        }
+        X_transformed = self.domain.inputs.transform(X, specs).to_numpy()
+        ys = self._tree_func(X_transformed)
         return pd.DataFrame(data=ys, columns=self.domain.outputs.get_keys())
 
 
