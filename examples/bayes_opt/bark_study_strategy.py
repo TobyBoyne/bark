@@ -13,6 +13,7 @@ from typing_extensions import NotRequired, TypedDict
 
 from bark.benchmarks import map_benchmark
 from bark.bofire_utils.data_models.strategies.api import (
+    RelaxedSoboStrategy,
     SMACStrategy,
     TreeKernelStrategy,
 )
@@ -49,6 +50,8 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
     model_params = model_config.get("model_params", {})
     model_name = model_config["model"]
     if model_name == "Sobo":
+        if model_params.get("cont_relax", False):
+            return RelaxedSoboStrategy(domain=domain, seed=seed)
         return SoboStrategy(domain=domain, seed=seed)
     if model_name == "BARK":
         return TreeKernelStrategy(
