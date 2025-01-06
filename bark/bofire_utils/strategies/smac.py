@@ -1,5 +1,6 @@
 import logging
 
+import ConfigSpace as cs
 import numpy as np
 import pandas as pd
 from bofire.data_models.features.api import (
@@ -8,8 +9,8 @@ from bofire.data_models.features.api import (
     ContinuousInput,
     DiscreteInput,
 )
+from bofire.data_models.types import InputTransformSpecs
 from bofire.strategies.api import PredictiveStrategy
-from ConfigSpace import Categorical, Configuration, ConfigurationSpace, Float, Integer
 
 from bark.bofire_utils.data_models.strategies.smac import SMACStrategy as DataModel
 from bark.bofire_utils.domain import get_feature_bounds
@@ -25,18 +26,18 @@ except ImportError:
 
 def _bofire_feat_to_smac(feat: AnyFeature):
     if isinstance(feat, ContinuousInput):
-        return Float(name=feat.key, bounds=get_feature_bounds(feat))
+        return cs.Float(name=feat.key, bounds=get_feature_bounds(feat))
     if isinstance(feat, DiscreteInput):
-        return Integer(name=feat.key, bounds=get_feature_bounds(feat))
+        return cs.Integer(name=feat.key, bounds=get_feature_bounds(feat))
     if isinstance(feat, CategoricalInput):
-        return Categorical(name=feat.key, items=feat.categories)
+        return cs.Categorical(name=feat.key, items=feat.categories)
     raise TypeError(f"Cannot convert feature of type {feat.type} to SMAC")
 
 
 class SMACStrategy(PredictiveStrategy):
     def __init__(self, data_model: DataModel, **kwargs):
         super().__init__(data_model=data_model, **kwargs)
-        self.configspace = ConfigurationSpace(seed=self.seed)
+        self.configspace = cs.ConfigurationSpace(seed=self.seed)
         self.smac: HyperparameterOptimizationFacade | None = None
         self._init_smac()
 
@@ -56,26 +57,40 @@ class SMACStrategy(PredictiveStrategy):
 
         self.smac = HyperparameterOptimizationFacade(
             scenario,
-            lambda x: 0,  # dummy objective function
+            lambda x, seed=0: 0,  # dummy objective function
             initial_design=initial_design,
             intensifier=intensifier,
             overwrite=True,
         )
 
-    def _tell(self, experiments: pd.DataFrame, **kwargs):
+    def _fit(self, experiments: pd.DataFrame, **kwargs):
         for i, experiment in experiments.iterrows():
-            experiment_dict = experiment.to_dict()
-            cfg = Configuration(self.configspace, values=experiment_dict)
+            experiment_dict = experiment[self.domain.inputs.get_keys()].to_dict()
+            cfg = cs.Configuration(self.configspace, values=experiment_dict)
             trial = TrialInfo(cfg, seed=self.seed)
-            value = TrialValue(experiment_dict[self.domain.outputs.get_keys()[0]])
-            self.smac.tell(trial, value)
+            value = TrialValue(experiment[self.domain.outputs.get_keys()].item())
+            if trial not in self.smac.runhistory:
+                self.smac.tell(trial, value)
 
     def _ask(self, candidate_count: int) -> np.ndarray:
         assert candidate_count == 1, "SMAC only supports single candidates"
         if self.smac is None:
             raise ValueError("SMAC not initialized")
-        config = self.smac.ask()
-        return self._postprocess_candidate(config)
+        trial_info = self.smac.ask()
+        return self._postprocess_candidate(trial_info.config)
 
-    def _postprocess_candidate(self, config: Configuration) -> pd.DataFrane:
-        return pd.DataFrame(config)
+    def _postprocess_candidate(self, config: cs.Configuration) -> pd.DataFrame:
+        df_candidate = pd.DataFrame(dict(config), index=(0,))
+        preds = self.predict(df_candidate)
+        return pd.concat((df_candidate, preds), axis=1)
+
+    def _predict(self, experiments: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        zeros = np.zeros((experiments.shape[0], 1))
+        return zeros, zeros
+
+    def has_sufficient_experiments(self):
+        return len(self.experiments) >= 1
+
+    @property
+    def input_preprocessing_specs(self) -> InputTransformSpecs:
+        return {}
