@@ -90,7 +90,8 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
             domain=domain,
             seed=seed,
         )
-
+    if model_name == "Random":
+        return RandomStrategy(domain=domain, seed=seed)
     raise KeyError(f"Strategy {model_name} not found")
 
 
