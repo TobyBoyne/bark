@@ -3,6 +3,7 @@ from bofire.benchmarks.benchmark import Benchmark
 
 from .cco.cellular_network import CCOBench
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
+from .MAX_bandit import MAXBandit
 from .mixed import CombinationFunc2, DiscreteAckley, DiscreteRosenbrock, PressureVessel
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
@@ -43,6 +44,7 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     # "currin": CurrinExp2D,
     "SVRBench": SVRBench,
     "CCOBench": CCOBench,
+    "MAXBandit": MAXBandit,
 }
 
 
