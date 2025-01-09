@@ -4,7 +4,6 @@ models
 .vscode
 *.sh
 *.csv
-*.json
 *.log
 results/
 venv/
