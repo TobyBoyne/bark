@@ -4,12 +4,14 @@ from bofire.surrogates.surrogate import Surrogate
 
 from bark.bofire_utils.data_models.surrogates import api as bark_data_models
 from bark.bofire_utils.surrogates.bark import BARKPriorSurrogate, BARKSurrogate
+from bark.bofire_utils.surrogates.bart import BARTSurrogate
 from bark.bofire_utils.surrogates.leafgp import LeafGPSurrogate
 
 SURROGATE_MAP: dict[type[surrogates_data_models.Surrogate], type[Surrogate]] = {
     bark_data_models.LeafGPSurrogate: LeafGPSurrogate,
     bark_data_models.BARKSurrogate: BARKSurrogate,
     bark_data_models.BARKPriorSurrogate: BARKPriorSurrogate,
+    bark_data_models.BARTSurrogate: BARTSurrogate,
 }
 
 
