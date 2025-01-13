@@ -3,6 +3,7 @@ import logging
 import pathlib
 
 import yaml
+from bofire.data_models.acquisition_functions.api import qLogEI, qUCB
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import (
     EntingStrategy,
@@ -50,9 +51,12 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
     model_params = model_config.get("model_params", {})
     model_name = model_config["model"]
     if model_name == "Sobo":
+        acqf = qUCB() if model_params.get("acqf", "UCB") == "UCB" else qLogEI()
         if model_params.get("cont_relax", False):
-            return RelaxedSoboStrategy(domain=domain, seed=seed)
-        return SoboStrategy(domain=domain, seed=seed)
+            return RelaxedSoboStrategy(
+                domain=domain, seed=seed, acquisition_function=acqf
+            )
+        return SoboStrategy(domain=domain, seed=seed, acquisition_function=acqf)
     if model_name == "BARK":
         return TreeKernelStrategy(
             domain=domain,

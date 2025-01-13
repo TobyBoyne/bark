@@ -37,7 +37,11 @@ class RelaxedSoboStrategy:
     def __init__(self, data_model: RelaxedSoboStrategyDataModel, **kwargs):
         self.domain = data_model.domain
         relaxed_domain = get_relaxed_domain(data_model.domain)
-        sobo_dm = SoboStrategyDataModel(domain=relaxed_domain, seed=data_model.seed)
+        sobo_dm = SoboStrategyDataModel(
+            domain=relaxed_domain,
+            seed=data_model.seed,
+            acquisition_function=data_model.acquisition_function,
+        )
         self.sobo = SoboStrategy(sobo_dm)
         self.input_preprocessing_specs = {
             k: CategoricalEncodingEnum.ONE_HOT
