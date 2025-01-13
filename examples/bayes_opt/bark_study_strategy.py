@@ -14,6 +14,7 @@ from typing_extensions import NotRequired, TypedDict
 
 from bark.benchmarks import map_benchmark
 from bark.bofire_utils.data_models.strategies.api import (
+    BARTGridStrategy,
     RelaxedSoboStrategy,
     SMACStrategy,
     TreeKernelStrategy,
@@ -22,6 +23,7 @@ from bark.bofire_utils.data_models.strategies.mapper import strategy_map
 from bark.bofire_utils.data_models.surrogates.api import (
     BARKPriorSurrogate,
     BARKSurrogate,
+    BARTSurrogate,
     LeafGPSurrogate,
 )
 
@@ -93,6 +95,16 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
         return SMACStrategy(
             domain=domain,
             seed=seed,
+        )
+    if model_name == "BART":
+        return BARTGridStrategy(
+            domain=domain,
+            seed=seed,
+            surrogate_specs=BARTSurrogate(
+                inputs=domain.inputs,
+                outputs=domain.outputs,
+                **model_params,
+            ),
         )
     if model_name == "Random":
         return RandomStrategy(domain=domain, seed=seed)

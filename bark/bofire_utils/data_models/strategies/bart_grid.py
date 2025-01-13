@@ -20,14 +20,13 @@ from bofire.data_models.objectives.api import (
     Objective,
 )
 from bofire.data_models.strategies.predictives.predictive import PredictiveStrategy
-from pydantic import Field
 
 from bark.bofire_utils.data_models.surrogates.bart import BARTSurrogate
 
 
 class BARTGridStrategy(PredictiveStrategy):
     type: Literal["SMACStrategy"] = "SMACStrategy"
-    surrogate_specs: BARTSurrogate = Field(default_factory=lambda: BARTSurrogate())
+    surrogate_specs: BARTSurrogate
 
     @classmethod
     def is_constraint_implemented(cls, my_type: Type[Constraint]) -> bool:
