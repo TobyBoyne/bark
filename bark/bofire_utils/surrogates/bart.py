@@ -39,15 +39,13 @@ class BARTSurrogate(Surrogate, TrainableSurrogate):
         nu = 3
         t = 0.2
 
-        train_y = self.scalar(Y.to_numpy(), train=True)
+        train_y = self.scalar(Y.to_numpy(), train=True).flatten()
         with pm.Model() as bart_model:
-            X = pm.Data("X", transformed_X.to_numpy(), mutable=True)
-            m = pmb.BART(
-                "m", X=X, Y=train_y, m=50, split_rules=split_rules, shape=(1, 100)
-            )
+            X = pm.Data("X", transformed_X.to_numpy())  # mutable by default
+            m = pmb.BART("m", X=X, Y=train_y, m=50, split_rules=split_rules)
             s = pm.InverseGamma("s", alpha=nu / 2, beta=nu * t / 2)
             pm.Normal("y_pred", mu=m, sigma=s, observed=train_y, shape=m.shape)
-            train_idata = pm.sample(draws=500, tune=500, random_seed=self.seed)
+            train_idata = pm.sample(draws=1000, tune=1000, random_seed=self.seed)
 
         self.model = bart_model
         self.trace = train_idata
@@ -74,10 +72,12 @@ class BARTSurrogate(Surrogate, TrainableSurrogate):
                 var_names=["m", "y_pred"],
             )
 
-        mu = f_test_draws.posterior_predictive.m.mean(dim=["chain"])
-        var = f_test_draws.posterior_predictive.y_pred.var(dim=["chain"])
+        # y_pred has shape (chain, draw, 1, n)
+        y_pred = f_test_draws.posterior_predictive.y_pred
+        mu = y_pred.mean(dim=["chain", "draw"])
+        var = y_pred.var(dim=["chain", "draw"])
         mu, var = self.scalar.untransform_mu_var(mu, var)
-        return mu, np.sqrt(var)
+        return mu.to_numpy().reshape(-1, 1), np.sqrt(var).to_numpy().reshape(-1, 1)
         # f_test = f_test_draws.posterior_predictive.m.mean(dim=["chain"])
         # acq = np.maximum(train_y.min() - f_test, 0.0).mean(dim=["draw"])
 

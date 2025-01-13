@@ -11,7 +11,6 @@ from bofire.data_models.strategies.predictives.sobo import (
 )
 from bofire.strategies.predictives.sobo import SoboStrategy
 
-from bark.benchmarks import XGBoostMNIST
 from bark.bofire_utils.data_models.strategies.relaxed_sobo import (
     RelaxedSoboStrategy as RelaxedSoboStrategyDataModel,
 )
@@ -69,13 +68,3 @@ class RelaxedSoboStrategy:
             self.domain.outputs.get_keys()
         ]
         return experiments
-
-
-if __name__ == "__main__":
-    domain = XGBoostMNIST(seed=0).domain
-    dm = RelaxedSoboStrategyDataModel(
-        domain=domain,
-        seed=0,
-    )
-    relaxed = RelaxedSoboStrategy(dm)
-    print(relaxed.domain)
