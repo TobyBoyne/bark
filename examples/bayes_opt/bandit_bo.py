@@ -14,6 +14,7 @@ from bark.benchmarks import map_benchmark
 from bark.benchmarks.MAX_bandit import MAXBandit
 from bark.bofire_utils.data_models.surrogates.api import (
     BARKSurrogate,
+    BARTSurrogate,
     LeafGPSurrogate,
 )
 from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
@@ -51,6 +52,12 @@ def _get_surrogate_datamodel(config: ModelConfig, domain: Domain):
         )
     if config["model"] == "LeafGP":
         return LeafGPSurrogate(
+            inputs=domain.inputs,
+            outputs=domain.outputs,
+            **config.get("model_params", {}),
+        )
+    if config["model"] == "BART":
+        return BARTSurrogate(
             inputs=domain.inputs,
             outputs=domain.outputs,
             **config.get("model_params", {}),

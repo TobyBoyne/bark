@@ -50,7 +50,7 @@ class BARTSurrogate(Surrogate, TrainableSurrogate):
         self.model = bart_model
         self.trace = train_idata
 
-    def function_samples(self, X: pd.DataFrame) -> np.ndarray:
+    def function_samples(self, X: pd.DataFrame) -> az.InferenceData:
         transformed_X = self.inputs.transform(X, self.input_preprocessing_specs)
 
         with self.model as bart_model:
@@ -72,7 +72,7 @@ class BARTSurrogate(Surrogate, TrainableSurrogate):
                 var_names=["m", "y_pred"],
             )
 
-        # y_pred has shape (chain, draw, 1, n)
+        # y_pred has shape (chain, draw, n)
         y_pred = f_test_draws.posterior_predictive.y_pred
         mu = y_pred.mean(dim=["chain", "draw"])
         var = y_pred.var(dim=["chain", "draw"])
