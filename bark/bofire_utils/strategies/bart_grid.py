@@ -4,6 +4,9 @@ from bofire.data_models.enum import SamplingMethodEnum
 from bofire.data_models.strategies.api import RandomStrategy as RandomStrategyDataModel
 from bofire.data_models.types import InputTransformSpecs
 from bofire.strategies.api import PredictiveStrategy, RandomStrategy
+from bofire.utils.naming_conventions import (
+    get_column_names,
+)
 
 from bark.bofire_utils.data_models.strategies.bart_grid import (
     BARTGridStrategy as BARTGridStrategyDataModel,
@@ -59,7 +62,13 @@ class BARTGridStrategy(PredictiveStrategy):
             candidate, self.input_preprocessing_specs
         ).reset_index(drop=True)
 
+        # this is too expensive
         preds = self.predict(candidate)
+        pred_col, sd_col = get_column_names(self.domain.outputs)
+        preds = pd.DataFrame(
+            data=[[0.0, 1.0]],
+            columns=pred_col + sd_col,
+        )
         return pd.concat((candidate, preds), axis=1)
 
     @property
