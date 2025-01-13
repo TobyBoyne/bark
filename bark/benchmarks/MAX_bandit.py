@@ -66,8 +66,7 @@ class MAXBandit(Benchmark):
                 ]
             ),
             outputs=Outputs(
-                # TODO: check that this is not a maximization problem
-                # target is K_exp
+                # target is max K_exp => min -K_exp
                 features=[ContinuousOutput(key="y", objective=MinimizeObjective())]
             ),
         )
@@ -82,9 +81,11 @@ class MAXBandit(Benchmark):
         with open(data_path, "r") as f:
             data = json.load(f)
 
-        return pd.DataFrame(
+        df = pd.DataFrame(
             data, columns=self.domain.inputs.get_keys() + self.domain.outputs.get_keys()
         )
+        df["y"] *= -1  # turn into a minimize problem
+        return df
 
     def _f(self, X: pd.DataFrame, **kwargs):
         idx = self.data.iloc[:, :-1].eq(X.iloc[0, :-1]).all(axis=1).idxmax()
