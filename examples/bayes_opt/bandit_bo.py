@@ -1,5 +1,4 @@
 import argparse
-import inspect
 import logging
 import pathlib
 import warnings
@@ -75,6 +74,16 @@ def ucb(mu: np.ndarray, std: np.ndarray, minimize=True):
     return acqf
 
 
+def ucb_samples(y_samples: np.ndarray, minimize=True):
+    # y_samples is (samples, n)
+    mu = y_samples.mean(axis=0).reshape(1, -1)
+
+    kappa = 1.96
+    reparam = -mu + kappa * np.sqrt(np.pi / 2) * np.abs(y_samples - mu)
+    acqf = np.mean(reparam, axis=0)
+    return acqf.reshape(-1, 1)
+
+
 def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig):
     benchmark: MAXBandit = map_benchmark(
         benchmark_config["benchmark"], **benchmark_config.get("benchmark_params", {})
@@ -115,12 +124,17 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
         Xt = surrogate.inputs.transform(
             remaining_candidates, surrogate.input_preprocessing_specs
         )
-        if "batched" in inspect.signature(surrogate._predict).parameters:
-            mu, stds = surrogate._predict(Xt, batched=True)
+        if model_config["model"] == "BART":
+            idata = surrogate.function_samples(remaining_candidates)
+            y_samples = idata.posterior_predictive.y_pred.to_numpy().reshape(-1, 372)
+            acqf = ucb_samples(y_samples)
         else:
-            mu, stds = surrogate._predict(Xt)
+            if model_config["model"] == "BARK":
+                mu, stds = surrogate._predict(Xt, batched=True)
+            elif model_config["model"] == "GP":
+                mu, stds = surrogate._predict(Xt)
 
-        acqf = ucb(mu, stds)
+            acqf = ucb(mu, stds)
         new_idx = remaining_idxs[np.argmax(acqf)]
 
         logger.info("Tell")
