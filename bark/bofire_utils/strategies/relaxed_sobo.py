@@ -11,7 +11,6 @@ from bofire.data_models.strategies.predictives.sobo import (
 )
 from bofire.strategies.predictives.sobo import SoboStrategy
 
-from bark.benchmarks import XGBoostMNIST
 from bark.bofire_utils.data_models.strategies.relaxed_sobo import (
     RelaxedSoboStrategy as RelaxedSoboStrategyDataModel,
 )
@@ -38,7 +37,11 @@ class RelaxedSoboStrategy:
     def __init__(self, data_model: RelaxedSoboStrategyDataModel, **kwargs):
         self.domain = data_model.domain
         relaxed_domain = get_relaxed_domain(data_model.domain)
-        sobo_dm = SoboStrategyDataModel(domain=relaxed_domain, seed=data_model.seed)
+        sobo_dm = SoboStrategyDataModel(
+            domain=relaxed_domain,
+            seed=data_model.seed,
+            acquisition_function=data_model.acquisition_function,
+        )
         self.sobo = SoboStrategy(sobo_dm)
         self.input_preprocessing_specs = {
             k: CategoricalEncodingEnum.ONE_HOT
@@ -69,13 +72,3 @@ class RelaxedSoboStrategy:
             self.domain.outputs.get_keys()
         ]
         return experiments
-
-
-if __name__ == "__main__":
-    domain = XGBoostMNIST(seed=0).domain
-    dm = RelaxedSoboStrategyDataModel(
-        domain=domain,
-        seed=0,
-    )
-    relaxed = RelaxedSoboStrategy(dm)
-    print(relaxed.domain)

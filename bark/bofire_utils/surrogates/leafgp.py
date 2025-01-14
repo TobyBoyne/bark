@@ -57,6 +57,7 @@ class LeafGPSurrogate(Surrogate, TrainableSurrogate):
 
         domain = Domain(inputs=self.inputs, outputs=self.outputs)
         booster = fit_lgbm_forest(transformed_X, Y, domain)  # TODO: add params
+        assert booster.num_trees() > 1, "Insufficient data to train forest kernel."
         forest = lgbm_to_bark_forest(booster)
 
         self.model = botorch.models.SingleTaskGP(

@@ -3,6 +3,7 @@ import logging
 import pathlib
 
 import yaml
+from bofire.data_models.acquisition_functions.api import qLogEI, qUCB
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import (
     EntingStrategy,
@@ -13,6 +14,7 @@ from typing_extensions import NotRequired, TypedDict
 
 from bark.benchmarks import map_benchmark
 from bark.bofire_utils.data_models.strategies.api import (
+    BARTGridStrategy,
     RelaxedSoboStrategy,
     SMACStrategy,
     TreeKernelStrategy,
@@ -21,6 +23,7 @@ from bark.bofire_utils.data_models.strategies.mapper import strategy_map
 from bark.bofire_utils.data_models.surrogates.api import (
     BARKPriorSurrogate,
     BARKSurrogate,
+    BARTSurrogate,
     LeafGPSurrogate,
 )
 
@@ -50,9 +53,12 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
     model_params = model_config.get("model_params", {})
     model_name = model_config["model"]
     if model_name == "Sobo":
+        acqf = qUCB() if model_params.get("acqf", "UCB") == "UCB" else qLogEI()
         if model_params.get("cont_relax", False):
-            return RelaxedSoboStrategy(domain=domain, seed=seed)
-        return SoboStrategy(domain=domain, seed=seed)
+            return RelaxedSoboStrategy(
+                domain=domain, seed=seed, acquisition_function=acqf
+            )
+        return SoboStrategy(domain=domain, seed=seed, acquisition_function=acqf)
     if model_name == "BARK":
         return TreeKernelStrategy(
             domain=domain,
@@ -74,7 +80,11 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
             ),
         )
     if model_name == "Entmoot":
-        return EntingStrategy(domain=domain, seed=seed)
+        return EntingStrategy(
+            domain=domain,
+            seed=seed,
+            solver_params={"solver_options": {"TimeLimit": 60, "MIPGap": 0.05}},
+        )
     if model_name == "BARKPrior":
         return TreeKernelStrategy(
             domain=domain,
@@ -89,6 +99,16 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
         return SMACStrategy(
             domain=domain,
             seed=seed,
+        )
+    if model_name == "BART":
+        return BARTGridStrategy(
+            domain=domain,
+            seed=seed,
+            surrogate_specs=BARTSurrogate(
+                inputs=domain.inputs,
+                outputs=domain.outputs,
+                **model_params,
+            ),
         )
     if model_name == "Random":
         return RandomStrategy(domain=domain, seed=seed)

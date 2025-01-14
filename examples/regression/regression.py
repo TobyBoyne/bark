@@ -11,7 +11,11 @@ from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
 import bark.utils.metrics as metrics
 from bark.benchmarks import map_benchmark
 from bark.bofire_utils.data_models.strategies.mapper import strategy_map
-from bark.bofire_utils.data_models.surrogates.api import BARKSurrogate, LeafGPSurrogate
+from bark.bofire_utils.data_models.surrogates.api import (
+    BARKSurrogate,
+    BARTSurrogate,
+    LeafGPSurrogate,
+)
 from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
 
 logger = logging.getLogger(__name__)
@@ -42,6 +46,12 @@ def _get_surrogate_datamodel(config: Config, domain: Domain):
         )
     if config["model"] == "LeafGP":
         return LeafGPSurrogate(
+            inputs=domain.inputs,
+            outputs=domain.outputs,
+            **config.get("model_params", {}),
+        )
+    if config["model"] == "BART":
+        return BARTSurrogate(
             inputs=domain.inputs,
             outputs=domain.outputs,
             **config.get("model_params", {}),

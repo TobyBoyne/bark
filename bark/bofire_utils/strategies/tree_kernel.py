@@ -26,7 +26,6 @@ class TreeKernelStrategy(PredictiveStrategy):
         super().__init__(data_model=data_model, **kwargs)
 
         self.surrogate_specs = data_model.surrogate_specs
-        # TODO: this will fail if using LeafGPSurrogate
         self.tree_surrogate = surrogate_map(data_model=self.surrogate_specs)
 
         self.model_core = get_opt_core_from_domain(self.domain)

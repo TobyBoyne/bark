@@ -1,6 +1,5 @@
 import logging
 
-import ConfigSpace as cs
 import numpy as np
 import pandas as pd
 from bofire.data_models.features.api import (
@@ -18,6 +17,7 @@ from bark.bofire_utils.domain import get_feature_bounds
 logging.getLogger(__name__)
 
 try:  # noqa: E402
+    import ConfigSpace as cs
     from smac import HyperparameterOptimizationFacade, Scenario
     from smac.runhistory.dataclasses import TrialInfo, TrialValue
 except ImportError:
@@ -79,7 +79,7 @@ class SMACStrategy(PredictiveStrategy):
         trial_info = self.smac.ask()
         return self._postprocess_candidate(trial_info.config)
 
-    def _postprocess_candidate(self, config: cs.Configuration) -> pd.DataFrame:
+    def _postprocess_candidate(self, config: "cs.Configuration") -> pd.DataFrame:
         df_candidate = pd.DataFrame(dict(config), index=(0,))
         preds = self.predict(df_candidate)
         return pd.concat((df_candidate, preds), axis=1)
