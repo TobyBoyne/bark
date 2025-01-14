@@ -80,7 +80,11 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
             ),
         )
     if model_name == "Entmoot":
-        return EntingStrategy(domain=domain, seed=seed)
+        return EntingStrategy(
+            domain=domain,
+            seed=seed,
+            solver_params={"solver_options": {"TimeLimit": 60, "MIPGap": 0.05}},
+        )
     if model_name == "BARKPrior":
         return TreeKernelStrategy(
             domain=domain,
