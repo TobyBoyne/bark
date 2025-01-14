@@ -63,12 +63,14 @@ class BARTGridStrategy(PredictiveStrategy):
         ).reset_index(drop=True)
 
         # this is too expensive
-        preds = self.predict(candidate)
+        # preds = self.predict(candidate)
         pred_col, sd_col = get_column_names(self.domain.outputs)
         preds = pd.DataFrame(
             data=[[0.0, 1.0]],
             columns=pred_col + sd_col,
         )
+        desis = self.domain.outputs(preds, predictions=True)
+        preds = pd.concat((preds, desis), axis=1)
         return pd.concat((candidate, preds), axis=1)
 
     @property

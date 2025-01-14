@@ -126,7 +126,8 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
         )
         if model_config["model"] == "BART":
             idata = surrogate.function_samples(remaining_candidates)
-            y_samples = idata.posterior_predictive.y_pred.to_numpy().reshape(-1, 372)
+            y_samples = idata.posterior_predictive.y_pred.to_numpy()
+            y_samples = y_samples.reshape(-1, y_samples.shape[-1])
             acqf = ucb_samples(y_samples)
         else:
             if model_config["model"] == "BARK":
