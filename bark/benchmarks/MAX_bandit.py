@@ -14,7 +14,9 @@ from bofire.data_models.objectives.api import MinimizeObjective
 
 
 class MAXBandit(Benchmark):
-    def __init__(self, data_path: Path | str | None = None, **kwargs):
+    def __init__(
+        self, data_path: Path | str | None = None, target="K_exp", negate=True, **kwargs
+    ):
         self._domain = Domain(
             inputs=Inputs(
                 features=[
@@ -67,7 +69,7 @@ class MAXBandit(Benchmark):
             ),
             outputs=Outputs(
                 # target is max K_exp => min -K_exp
-                features=[ContinuousOutput(key="y", objective=MinimizeObjective())]
+                features=[ContinuousOutput(key=target, objective=MinimizeObjective())]
             ),
         )
 
@@ -77,6 +79,9 @@ class MAXBandit(Benchmark):
                 raise FileNotFoundError(f"Data file not found at {data_path}")
         self.data = self._load_data_from_path(data_path)
 
+        if negate:
+            self.data[target] *= -1  # turn into a minimize problem
+
     def _load_data_from_path(self, data_path: str):
         with open(data_path, "r") as f:
             data = json.load(f)
@@ -84,7 +89,9 @@ class MAXBandit(Benchmark):
         df = pd.DataFrame(
             data, columns=self.domain.inputs.get_keys() + self.domain.outputs.get_keys()
         )
-        df["y"] *= -1  # turn into a minimize problem
+        assert (
+            not df[self.domain.outputs.get_keys()].isna().all().any()
+        ), "Target column(s) do not exist."
         return df
 
     def _f(self, X: pd.DataFrame, **kwargs):

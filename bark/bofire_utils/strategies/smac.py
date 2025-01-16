@@ -70,7 +70,7 @@ class SMACStrategy(PredictiveStrategy):
             trial = TrialInfo(cfg, seed=self.seed)
             value = TrialValue(experiment[self.domain.outputs.get_keys()].item())
             if trial not in self.smac.runhistory:
-                self.smac.tell(trial, value)
+                self.smac.tell(trial, value, save=False)
 
     def _ask(self, candidate_count: int) -> np.ndarray:
         assert candidate_count == 1, "SMAC only supports single candidates"
