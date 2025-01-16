@@ -17,11 +17,16 @@ def fit_lgbm_forest(
     domain: Domain,
     params: Optional[dict] = None,
 ) -> lgb.Booster:
+    # set max_cat_to_onehot to 32 to avoid one-hot encoding of categorical features
+    # which leads to underfitting trees that do not split the data at all for
+    # small datasets
+
     default_params = {
         "max_depth": 3,
         "min_data_in_leaf": 1,
         "verbose": -1,
         "num_boost_round": 50,
+        "max_cat_to_onehot": 32,
     }
     if params is None:
         params = {}
