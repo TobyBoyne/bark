@@ -41,7 +41,7 @@ class ModelConfig(TypedDict):
 
 
 def _get_surrogate_datamodel(config: ModelConfig, domain: Domain):
-    if config["model"] == "Sobo":
+    if config["model"] == "GP":
         return SingleTaskGPSurrogate(inputs=domain.inputs, outputs=domain.outputs)
     if config["model"] == "BARK":
         return BARKSurrogate(
