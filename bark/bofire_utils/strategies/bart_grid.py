@@ -58,9 +58,7 @@ class BARTGridStrategy(PredictiveStrategy):
         return self._postprocess_candidate(candidate_df)
 
     def _postprocess_candidate(self, candidate: pd.DataFrame) -> pd.DataFrame:
-        candidate = self.domain.inputs.inverse_transform(
-            candidate, self.input_preprocessing_specs
-        ).reset_index(drop=True)
+        candidate = candidate.reset_index(drop=True)
 
         # this is too expensive
         # preds = self.predict(candidate)
