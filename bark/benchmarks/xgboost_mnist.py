@@ -5,7 +5,6 @@ import xgboost
 from bofire.benchmarks.api import Benchmark
 from bofire.data_models.domain.api import Domain, Inputs, Outputs
 from bofire.data_models.features.api import (
-    CategoricalInput,
     ContinuousInput,
     ContinuousOutput,
 )
@@ -35,13 +34,9 @@ class XGBoostMNIST(Benchmark):
         self._domain = Domain(
             inputs=Inputs(
                 features=[
-                    CategoricalInput(key="booster", categories=["gbtree", "dart"]),
-                    CategoricalInput(
-                        key="grow_policy", categories=["depthwise", "lossguide"]
-                    ),
-                    CategoricalInput(
-                        key="objective", categories=["multi:softmax", "multi:softprob"]
-                    ),
+                    build_integer_input(key="booster", bounds=[0, 1]),
+                    build_integer_input(key="grow_policy", bounds=[0, 1]),
+                    build_integer_input(key="objective", bounds=[0, 1]),
                     ContinuousInput(key="log_learning_rate", bounds=[-5, 0]),
                     build_integer_input(key="max_depth", bounds=[1, 10]),
                     ContinuousInput(key="min_split_loss", bounds=[0, 10]),
@@ -70,6 +65,17 @@ class XGBoostMNIST(Benchmark):
             log_learning_rate = xgboost_kwargs.pop("log_learning_rate")
             xgboost_kwargs["learning_rate"] = 10**log_learning_rate
             xgboost_kwargs["max_depth"] = int(xgboost_kwargs["max_depth"])
+            xgboost_kwargs["booster"] = ["gbtree", "dart"][
+                int(xgboost_kwargs.pop("booster"))
+            ]
+            xgboost_kwargs["grow_policy"] = [
+                "depthwise",
+                "lossguide",
+            ][int(xgboost_kwargs.pop("grow_policy"))]
+            xgboost_kwargs["objective"] = [
+                "multi:softmax",
+                "multi:softprob",
+            ][int(xgboost_kwargs.pop("objective"))]
 
             ys.append([self._train_xgboost(xgboost_kwargs)])
 
