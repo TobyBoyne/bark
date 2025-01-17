@@ -1,6 +1,4 @@
-import gpytorch
 import numpy as np
-import torch
 from jaxtyping import Float
 
 
@@ -35,7 +33,7 @@ def nlpd(
     return -gaussian_log_likelihood(mu, var, test_y).sum(axis=0) / test_y.shape[0]
 
 
-def mse(pred_dist: torch.distributions.Distribution, test_y: torch.Tensor):
+def mse(mu: Float[np.ndarray, "N batch"], test_y: Float[np.ndarray, "N 1"]):
     """Compute the mean squared error of the prediction"""
 
-    return gpytorch.metrics.mean_squared_error(pred_dist, test_y)
+    return np.mean(np.square(mu - test_y))
