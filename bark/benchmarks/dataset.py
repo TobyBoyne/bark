@@ -3,6 +3,8 @@
 Many obtained from https://archive.ics.uci.edu/"""
 
 import numpy as np
+import pandas as pd
+from bofire.benchmarks.api import Benchmark
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import (
     CategoricalInput,
@@ -16,14 +18,15 @@ from bark.bofire_utils.domain import build_integer_input
 
 def get_ucirepo_domain_and_data(
     dataset_name: str,
-) -> tuple[Domain, np.ndarray, np.ndarray]:
+) -> tuple[Domain, pd.DataFrame]:
     domain = _dataset_name_to_domain[dataset_name]
     dataset = fetch_ucirepo(name=dataset_name)
-    target_feature = domain.outputs.get_keys()[0]
+    target_features = domain.outputs.get_keys()
     nan_idxs = dataset.data.features.isna().any(axis=1)
-    train_x = dataset.data.features[~nan_idxs].to_numpy()
-    train_y = dataset.data.targets[target_feature][~nan_idxs].to_numpy().reshape(-1)
-    return domain, (train_x, train_y)
+    train_x = dataset.data.features[~nan_idxs]
+    train_y = dataset.data.targets[target_features][~nan_idxs]
+    experiments = pd.concat((train_x, train_y), axis=1)
+    return domain, experiments
 
 
 _auto_mpg = Domain.from_lists(
@@ -123,3 +126,28 @@ _dataset_name_to_domain = {
     "Abalone": _abalone,
     "Concrete Compressive Strength": _concrete_compressive,
 }
+
+
+class DatasetBenchmark(Benchmark):
+    """Benchmark for regression datasets"""
+
+    def __init__(self, dataset_name: str, **kwargs):
+        domain, data = get_ucirepo_domain_and_data(dataset_name)
+
+        self._domain = domain
+        self.data = data
+        self._num_sampled = 0
+        super().__init__(**kwargs)
+
+    def _f(self, candidates: pd.DataFrame) -> pd.DataFrame:
+        idxs = candidates.index
+        return self.data.loc[idxs][self.domain.outputs.get_keys()]
+
+    def sample(self, n_samples: int, seed: int = 0) -> pd.DataFrame:
+        assert self._num_sampled + n_samples <= len(self.data)
+        data_order = np.random.default_rng(seed).permutation(len(self.data))
+        sample_idxs = data_order[self._num_sampled : self._num_sampled + n_samples]
+        samples = self.data.iloc[sample_idxs]
+        self._num_sampled += n_samples
+
+        return samples[self.domain.inputs.get_keys()]

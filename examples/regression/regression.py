@@ -11,7 +11,7 @@ from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
 from typing_extensions import NotRequired, TypedDict
 
 import bark.utils.metrics as metrics
-from bark.benchmarks import map_benchmark
+from bark.benchmarks import DatasetBenchmark, map_benchmark
 from bark.bofire_utils.data_models.strategies.mapper import strategy_map
 from bark.bofire_utils.data_models.surrogates.api import (
     BARKSurrogate,
@@ -81,32 +81,39 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
     seed_rng = np.random.default_rng(seed)
     all_metrics = []
     for run_seed in seed_rng.choice(2**32, size=NUM_RUNS, replace=False):
-        sampler = strategy_map(RandomStrategy(domain=domain, seed=seed))
+        if isinstance(benchmark, DatasetBenchmark):
+            benchmark._num_sampled = 0
+            sampler_fn = lambda n_samples: benchmark.sample(n_samples, seed=run_seed)
+        else:
+            sampler = strategy_map(RandomStrategy(domain=domain, seed=run_seed))
+            sampler_fn = sampler.ask
 
         surrogate_dm = _get_surrogate_datamodel(model_config, domain)
         surrogate = surrogate_map(surrogate_dm)
 
         logger.info(f"Sample train data (n={benchmark_config['num_train']})")
-        train_x = sampler.ask(benchmark_config["num_train"])
+        train_x = sampler_fn(benchmark_config["num_train"])
         experiments = benchmark.f(train_x, return_complete=True)
 
         logger.info("Tell experiments and fit surrogate")
         surrogate.fit(experiments)
 
         logger.info(f"Sample test data (n={benchmark_config['num_test']})")
-        test_x = sampler.ask(benchmark_config["num_test"])
+        test_x = sampler_fn(benchmark_config["num_test"])
         test_experiments = benchmark.f(test_x, return_complete=True)
 
         logger.info("Predict")
         test_predictions = surrogate.predict(test_experiments)
 
+        y_lbl = domain.outputs.get_keys()[0]
+        y_pred_lbl, y_sd_lbl = f"{y_lbl}_pred", f"{y_lbl}_sd"
         nlpd = metrics.nlpd(
-            test_predictions["y_pred"].to_numpy(),
-            test_predictions["y_sd"].to_numpy() ** 2,
-            test_experiments["y"].to_numpy(),
+            test_predictions[y_pred_lbl].to_numpy(),
+            test_predictions[y_sd_lbl].to_numpy() ** 2,
+            test_experiments[y_lbl].to_numpy(),
         )
         mse = metrics.mse(
-            test_predictions["y_pred"].to_numpy(), test_experiments["y"].to_numpy()
+            test_predictions[y_pred_lbl].to_numpy(), test_experiments[y_lbl].to_numpy()
         )
         logger.info(f"NLPD = {nlpd},\t MSE = {mse}")
         all_metrics.append([nlpd, mse])
