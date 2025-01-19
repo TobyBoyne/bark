@@ -131,11 +131,15 @@ _dataset_name_to_domain = {
 class DatasetBenchmark(Benchmark):
     """Benchmark for regression datasets"""
 
-    def __init__(self, dataset_name: str, **kwargs):
+    def __init__(self, dataset_name: str, standardise=True, **kwargs):
         domain, data = get_ucirepo_domain_and_data(dataset_name)
 
         self._domain = domain
         self.data = data
+        if standardise:
+            output_cols = self.domain.outputs.get_keys()
+            y = self.data[output_cols]
+            self.data[output_cols] = (y - y.mean()) / y.std()
         self._num_sampled = 0
         super().__init__(**kwargs)
 
