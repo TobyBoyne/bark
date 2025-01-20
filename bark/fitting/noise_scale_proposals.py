@@ -29,6 +29,17 @@ def gamma_logpdf(x, shape, rate):
 
 
 @njit
+def inverse_gamma_logpdf(x, shape, rate):
+    scale = 1 / rate
+    return (
+        -(shape + 1) * np.log(x)
+        - scale / x
+        - special.gammaln(shape)
+        + shape * np.log(scale)
+    )
+
+
+@njit
 def propose_positive_transition(cur_value: float, step_size: float) -> float:
     """Propose a new value for a hyperparameter that is positive.
 
@@ -137,9 +148,9 @@ def get_noise_proposal_softplus(
 
     log_q *= -1
 
-    log_prior = gamma_logpdf(
+    log_prior = inverse_gamma_logpdf(
         new_noise, params.gamma_prior_shape, params.gamma_prior_rate
-    ) - gamma_logpdf(noise, params.gamma_prior_shape, params.gamma_prior_rate)
+    ) - inverse_gamma_logpdf(noise, params.gamma_prior_shape, params.gamma_prior_rate)
 
     log_q_prior = log_q + log_prior
     return new_noise, log_q_prior
