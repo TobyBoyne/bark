@@ -1,0 +1,7 @@
+benchmark: StyblinskiTang
+# benchmark_params:
+#   dim: 5
+#   m: 50
+
+num_train: 123
+num_test: 231

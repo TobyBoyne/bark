@@ -27,8 +27,10 @@ class BARKSurrogate(Surrogate, TrainableSurrogate):
     # noise and scale proposal parameters
     use_softplus_transform: bool = True
     sample_scale: bool = False
-    gamma_prior_shape: float = 2.5
-    gamma_prior_rate: float = 9.0
+    # for gamma prior on noise, use (shape, rate) = (2.5, 9.0)
+    # for inv gamma prior on noise, use (shape, rate) = (1.5, 5)
+    gamma_prior_shape: float = 1.5
+    gamma_prior_rate: float = 5.0
 
     # transition type probabilities
     grow_prune_weight: float = 0.5

@@ -69,7 +69,7 @@ class _BARKSurrogateBase(Surrogate, TrainableSurrogate):
         return self.model_as_tuple() is not None
 
     def _predict(
-        self, transformed_X: pd.DataFrame, batched=False
+        self, transformed_X: pd.DataFrame, batched=False, predict_observed=True
     ) -> tuple[np.ndarray, np.ndarray]:
         candidates = transformed_X.to_numpy()
         domain = Domain(inputs=self.inputs, outputs=self.outputs)
@@ -81,8 +81,15 @@ class _BARKSurrogateBase(Surrogate, TrainableSurrogate):
             diag=True,
         )
         mu, var = self.scaler.untransform_mu_var(mu, var)
+        # mu, var are (num_samples, N)
+        if predict_observed:
+            # y ~ N(f, noise)
+            # all observations have the same noise
+            var += self.noise.reshape(-1, 1)
+
         if not batched:
             mu, var = mixture_of_gaussians_as_normal(mu, var)
+
         # reshape to ([batch,] n, 1) for the single output
         return mu[..., np.newaxis], np.sqrt(var[..., np.newaxis])
 
