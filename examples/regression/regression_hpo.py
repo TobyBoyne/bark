@@ -1,3 +1,5 @@
+"""Run regression while varying hyperparameters of BARK"""
+
 import argparse
 import logging
 import pathlib
@@ -8,15 +10,13 @@ from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import RandomStrategy
 from typing_extensions import NotRequired, TypedDict
 
+import bark.utils.metrics as metrics
 from bark.benchmarks import DatasetBenchmark, map_benchmark
 from bark.bofire_utils.data_models.strategies.mapper import strategy_map
 from bark.bofire_utils.data_models.surrogates.api import (
     BARKSurrogate,
 )
 from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
-from bark.bofire_utils.domain import get_feature_types_array
-from bark.fitting.bark_sampler import DataT, ModelT
-from bark.tree_kernels.tree_gps import batched_forest_gram_matrix
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -24,8 +24,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO,
 )
-
-NUM_RUNS = 20
 
 
 class BenchmarkConfig(TypedDict):
@@ -54,26 +52,6 @@ def _get_surrogate_datamodel(model_config: ModelConfig, domain: Domain):
     raise KeyError(f"Model {model_name} not found")
 
 
-def mll(model: ModelT, data: DataT, domain: Domain):
-    forest, noise, scale = model
-    train_x, y = data
-    n = train_x.shape[0]
-
-    feat_types = get_feature_types_array(domain)
-    forest = forest.reshape(-1, *forest.shape[-2:])
-    noise = noise.reshape(-1)
-    K_XX = batched_forest_gram_matrix(forest, train_x, train_x, feat_types)
-    # K_XX is (batch x n x n)
-    K_XX_s = K_XX + (1e-6 + noise[:, None, None]) * np.eye(n)
-
-    K_inv = np.linalg.inv(K_XX_s)
-    _, K_logdet = np.linalg.slogdet(K_XX_s)
-    y = y[None, ...]
-    data_fit = (y.transpose((0, 2, 1)) @ K_inv @ y).squeeze()
-    mll_arr = 0.5 * (-data_fit - K_logdet - n * np.log(2 * np.pi))
-    return mll_arr
-
-
 def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig):
     benchmark = map_benchmark(
         benchmark_config["benchmark"], **benchmark_config.get("benchmark_params", {})
@@ -81,31 +59,55 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
     domain = benchmark.domain
 
     # sample initial points
-    seed_rng = np.random.default_rng(seed)
-    all_mlls = np.zeros((NUM_RUNS, model_config["model_params"]["num_samples"]))
-    for i, run_seed in enumerate(seed_rng.choice(2**32, size=NUM_RUNS, replace=False)):
-        if isinstance(benchmark, DatasetBenchmark):
-            benchmark._num_sampled = 0
-            sampler_fn = lambda n_samples: benchmark.sample(n_samples, seed=run_seed)
-        else:
-            sampler = strategy_map(RandomStrategy(domain=domain, seed=run_seed))
-            sampler_fn = sampler.ask
+    model_params = model_config["model_params"]
 
-        surrogate_dm = _get_surrogate_datamodel(model_config, domain)
-        surrogate = surrogate_map(surrogate_dm)
+    if isinstance(benchmark, DatasetBenchmark):
+        benchmark._num_sampled = 0
+        sampler_fn = lambda n_samples: benchmark.sample(n_samples, seed=seed)
+    else:
+        sampler = strategy_map(RandomStrategy(domain=domain, seed=seed))
+        sampler_fn = sampler.ask
 
-        logger.info(f"Sample train data (n={benchmark_config['num_train']})")
-        train_x = sampler_fn(benchmark_config["num_train"])
-        experiments = benchmark.f(train_x, return_complete=True)
+    logger.info(
+        f"Sample train (n={benchmark_config['num_train']}) and test (n={benchmark_config['num_test']}) data"
+    )
+    train_x = sampler_fn(benchmark_config["num_train"])
+    experiments = benchmark.f(train_x, return_complete=True)
 
-        logger.info("Tell experiments and fit surrogate")
-        surrogate.fit(experiments)
+    logger.info("Tell experiments and fit surrogate")
 
-        logger.info("Compute MLL")
-        mll_arr = mll(surrogate.model_as_tuple(), surrogate.train_data, domain)
-        all_mlls[i, :] = mll_arr
+    logger.info(f"Sample test data (n={benchmark_config['num_test']})")
+    test_x = sampler_fn(benchmark_config["num_test"])
+    test_experiments = benchmark.f(test_x, return_complete=True)
 
-    return all_mlls
+    alpha_lst = model_params["alpha"]
+    beta_lst = model_params["beta"]
+    nlpd_arr = np.zeros((len(alpha_lst), len(beta_lst)))
+
+    for i, alpha in enumerate(alpha_lst):
+        for j, beta in enumerate(beta_lst):
+            model_params["alpha"] = alpha
+            model_params["beta"] = beta
+
+            surrogate_dm = _get_surrogate_datamodel(model_config, domain)
+            surrogate = surrogate_map(surrogate_dm)
+
+            surrogate.fit(experiments)
+
+            logger.info("Predict")
+            test_predictions = surrogate.predict(test_experiments)
+
+            y_lbl = domain.outputs.get_keys()[0]
+            y_pred_lbl, y_sd_lbl = f"{y_lbl}_pred", f"{y_lbl}_sd"
+            nlpd = metrics.nlpd(
+                test_predictions[y_pred_lbl].to_numpy(),
+                test_predictions[y_sd_lbl].to_numpy() ** 2,
+                test_experiments[y_lbl].to_numpy(),
+            )
+            logger.info(f"NLPD = {nlpd}")
+            nlpd_arr[i, j] = nlpd
+
+    return nlpd_arr
 
 
 if __name__ == "__main__":
@@ -120,7 +122,7 @@ if __name__ == "__main__":
     benchmark_config: BenchmarkConfig = yaml.safe_load(open(args.config_file_benchmark))
     model_config: ModelConfig = yaml.safe_load(open(args.config_file_model))
 
-    all_mlls = main(seed, benchmark_config, model_config)
+    experiments = main(seed, benchmark_config, model_config)
 
     output_dir = (
         pathlib.Path(args.output_dir)
@@ -128,7 +130,7 @@ if __name__ == "__main__":
         / model_config.get("model_save_name", model_config["model"])
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    np.save(output_dir / "mlls.npy", all_mlls)
+    np.save(output_dir / f"nlpd_seed={seed}.npy", experiments)
 
     config = {**benchmark_config, **model_config}
     yaml.dump(config, open(output_dir / "config.yaml", "w"))
