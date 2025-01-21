@@ -1,0 +1,7 @@
+benchmark: DatasetBenchmark
+benchmark_save_name: AutoMPG
+benchmark_params:
+  dataset_name: Auto MPG
+
+num_train: 100
+num_test: 250

@@ -1,0 +1,10 @@
+model: BARK
+model_params:
+  warmup_steps: 0
+  num_samples: 500
+  steps_per_sample: 1
+  num_chains: 1
+  verbose: True
+
+  gamma_prior_shape: 1.5
+  gamma_prior_rate: 5.0
