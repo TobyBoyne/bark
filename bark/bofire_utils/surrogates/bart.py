@@ -15,6 +15,7 @@ from bark.bofire_utils.standardize import Standardize
 class BARTSurrogate(Surrogate, TrainableSurrogate):
     def __init__(self, data_model: BARTSurrogateDataModel):
         self.seed = data_model.seed
+        self.num_chains = data_model.num_chains
         self.scalar = Standardize()
         self.model: pm.Model | None = None
         self.trace: az.InferenceData | None = None

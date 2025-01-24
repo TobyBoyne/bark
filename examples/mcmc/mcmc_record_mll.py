@@ -84,6 +84,9 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
     seed_rng = np.random.default_rng(seed)
     all_mlls = np.zeros((NUM_RUNS, model_config["model_params"]["num_samples"]))
     for i, run_seed in enumerate(seed_rng.choice(2**32, size=NUM_RUNS, replace=False)):
+        # take all samples from the same dataset
+        run_seed = seed
+
         if isinstance(benchmark, DatasetBenchmark):
             benchmark._num_sampled = 0
             sampler_fn = lambda n_samples: benchmark.sample(n_samples, seed=run_seed)

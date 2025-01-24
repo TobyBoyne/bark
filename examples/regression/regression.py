@@ -1,6 +1,7 @@
 import argparse
 import logging
 import pathlib
+from time import perf_counter
 
 import numpy as np
 import pandas as pd
@@ -96,7 +97,9 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
         experiments = benchmark.f(train_x, return_complete=True)
 
         logger.info("Tell experiments and fit surrogate")
+        start_time = perf_counter()
         surrogate.fit(experiments)
+        time_taken = perf_counter() - start_time
 
         logger.info(f"Sample test data (n={benchmark_config['num_test']})")
         test_x = sampler_fn(benchmark_config["num_test"])
@@ -116,9 +119,9 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
             test_predictions[y_pred_lbl].to_numpy(), test_experiments[y_lbl].to_numpy()
         )
         logger.info(f"NLPD = {nlpd},\t MSE = {mse}")
-        all_metrics.append([nlpd, mse])
+        all_metrics.append([nlpd, mse, time_taken])
 
-    return pd.DataFrame(data=all_metrics, columns=["NLPD", "MSE"])
+    return pd.DataFrame(data=all_metrics, columns=["NLPD", "MSE", "Time"])
 
 
 if __name__ == "__main__":
