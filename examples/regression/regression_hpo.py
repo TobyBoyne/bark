@@ -1,14 +1,13 @@
+"""Run regression while varying hyperparameters of BARK"""
+
 import argparse
 import logging
 import pathlib
-from time import perf_counter
 
 import numpy as np
-import pandas as pd
 import yaml
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import RandomStrategy
-from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
 from typing_extensions import NotRequired, TypedDict
 
 import bark.utils.metrics as metrics
@@ -16,8 +15,6 @@ from bark.benchmarks import DatasetBenchmark, map_benchmark
 from bark.bofire_utils.data_models.strategies.mapper import strategy_map
 from bark.bofire_utils.data_models.surrogates.api import (
     BARKSurrogate,
-    BARTSurrogate,
-    LeafGPSurrogate,
 )
 from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
 
@@ -27,8 +24,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO,
 )
-
-NUM_RUNS = 20
 
 
 class BenchmarkConfig(TypedDict):
@@ -48,27 +43,12 @@ class ModelConfig(TypedDict):
 def _get_surrogate_datamodel(model_config: ModelConfig, domain: Domain):
     model_params = model_config.get("model_params", {})
     model_name = model_config["model"]
-    if model_name == "GP":
-        return SingleTaskGPSurrogate(inputs=domain.inputs, outputs=domain.outputs)
     if model_name == "BARK":
         return BARKSurrogate(
             inputs=domain.inputs,
             outputs=domain.outputs,
             **model_params,
         )
-    if model_name == "LeafGP":
-        return LeafGPSurrogate(
-            inputs=domain.inputs,
-            outputs=domain.outputs,
-            **model_params,
-        )
-    if model_name == "BART":
-        return BARTSurrogate(
-            inputs=domain.inputs,
-            outputs=domain.outputs,
-            **model_params,
-        )
-
     raise KeyError(f"Model {model_name} not found")
 
 
@@ -79,49 +59,55 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
     domain = benchmark.domain
 
     # sample initial points
-    seed_rng = np.random.default_rng(seed)
-    all_metrics = []
-    for run_seed in seed_rng.choice(2**32, size=NUM_RUNS, replace=False):
-        if isinstance(benchmark, DatasetBenchmark):
-            benchmark._num_sampled = 0
-            sampler_fn = lambda n_samples: benchmark.sample(n_samples, seed=run_seed)
-        else:
-            sampler = strategy_map(RandomStrategy(domain=domain, seed=run_seed))
-            sampler_fn = sampler.ask
+    model_params = model_config["model_params"]
 
-        surrogate_dm = _get_surrogate_datamodel(model_config, domain)
-        surrogate = surrogate_map(surrogate_dm)
+    if isinstance(benchmark, DatasetBenchmark):
+        benchmark._num_sampled = 0
+        sampler_fn = lambda n_samples: benchmark.sample(n_samples, seed=seed)
+    else:
+        sampler = strategy_map(RandomStrategy(domain=domain, seed=seed))
+        sampler_fn = sampler.ask
 
-        logger.info(f"Sample train data (n={benchmark_config['num_train']})")
-        train_x = sampler_fn(benchmark_config["num_train"])
-        experiments = benchmark.f(train_x, return_complete=True)
+    logger.info(
+        f"Sample train (n={benchmark_config['num_train']}) and test (n={benchmark_config['num_test']}) data"
+    )
+    train_x = sampler_fn(benchmark_config["num_train"])
+    experiments = benchmark.f(train_x, return_complete=True)
 
-        logger.info("Tell experiments and fit surrogate")
-        start_time = perf_counter()
-        surrogate.fit(experiments)
-        time_taken = perf_counter() - start_time
+    logger.info("Tell experiments and fit surrogate")
 
-        logger.info(f"Sample test data (n={benchmark_config['num_test']})")
-        test_x = sampler_fn(benchmark_config["num_test"])
-        test_experiments = benchmark.f(test_x, return_complete=True)
+    logger.info(f"Sample test data (n={benchmark_config['num_test']})")
+    test_x = sampler_fn(benchmark_config["num_test"])
+    test_experiments = benchmark.f(test_x, return_complete=True)
 
-        logger.info("Predict")
-        test_predictions = surrogate.predict(test_experiments)
+    alpha_lst = model_params["alpha"]
+    beta_lst = model_params["beta"]
+    nlpd_arr = np.zeros((len(alpha_lst), len(beta_lst)))
 
-        y_lbl = domain.outputs.get_keys()[0]
-        y_pred_lbl, y_sd_lbl = f"{y_lbl}_pred", f"{y_lbl}_sd"
-        nlpd = metrics.nlpd(
-            test_predictions[y_pred_lbl].to_numpy(),
-            test_predictions[y_sd_lbl].to_numpy() ** 2,
-            test_experiments[y_lbl].to_numpy(),
-        )
-        mse = metrics.mse(
-            test_predictions[y_pred_lbl].to_numpy(), test_experiments[y_lbl].to_numpy()
-        )
-        logger.info(f"NLPD = {nlpd},\t MSE = {mse}")
-        all_metrics.append([nlpd, mse, time_taken])
+    for i, alpha in enumerate(alpha_lst):
+        for j, beta in enumerate(beta_lst):
+            model_params["alpha"] = alpha
+            model_params["beta"] = beta
 
-    return pd.DataFrame(data=all_metrics, columns=["NLPD", "MSE", "Time"])
+            surrogate_dm = _get_surrogate_datamodel(model_config, domain)
+            surrogate = surrogate_map(surrogate_dm)
+
+            surrogate.fit(experiments)
+
+            logger.info("Predict")
+            test_predictions = surrogate.predict(test_experiments)
+
+            y_lbl = domain.outputs.get_keys()[0]
+            y_pred_lbl, y_sd_lbl = f"{y_lbl}_pred", f"{y_lbl}_sd"
+            nlpd = metrics.nlpd(
+                test_predictions[y_pred_lbl].to_numpy(),
+                test_predictions[y_sd_lbl].to_numpy() ** 2,
+                test_experiments[y_lbl].to_numpy(),
+            )
+            logger.info(f"NLPD = {nlpd}")
+            nlpd_arr[i, j] = nlpd
+
+    return nlpd_arr
 
 
 if __name__ == "__main__":
@@ -144,7 +130,7 @@ if __name__ == "__main__":
         / model_config.get("model_save_name", model_config["model"])
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    experiments.to_csv(output_dir / f"seed={seed}.csv", index=False)
+    np.save(output_dir / f"nlpd_seed={seed}.npy", experiments)
 
     config = {**benchmark_config, **model_config}
     yaml.dump(config, open(output_dir / "config.yaml", "w"))

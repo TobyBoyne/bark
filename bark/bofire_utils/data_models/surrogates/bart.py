@@ -16,6 +16,7 @@ class BARTSurrogate(Surrogate, TrainableSurrogate):
     type: Literal["BARKSurrogate"] = "BARKSurrogate"
 
     seed: int = 0
+    num_chains: int = 4
 
     @field_validator("input_preprocessing_specs")
     @classmethod

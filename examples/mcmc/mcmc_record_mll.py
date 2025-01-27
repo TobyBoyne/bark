@@ -1,25 +1,22 @@
 import argparse
 import logging
 import pathlib
-from time import perf_counter
 
 import numpy as np
-import pandas as pd
 import yaml
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import RandomStrategy
-from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
 from typing_extensions import NotRequired, TypedDict
 
-import bark.utils.metrics as metrics
 from bark.benchmarks import DatasetBenchmark, map_benchmark
 from bark.bofire_utils.data_models.strategies.mapper import strategy_map
 from bark.bofire_utils.data_models.surrogates.api import (
     BARKSurrogate,
-    BARTSurrogate,
-    LeafGPSurrogate,
 )
 from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
+from bark.bofire_utils.domain import get_feature_types_array
+from bark.fitting.bark_sampler import DataT, ModelT
+from bark.tree_kernels.tree_gps import batched_forest_gram_matrix
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -48,28 +45,33 @@ class ModelConfig(TypedDict):
 def _get_surrogate_datamodel(model_config: ModelConfig, domain: Domain):
     model_params = model_config.get("model_params", {})
     model_name = model_config["model"]
-    if model_name == "GP":
-        return SingleTaskGPSurrogate(inputs=domain.inputs, outputs=domain.outputs)
     if model_name == "BARK":
         return BARKSurrogate(
             inputs=domain.inputs,
             outputs=domain.outputs,
             **model_params,
         )
-    if model_name == "LeafGP":
-        return LeafGPSurrogate(
-            inputs=domain.inputs,
-            outputs=domain.outputs,
-            **model_params,
-        )
-    if model_name == "BART":
-        return BARTSurrogate(
-            inputs=domain.inputs,
-            outputs=domain.outputs,
-            **model_params,
-        )
-
     raise KeyError(f"Model {model_name} not found")
+
+
+def mll(model: ModelT, data: DataT, domain: Domain):
+    forest, noise, scale = model
+    train_x, y = data
+    n = train_x.shape[0]
+
+    feat_types = get_feature_types_array(domain)
+    forest = forest.reshape(-1, *forest.shape[-2:])
+    noise = noise.reshape(-1)
+    K_XX = batched_forest_gram_matrix(forest, train_x, train_x, feat_types)
+    # K_XX is (batch x n x n)
+    K_XX_s = K_XX + (1e-6 + noise[:, None, None]) * np.eye(n)
+
+    K_inv = np.linalg.inv(K_XX_s)
+    _, K_logdet = np.linalg.slogdet(K_XX_s)
+    y = y[None, ...]
+    data_fit = (y.transpose((0, 2, 1)) @ K_inv @ y).squeeze()
+    mll_arr = 0.5 * (-data_fit - K_logdet - n * np.log(2 * np.pi))
+    return mll_arr
 
 
 def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig):
@@ -80,8 +82,11 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
 
     # sample initial points
     seed_rng = np.random.default_rng(seed)
-    all_metrics = []
-    for run_seed in seed_rng.choice(2**32, size=NUM_RUNS, replace=False):
+    all_mlls = np.zeros((NUM_RUNS, model_config["model_params"]["num_samples"]))
+    for i, run_seed in enumerate(seed_rng.choice(2**32, size=NUM_RUNS, replace=False)):
+        # take all samples from the same dataset
+        run_seed = seed
+
         if isinstance(benchmark, DatasetBenchmark):
             benchmark._num_sampled = 0
             sampler_fn = lambda n_samples: benchmark.sample(n_samples, seed=run_seed)
@@ -97,31 +102,13 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
         experiments = benchmark.f(train_x, return_complete=True)
 
         logger.info("Tell experiments and fit surrogate")
-        start_time = perf_counter()
         surrogate.fit(experiments)
-        time_taken = perf_counter() - start_time
 
-        logger.info(f"Sample test data (n={benchmark_config['num_test']})")
-        test_x = sampler_fn(benchmark_config["num_test"])
-        test_experiments = benchmark.f(test_x, return_complete=True)
+        logger.info("Compute MLL")
+        mll_arr = mll(surrogate.model_as_tuple(), surrogate.train_data, domain)
+        all_mlls[i, :] = mll_arr
 
-        logger.info("Predict")
-        test_predictions = surrogate.predict(test_experiments)
-
-        y_lbl = domain.outputs.get_keys()[0]
-        y_pred_lbl, y_sd_lbl = f"{y_lbl}_pred", f"{y_lbl}_sd"
-        nlpd = metrics.nlpd(
-            test_predictions[y_pred_lbl].to_numpy(),
-            test_predictions[y_sd_lbl].to_numpy() ** 2,
-            test_experiments[y_lbl].to_numpy(),
-        )
-        mse = metrics.mse(
-            test_predictions[y_pred_lbl].to_numpy(), test_experiments[y_lbl].to_numpy()
-        )
-        logger.info(f"NLPD = {nlpd},\t MSE = {mse}")
-        all_metrics.append([nlpd, mse, time_taken])
-
-    return pd.DataFrame(data=all_metrics, columns=["NLPD", "MSE", "Time"])
+    return all_mlls
 
 
 if __name__ == "__main__":
@@ -136,7 +123,7 @@ if __name__ == "__main__":
     benchmark_config: BenchmarkConfig = yaml.safe_load(open(args.config_file_benchmark))
     model_config: ModelConfig = yaml.safe_load(open(args.config_file_model))
 
-    experiments = main(seed, benchmark_config, model_config)
+    all_mlls = main(seed, benchmark_config, model_config)
 
     output_dir = (
         pathlib.Path(args.output_dir)
@@ -144,7 +131,7 @@ if __name__ == "__main__":
         / model_config.get("model_save_name", model_config["model"])
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    experiments.to_csv(output_dir / f"seed={seed}.csv", index=False)
+    np.save(output_dir / "mlls.npy", all_mlls)
 
     config = {**benchmark_config, **model_config}
     yaml.dump(config, open(output_dir / "config.yaml", "w"))
