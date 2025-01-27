@@ -7,3 +7,4 @@ models
 *.log
 results/
 venv/
+configs/
