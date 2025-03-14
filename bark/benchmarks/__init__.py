@@ -8,6 +8,7 @@ from .MAX_bandit import MAXBandit
 from .mixed import CombinationFunc2, DiscreteAckley, DiscreteRosenbrock, PressureVessel
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
+from .reaction_emulator import ToyReaction
 from .svr_bench import SVRBench
 from .tree_function import TreeFunction
 from .unconstrained import (
@@ -34,6 +35,7 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     "G10": G10,
     "Alkylation": Alkylation,
     # mixed spaces
+    "ToyReaction": ToyReaction,
     "PestControl": PestControl,
     "PressureVessel": PressureVessel,
     "XGBoostMNIST": XGBoostMNIST,
