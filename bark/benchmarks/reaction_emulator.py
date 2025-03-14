@@ -11,7 +11,6 @@ from bofire.data_models.features.api import (  # we won't need all of those.
     ContinuousInput,
     ContinuousOutput,
 )
-from bofire.data_models.objectives.api import MaximizeObjective
 
 # Reaction Optimization Notebook util code
 T0 = 25
@@ -74,7 +73,7 @@ def evaluate(candidates: pd.DataFrame, nsamples=100, A=25, B=90):
     y = 0.5 * y + 0.5 * y * Vfact
     samples = pd.DataFrame(
         {
-            "Yield": y,
+            "Yield": -y,
             "valid_Yield": np.ones(nsamples),
         },
     )
