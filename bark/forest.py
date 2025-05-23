@@ -6,15 +6,17 @@ from enum import Enum
 import numpy as np
 from numba import njit, prange
 
+from bark.utils.bit_operations import next_power_of_2_exponent
+
 NODE_RECORD_DTYPE = np.dtype(
     [
         ("is_leaf", np.uint8),
         ("feature_idx", np.uint32),
         ("threshold", np.float32),
-        ("left", np.uint32),
-        ("right", np.uint32),
-        ("parent", np.uint32),
-        ("depth", np.uint32),
+        # ("left", np.uint32),
+        # ("right", np.uint32),
+        # ("parent", np.uint32),
+        # ("depth", np.uint32),
         ("active", np.uint8),
     ]
 )
@@ -24,6 +26,26 @@ class FeatureTypeEnum(Enum):
     Cat = 0
     Int = 1
     Cont = 2
+
+
+def depth(idx: int):
+    """Get the depth of node at `idx` in the binary tree."""
+    return next_power_of_2_exponent(idx) - 1
+
+
+def parent(idx: int):
+    """Get the parent of node at `idx` in the binary tree."""
+    return (idx - 1) // 2
+
+
+def left(idx: int):
+    """Get the left child of node at `idx` in the binary tree."""
+    return 2 * idx + 1
+
+
+def right(idx: int):
+    """Get the right child of node at `idx` in the binary tree."""
+    return 2 * idx + 2
 
 
 @njit
@@ -99,7 +121,6 @@ def batched_forest_gram_matrix(nodes, x1, x2, feat_types):
     return sim_mat
 
 
-# @njit(parallel=False)
 def batched_forest_gram_matrix_no_null(nodes, x1, x2, feat_types):
     """Compute the gram matrix after removing empty trees."""
     sim_mat = batched_forest_gram_matrix(nodes, x1, x2, feat_types)
@@ -112,7 +133,7 @@ def batched_forest_gram_matrix_no_null(nodes, x1, x2, feat_types):
     return (sim_mat - num_null_trees / num_trees) * scale
 
 
-def create_empty_forest(m: int, node_limit: int = 100):
+def create_empty_forest(m: int, node_limit: int = 128):
     forest = np.zeros((m, node_limit), dtype=NODE_RECORD_DTYPE)
-    forest[:, 0] = (1, 0, 0, 0, 0, -1, 0, 1)
+    forest[:, 0] = (1, 0, 0, 1)
     return forest

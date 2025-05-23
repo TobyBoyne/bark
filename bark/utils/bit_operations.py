@@ -4,6 +4,10 @@ from numba import njit
 
 @njit
 def next_power_of_2(x):
+    """Returns the next integer that is a power of two.
+
+    Specifically, calculates 2**(floor(log2(x)) + 1) if x >= 1, else
+    returns 1."""
     p = 1
     while x >= p:
         p <<= 1
@@ -12,6 +16,10 @@ def next_power_of_2(x):
 
 @njit
 def next_power_of_2_exponent(x):
+    """Returns the exponent of the next integer that is a power of two.
+
+    Specifically, calculates floor(log2(x)) + 1 if x >= 1, else
+    returns 0."""
     p = 1
     e = 0
     while x >= p:
