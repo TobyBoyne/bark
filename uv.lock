@@ -61,7 +61,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "beartype", specifier = ">=0.17.2,<1.0.0" },
-    { name = "bofire", extras = ["cheminfo", "optimization"], specifier = ">=0.0.14,<1.0.0" },
+    { name = "bofire", extras = ["cheminfo", "optimization"], specifier = ">=0.1.0,<1.0.0" },
     { name = "bofire-mixed-baselines", git = "https://github.com/TobyBoyne/bofire-mixed-baselines.git" },
     { name = "botorch", specifier = ">=0.11.0,<1.0.0" },
     { name = "entmoot", specifier = ">=2.0.2,<3.0.0" },
@@ -99,18 +99,19 @@ wheels = [
 
 [[package]]
 name = "bofire"
-version = "0.0.16"
+version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "formulaic" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "scipy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/2a/af9a6e0d6f794254d3c4e6217bc0b72b197bc03cf5388779cf7da579e5ca/bofire-0.0.16.tar.gz", hash = "sha256:4bffe990d6701b86bb71d9f04e2e253bd72fd48b7b80b6ab54693b169e730e20", size = 732297 }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/a6/98d0125b8984229de730e786dae9dbe6e2189afe4bdbd2153ae0594191a3/bofire-0.1.0.tar.gz", hash = "sha256:289be4c6dff555d9edff1e464c758770402476d3a12486747d6f04b9c6bbc499", size = 3560864 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/2d/07663d9e415fbc958add3d596581fdeadb4ac6fb9ddfb8f58037ebbd4cf5/bofire-0.0.16-py3-none-any.whl", hash = "sha256:163755f0aed981d582daf0b469b1cda0e59f8510e450f814aa58ea77a997382c", size = 905830 },
+    { url = "https://files.pythonhosted.org/packages/19/66/aebe5d267878ea443896faeb5290948562ee5a7356205ffdfb82fb69897f/bofire-0.1.0-py3-none-any.whl", hash = "sha256:c3fc84dab02ceded4b747c40bd72912a19629c6c3ea8413c947955b4f840f794", size = 3731135 },
 ]
 
 [package.optional-dependencies]
@@ -439,7 +440,7 @@ wheels = [
 
 [[package]]
 name = "formulaic"
-version = "1.0.2"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "interface-meta" },
@@ -449,9 +450,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/98/a045ff811d7138b6f28a86055865672a025a7f5fd5a7946916ebde998a03/formulaic-1.0.2.tar.gz", hash = "sha256:6eb65bedd1903c5381d8f2ae7a55b6ba13cb77d57bbaf6e4278f3b2c38e3660e", size = 430653 }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/31/b260a714a78f83da15b3410904a6e12a8ad25a3286b8819e083ff167173b/formulaic-1.0.1.tar.gz", hash = "sha256:64dd7992a7aa5bbceb1e40679d0f01fc6f0ba12b7d23d78094a88c2edc68fba1", size = 430137 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f7/a3/eeb29e0dbfd6ef0bafd0b3107649e0b8a02b382265f5e9572c7bda22eeff/formulaic-1.0.2-py3-none-any.whl", hash = "sha256:663328b038a0eb7644f59400615da7abf2672b0e11124b3bef3307afc441d97c", size = 94532 },
+    { url = "https://files.pythonhosted.org/packages/2c/09/7a9f95d35106d882f79ddabc2d33d8f2a262863f1f5d6fd00f46c5fc90aa/formulaic-1.0.1-py3-none-any.whl", hash = "sha256:be9e6127b98ba0293654be528fd070ede264f64d0247477c4d5af799b0b12cf2", size = 94197 },
 ]
 
 [[package]]

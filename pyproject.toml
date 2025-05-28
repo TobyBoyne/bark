@@ -18,7 +18,7 @@ dependencies = [
     "ucimlrepo<1.0.0,>=0.0.6",
     "numba<1.0.0,>=0.60.0",
     "xgboost<3.0.0,>=2.1.1",
-    "bofire[cheminfo,optimization]<1.0.0,>=0.0.14",
+    "bofire[cheminfo,optimization]<1.0.0,>=0.1.0",
     "numba-scipy<1.0.0,>=0.4.0",
     "entmoot<3.0.0,>=2.0.2",
     "bofire-mixed-baselines",
