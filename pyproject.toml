@@ -13,7 +13,7 @@ dependencies = [
     "scikit-optimize<1.0.0,>=0.9.0",
     "gurobipy==12",
     "lightgbm<5.0.0,>=4.3.0",
-    "botorch==0.10.0",
+    "botorch>=0.11.0,<1.0.0",
     "beartype<1.0.0,>=0.17.2",
     "ucimlrepo<1.0.0,>=0.0.6",
     "numba<1.0.0,>=0.60.0",
