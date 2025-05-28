@@ -2,8 +2,8 @@ import argparse
 import logging
 import pathlib
 
-import yaml
 import pandas as pd
+import yaml
 from bofire.data_models.acquisition_functions.api import qLogEI, qUCB
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import (
@@ -14,6 +14,10 @@ from bofire.data_models.strategies.api import (
 from typing_extensions import NotRequired, TypedDict
 
 from bark.benchmarks import map_benchmark
+from bark.bofire_utils.data_models.strategies.acqf_optimization import (
+    AlternatingBotorchOptimizer,
+    BotorchOptimizer,
+)
 from bark.bofire_utils.data_models.strategies.api import (
     BARTGridStrategy,
     RelaxedSoboStrategy,
@@ -60,7 +64,17 @@ def _get_strategy_datamodel(model_config: ModelConfig, domain: Domain):
             return RelaxedSoboStrategy(
                 domain=domain, seed=seed, acquisition_function=acqf
             )
-        return SoboStrategy(domain=domain, seed=seed, acquisition_function=acqf)
+        acqf_opt = (
+            AlternatingBotorchOptimizer()
+            if model_params.get("acqf_opt") == "alternating"
+            else BotorchOptimizer()
+        )
+        return SoboStrategy(
+            domain=domain,
+            seed=seed,
+            acquisition_function=acqf,
+            acquisition_optimizer=acqf_opt,
+        )
     if model_name == "BARK":
         return TreeKernelStrategy(
             domain=domain,
@@ -153,16 +167,15 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
             candidate = strategy.ask(1)
         logger.info("Evaluate")
         experiment = benchmark.f(candidate, return_complete=True)
-        
+
         logger.info("Tell")
         with timer(key="fit"):
             strategy.tell(experiment)
 
         # clear time
-        new_times = pd.DataFrame(timer, index=[itr+1])
+        new_times = pd.DataFrame(timer, index=[itr + 1])
         times = pd.concat((times, new_times))
         timer = Timer()
-
 
     return strategy.experiments, times
 

@@ -1,8 +1,7 @@
-import arviz as az
+import logging
+
 import numpy as np
 import pandas as pd
-import pymc as pm
-import pymc_bart as pmb
 from bofire.data_models.features.api import CategoricalInput
 from bofire.surrogates.api import Surrogate, TrainableSurrogate
 
@@ -10,6 +9,13 @@ from bark.bofire_utils.data_models.surrogates.bart import (
     BARTSurrogate as BARTSurrogateDataModel,
 )
 from bark.bofire_utils.standardize import Standardize
+
+try:  # noqa: E402
+    import arviz as az
+    import pymc as pm
+    import pymc_bart as pmb
+except ImportError:
+    logging.warning("pymc not installed; cannot use BART surrogate")
 
 
 class BARTSurrogate(Surrogate, TrainableSurrogate):

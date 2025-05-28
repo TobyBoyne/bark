@@ -28,6 +28,11 @@ version = "0.1.0"
 description = ""
 readme = "README.md"
 
+[project.optional-dependencies]
+bart = [
+    "pymc-bart>=0.9.1",
+]
+
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I001"]
