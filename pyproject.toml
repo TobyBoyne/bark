@@ -1,3 +1,34 @@
+[project]
+authors = [
+    {name = "TobyBoyne", email = "tobyboyne@gmail.com"},
+]
+license = {text = "LICENSE"}
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    "torch<3.0.0,>=2.2.0",
+    "numpy<2.0.0,>=1.24.4",
+    "matplotlib<4.0.0,>=3.8.2",
+    "gpytorch<2.0,>=1.11",
+    "tqdm<5.0.0,>=4.66.1",
+    "scikit-optimize<1.0.0,>=0.9.0",
+    "gurobipy==12",
+    "lightgbm<5.0.0,>=4.3.0",
+    "botorch==0.10.0",
+    "beartype<1.0.0,>=0.17.2",
+    "ucimlrepo<1.0.0,>=0.0.6",
+    "numba<1.0.0,>=0.60.0",
+    "xgboost<3.0.0,>=2.1.1",
+    "bofire[cheminfo,optimization]<1.0.0,>=0.0.14",
+    "numba-scipy<1.0.0,>=0.4.0",
+    "entmoot<3.0.0,>=2.0.2",
+    "bofire-mixed-baselines",
+]
+name = "bark"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+
+
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I001"]
 ignore = ["E721", "E731", "F722", "F821"]
@@ -6,44 +37,28 @@ ignore-init-module-imports = true
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 
-[tool.poetry]
-name = "bark"
-version = "0.1.0"
-description = ""
-authors = ["TobyBoyne <tobyboyne@gmail.com>"]
-license = "LICENSE"
-readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "^3.10"
-torch = "^2.2.0"
-numpy = "^1.24.4"
-matplotlib = "^3.8.2"
-gpytorch = "^1.11"
-tqdm = "^4.66.1"
-scikit-optimize = "^0.9.0"
-gurobipy = "12"
-lightgbm = "^4.3.0"
-botorch = "0.10.0"
-beartype = "^0.17.2"
-ucimlrepo = "^0.0.6"
-numba = "^0.60.0"
-xgboost = "^2.1.1"
-bofire = {extras = ["cheminfo", "optimization"], version = "^0.0.14"}
-numba-scipy = "^0.4.0"
-entmoot = "^2.0.2"
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest<9.0.0,>=8.0.0",
+    "ruff<1.0.0,>=0.2.0",
+    "pre-commit<4.0.0,>=3.6.0",
+    "ipython<9.0.0,>=8.21.0",
+    "pytest-benchmark<5.0.0,>=4.0.0",
+]
 
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-ruff = "^0.2.0"
-pre-commit = "^3.6.0"
-ipython = "^8.21.0"
-pytest-benchmark = "^4.0.0"
-
-# [tool.pytest.ini_options]
-# addopts = "--benchmark-storage=benchmarks/results --benchmark-autosave --jaxtyping-packages=bark,beartype.beartype"
-
+[tool.uv.sources]
+bofire-mixed-baselines = { git = "https://github.com/TobyBoyne/bofire-mixed-baselines.git" }
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[dependency-groups]
+dev = [
+    "pytest<9.0.0,>=8.0.0",
+    "ruff<1.0.0,>=0.2.0",
+    "pre-commit<4.0.0,>=3.6.0",
+    "ipython<9.0.0,>=8.21.0",
+    "pytest-benchmark<5.0.0,>=4.0.0",
+]
