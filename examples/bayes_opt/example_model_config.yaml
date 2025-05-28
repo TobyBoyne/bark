@@ -7,6 +7,8 @@
 #   num_chains: 4
 #   verbose: True
 
-model: BARKPrior
+model: Sobo
+model_save_name: SoboAlternating
 model_params:
-  num_samples: 5
+  acqf: UCB
+  acqf_opt: alternating
