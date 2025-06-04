@@ -21,7 +21,7 @@ dependencies = [
     "bofire[cheminfo,optimization]<1.0.0,>=0.1.0",
     "numba-scipy<1.0.0,>=0.4.0",
     "entmoot<3.0.0,>=2.0.2",
-    "bofire-mixed-baselines",
+    "arviz>=0.21.0",
 ]
 name = "bark"
 version = "0.1.0"
@@ -54,6 +54,7 @@ dev = [
 
 [tool.uv.sources]
 bofire-mixed-baselines = { git = "https://github.com/TobyBoyne/bofire-mixed-baselines.git" }
+botorch = { path = "../botorch", editable = true }
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
