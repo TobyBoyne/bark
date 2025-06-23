@@ -3,6 +3,7 @@ import logging
 import pathlib
 
 import yaml
+import pandas as pd
 from bofire.data_models.acquisition_functions.api import qLogEI, qUCB
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import (
@@ -26,6 +27,7 @@ from bark.bofire_utils.data_models.surrogates.api import (
     BARTSurrogate,
     LeafGPSurrogate,
 )
+from bark.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -139,18 +141,30 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
 
     strategy_dm = _get_strategy_datamodel(model_config, domain)
     strategy = strategy_map(strategy_dm)
-    strategy.tell(experiments)
+    timer = Timer()
+    times = pd.DataFrame([[0.0, 0.0]], columns=["fit", "optimize"])
+    with timer(key="fit"):
+        strategy.tell(experiments)
 
     logger.info("Start BO loop")
     for itr in range(benchmark_config["num_iter"]):
         logger.info(f"Ask for datapoint {itr=}")
-        candidate = strategy.ask(1)
+        with timer(key="optimize"):
+            candidate = strategy.ask(1)
         logger.info("Evaluate")
         experiment = benchmark.f(candidate, return_complete=True)
+        
         logger.info("Tell")
-        strategy.tell(experiment)
+        with timer(key="fit"):
+            strategy.tell(experiment)
 
-    return strategy.experiments
+        # clear time
+        new_times = pd.DataFrame(timer, index=[itr+1])
+        times = pd.concat((times, new_times))
+        timer = Timer()
+
+
+    return strategy.experiments, times
 
 
 if __name__ == "__main__":
@@ -165,7 +179,7 @@ if __name__ == "__main__":
     benchmark_config: BenchmarkConfig = yaml.safe_load(open(args.config_file_benchmark))
     model_config: ModelConfig = yaml.safe_load(open(args.config_file_model))
 
-    experiments = main(seed, benchmark_config, model_config)
+    experiments, times = main(seed, benchmark_config, model_config)
 
     output_dir = (
         pathlib.Path(args.output_dir)
@@ -174,6 +188,7 @@ if __name__ == "__main__":
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     experiments.to_csv(output_dir / f"seed={seed}.csv", index=False)
+    times.to_csv(output_dir / f"times_seed={seed}.csv", index=False)
 
     config = {**benchmark_config, **model_config}
     yaml.dump(config, open(output_dir / "config.yaml", "w"))

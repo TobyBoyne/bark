@@ -1,5 +1,6 @@
 from beartype.typing import Type, Union
 from bofire.benchmarks.benchmark import Benchmark
+from bofire.benchmarks.api import Hartmann
 
 from .cco.cellular_network import CCOBench
 from .constrained import G1, G3, G4, G6, G7, G10, Alkylation
@@ -8,6 +9,7 @@ from .MAX_bandit import MAXBandit
 from .mixed import CombinationFunc2, DiscreteAckley, DiscreteRosenbrock, PressureVessel
 from .multi_fidelity import CurrinExp2D
 from .pest import PestControl
+from .reaction_emulator import ToyReaction
 from .svr_bench import SVRBench
 from .tree_function import TreeFunction
 from .unconstrained import (
@@ -25,6 +27,7 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     "StyblinskiTang": StyblinskiTang,
     "Schwefel": Schwefel,
     "CombinationFunc2": CombinationFunc2,
+    "Hartmann": Hartmann,
     # constrained spaces
     "G1": G1,
     "G3": G3,
@@ -34,6 +37,7 @@ BENCHMARK_MAP: dict[str, Type[Benchmark]] = {
     "G10": G10,
     "Alkylation": Alkylation,
     # mixed spaces
+    "ToyReaction": ToyReaction,
     "PestControl": PestControl,
     "PressureVessel": PressureVessel,
     "XGBoostMNIST": XGBoostMNIST,
