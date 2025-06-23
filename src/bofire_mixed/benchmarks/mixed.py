@@ -13,7 +13,7 @@ from bofire.data_models.objectives.api import MinimizeObjective
 from pandas import DataFrame
 
 from bark.bofire_utils.constraints import FunctionalInequalityConstraint
-from bark.bofire_utils.domain import build_integer_input
+from bofire_mixed.domain import build_integer_input
 
 
 class DiscreteAckley(Benchmark):

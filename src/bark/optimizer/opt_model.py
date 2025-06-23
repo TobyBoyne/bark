@@ -8,9 +8,9 @@ from bofire.data_models.domain.api import Domain
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 
-from bark.bofire_utils.domain import get_cat_idx_from_domain, get_feature_types_array
 from bark.forest import batched_forest_gram_matrix_no_null
 from bark.tree_kernels.tree_gps import LeafGP, LeafMOGP
+from bofire_mixed.domain import get_cat_idx_from_domain, get_feature_types_array
 
 from .gbm_model import GbmModel
 from .opt_core import add_gbm_to_opt_model, get_opt_core, get_opt_core_copy

@@ -7,7 +7,7 @@ from bofire.data_models.domain.api import Domain, Inputs
 from bofire.data_models.features.api import DiscreteInput
 from gurobipy import GRB
 
-from bark.bofire_utils.domain import get_cat_idx_from_domain, get_feature_bounds
+from bofire_mixed.domain import get_cat_idx_from_domain, get_feature_bounds
 
 from .opt_core import (
     get_opt_core_copy,

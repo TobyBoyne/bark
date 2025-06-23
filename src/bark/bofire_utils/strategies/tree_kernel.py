@@ -11,12 +11,12 @@ from bofire.strategies.predictives.predictive import PredictiveStrategy
 from bark.bofire_utils.data_models.strategies.tree_kernel import (
     TreeKernelStrategy as DataModel,
 )
-from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
 
 # from bark.bofire_utils.data_models.mapper import surrogate_map
 from bark.optimizer.opt_core import get_opt_core_from_domain
 from bark.optimizer.opt_model import build_opt_model_from_forest
 from bark.optimizer.proposals import propose
+from bofire_mixed.data_models.surrogates.mapper import surrogate_map
 
 logger = logging.getLogger(__name__)
 

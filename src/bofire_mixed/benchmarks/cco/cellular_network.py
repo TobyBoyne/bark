@@ -10,7 +10,7 @@ from bofire.data_models.objectives.api import MinimizeObjective
 
 from bark.benchmarks.cco.problem_formulation import CCORasterBlanketFormulation
 from bark.benchmarks.cco.simulated_rsrp import SimulatedRSRP
-from bark.bofire_utils.domain import build_integer_input
+from bofire_mixed.domain import build_integer_input
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

@@ -14,9 +14,9 @@ from bark.bofire_utils.data_models.surrogates.api import (
     BARKSurrogate,
 )
 from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
-from bark.bofire_utils.domain import get_feature_types_array
 from bark.fitting.bark_sampler import DataT, ModelT
 from bark.tree_kernels.tree_gps import batched_forest_gram_matrix
+from bofire_mixed.domain import get_feature_types_array
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

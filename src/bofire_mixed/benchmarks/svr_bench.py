@@ -18,7 +18,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import SVR
 from xgboost import XGBRegressor
 
-from bark.bofire_utils.domain import build_integer_input
+from bofire_mixed.domain import build_integer_input
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

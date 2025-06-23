@@ -11,9 +11,9 @@ from bofire.data_models.features.api import (
 )
 from bofire.data_models.objectives.api import MinimizeObjective
 
-from bark.bofire_utils.domain import get_feature_types_array
 from bark.fitting.tree_proposals import NodeProposal, grow
 from bark.forest import create_empty_forest, pass_through_forest
+from bofire_mixed.domain import get_feature_types_array
 
 
 def sample_tree_function_from_structure(

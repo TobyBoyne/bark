@@ -15,9 +15,9 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from bark.bofire_utils.data_models.surrogates.leafgp import (
     LeafGPSurrogate as LeafGPDataModel,
 )
-from bark.bofire_utils.domain import get_feature_types_array
 from bark.fitting.lgbm_fitting import fit_lgbm_forest, lgbm_to_bark_forest
 from bark.tree_kernels.tree_model_kernel import TreeAgreementKernel
+from bofire_mixed.domain import get_feature_types_array
 
 # from bark.bofire_utils.standardize import Standardize
 

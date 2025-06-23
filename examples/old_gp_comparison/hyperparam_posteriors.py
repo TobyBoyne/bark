@@ -14,9 +14,9 @@ from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 from matplotlib.colors import Normalize
 
-from bark.bofire_utils.domain import get_feature_types_array
 from bark.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
 from bark.forest import batched_forest_gram_matrix, create_empty_forest
+from bofire_mixed.domain import get_feature_types_array
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)

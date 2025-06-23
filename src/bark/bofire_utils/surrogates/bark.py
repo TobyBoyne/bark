@@ -9,8 +9,6 @@ from bark.bofire_utils.data_models.surrogates.bark import (
 from bark.bofire_utils.data_models.surrogates.bark import (
     BARKSurrogate as BARKSurrogateDataModel,
 )
-from bark.bofire_utils.domain import get_feature_bounds, get_feature_types_array
-from bark.bofire_utils.standardize import Standardize
 from bark.fitting.bark_prior_sampler import sample_forest_prior, sample_noise_prior
 from bark.fitting.bark_sampler import (
     BARK_JITCLASS_SPEC,
@@ -19,6 +17,8 @@ from bark.fitting.bark_sampler import (
 )
 from bark.forest import create_empty_forest
 from bark.tree_kernels.tree_gps import forest_predict, mixture_of_gaussians_as_normal
+from bofire_mixed.domain import get_feature_bounds, get_feature_types_array
+from bofire_mixed.standardize import Standardize
 
 
 def _bark_params_to_jitclass(data_model: BARKSurrogateDataModel):

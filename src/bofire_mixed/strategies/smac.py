@@ -12,7 +12,7 @@ from bofire.data_models.types import InputTransformSpecs
 from bofire.strategies.api import PredictiveStrategy
 
 from bark.bofire_utils.data_models.strategies.smac import SMACStrategy as DataModel
-from bark.bofire_utils.domain import get_feature_bounds
+from bofire_mixed.domain import get_feature_bounds
 
 logging.getLogger(__name__)
 

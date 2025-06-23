@@ -4,11 +4,11 @@ from bofire.data_models.domain.api import Domain
 from numba import njit, prange
 from numba.experimental import jitclass
 
-from bark.bofire_utils.domain import get_feature_bounds, get_feature_types_array
 from bark.fitting.noise_scale_proposals import get_noise_scale_proposal
 from bark.fitting.quick_inverse import low_rank_det_update, low_rank_inv_update, mll
 from bark.fitting.tree_proposals import get_tree_proposal
 from bark.forest import NODE_RECORD_DTYPE, forest_gram_matrix, get_leaf_vectors
+from bofire_mixed.domain import get_feature_bounds, get_feature_types_array
 
 ModelT = tuple[np.ndarray, float, float]
 DataT = tuple[np.ndarray, np.ndarray]

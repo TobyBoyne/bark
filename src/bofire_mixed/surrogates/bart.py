@@ -6,10 +6,10 @@ import pymc_bart as pmb
 from bofire.data_models.features.api import CategoricalInput
 from bofire.surrogates.api import Surrogate, TrainableSurrogate
 
-from bark.bofire_utils.data_models.surrogates.bart import (
+from bofire_mixed.data_models.surrogates.bart import (
     BARTSurrogate as BARTSurrogateDataModel,
 )
-from bark.bofire_utils.standardize import Standardize
+from bofire_mixed.standardize import Standardize
 
 
 class BARTSurrogate(Surrogate, TrainableSurrogate):

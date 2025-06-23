@@ -13,7 +13,7 @@ from bofire.data_models.features.api import (
 )
 from ucimlrepo import fetch_ucirepo
 
-from bark.bofire_utils.domain import build_integer_input
+from bofire_mixed.domain import build_integer_input
 
 
 def get_ucirepo_domain_and_data(
