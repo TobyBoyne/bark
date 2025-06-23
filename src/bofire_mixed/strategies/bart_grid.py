@@ -8,11 +8,11 @@ from bofire.utils.naming_conventions import (
     get_column_names,
 )
 
-from bark.bofire_utils.data_models.strategies.bart_grid import (
+from bofire_mixed.data_models.strategies.bart_grid import (
     BARTGridStrategy as BARTGridStrategyDataModel,
 )
-from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
-from bark.bofire_utils.surrogates.bart import BARTSurrogate
+from bofire_mixed.data_models.surrogates.mapper import surrogate_map
+from bofire_mixed.surrogates.bart import BARTSurrogate
 
 
 class BARTGridStrategy(PredictiveStrategy):

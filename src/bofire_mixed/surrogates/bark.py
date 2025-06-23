@@ -3,12 +3,6 @@ import pandas as pd
 from bofire.data_models.domain.api import Domain
 from bofire.surrogates.trainable import Surrogate, TrainableSurrogate
 
-from bark.bofire_utils.data_models.surrogates.bark import (
-    BARKPriorSurrogate as BARKPriorSurrogateDataModel,
-)
-from bark.bofire_utils.data_models.surrogates.bark import (
-    BARKSurrogate as BARKSurrogateDataModel,
-)
 from bark.fitting.bark_prior_sampler import sample_forest_prior, sample_noise_prior
 from bark.fitting.bark_sampler import (
     BARK_JITCLASS_SPEC,
@@ -17,6 +11,12 @@ from bark.fitting.bark_sampler import (
 )
 from bark.forest import create_empty_forest
 from bark.tree_kernels.tree_gps import forest_predict, mixture_of_gaussians_as_normal
+from bofire_mixed.data_models.surrogates.bark import (
+    BARKPriorSurrogate as BARKPriorSurrogateDataModel,
+)
+from bofire_mixed.data_models.surrogates.bark import (
+    BARKSurrogate as BARKSurrogateDataModel,
+)
 from bofire_mixed.domain import get_feature_bounds, get_feature_types_array
 from bofire_mixed.standardize import Standardize
 

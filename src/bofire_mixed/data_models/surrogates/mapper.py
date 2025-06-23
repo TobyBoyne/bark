@@ -2,10 +2,10 @@ from bofire.data_models.surrogates import api as surrogates_data_models
 from bofire.surrogates.api import map as bofire_map_surrogate
 from bofire.surrogates.surrogate import Surrogate
 
-from bark.bofire_utils.data_models.surrogates import api as bark_data_models
-from bark.bofire_utils.surrogates.bark import BARKPriorSurrogate, BARKSurrogate
-from bark.bofire_utils.surrogates.bart import BARTSurrogate
-from bark.bofire_utils.surrogates.leafgp import LeafGPSurrogate
+from bofire_mixed.data_models.surrogates import api as bark_data_models
+from bofire_mixed.surrogates.bark import BARKPriorSurrogate, BARKSurrogate
+from bofire_mixed.surrogates.bart import BARTSurrogate
+from bofire_mixed.surrogates.leafgp import LeafGPSurrogate
 
 SURROGATE_MAP: dict[type[surrogates_data_models.Surrogate], type[Surrogate]] = {
     bark_data_models.LeafGPSurrogate: LeafGPSurrogate,

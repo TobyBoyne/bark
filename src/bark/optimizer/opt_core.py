@@ -11,7 +11,7 @@ from bofire.data_models.features.api import (
 )
 from gurobipy import GRB, quicksum
 
-from bark.bofire_utils.constraints import apply_constraint_to_model
+from bofire_mixed.constraints import apply_constraint_to_model
 
 if TYPE_CHECKING:
     from bark.optimizer.gbm_model import GbmModel

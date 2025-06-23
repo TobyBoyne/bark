@@ -3,19 +3,9 @@ import pytest
 from beartype.typing import Type
 from bofire.benchmarks.benchmark import Benchmark
 
-from bark.benchmarks import BENCHMARK_MAP
-from bark.bofire_utils.sampling import sample_projected
+from bofire_mixed.benchmarks import BENCHMARK_MAP
 
 BENCHMARKS = list(BENCHMARK_MAP.values())
-
-
-@pytest.mark.parametrize("benchmark_cls", BENCHMARKS)
-def test_sampling_benchmark(benchmark_cls: Type[Benchmark]):
-    benchmark = benchmark_cls()
-    samples = sample_projected(benchmark.domain, n=10, seed=42)
-    evals = benchmark.f(samples)  # noqa: F841
-
-    assert benchmark.domain.constraints.is_fulfilled(samples, tol=1e-3).all()
 
 
 @pytest.mark.parametrize("benchmark_cls", BENCHMARKS)

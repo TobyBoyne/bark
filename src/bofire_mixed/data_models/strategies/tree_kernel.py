@@ -22,11 +22,11 @@ from bofire.data_models.objectives.api import (
 )
 from bofire.data_models.strategies.predictives.predictive import PredictiveStrategy
 
-from bark.bofire_utils.data_models.surrogates.bark import (
+from bofire_mixed.data_models.surrogates.bark import (
     BARKPriorSurrogate,
     BARKSurrogate,
 )
-from bark.bofire_utils.data_models.surrogates.leafgp import LeafGPSurrogate
+from bofire_mixed.data_models.surrogates.leafgp import LeafGPSurrogate
 
 AnyTreeSurrogate = BARKSurrogate | BARKPriorSurrogate | LeafGPSurrogate
 

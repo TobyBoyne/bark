@@ -10,7 +10,7 @@ from bofire.data_models.features.api import (
 )
 from bofire.data_models.objectives.api import MinimizeObjective
 
-from bark.bofire_utils.constraints import (
+from bofire_mixed.constraints import (
     FunctionalEqualityConstraint,
     FunctionalInequalityConstraint,
 )

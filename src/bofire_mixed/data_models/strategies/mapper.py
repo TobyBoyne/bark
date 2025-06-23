@@ -1,11 +1,11 @@
 from bofire.data_models.strategies import api as strategies_data_models
 from bofire.strategies.api import map as bofire_map_strategy
 
-from bark.bofire_utils.data_models.strategies import api as bark_data_models
-from bark.bofire_utils.strategies.bart_grid import BARTGridStrategy
-from bark.bofire_utils.strategies.relaxed_sobo import RelaxedSoboStrategy
-from bark.bofire_utils.strategies.smac import SMACStrategy
-from bark.bofire_utils.strategies.tree_kernel import TreeKernelStrategy
+from bofire_mixed.data_models.strategies import api as bark_data_models
+from bofire_mixed.strategies.bart_grid import BARTGridStrategy
+from bofire_mixed.strategies.relaxed_sobo import RelaxedSoboStrategy
+from bofire_mixed.strategies.smac import SMACStrategy
+from bofire_mixed.strategies.tree_kernel import TreeKernelStrategy
 
 STRATEGY_MAP = {
     bark_data_models.TreeKernelStrategy: TreeKernelStrategy,

@@ -21,7 +21,7 @@ from bofire.data_models.objectives.api import (
 )
 from bofire.data_models.strategies.predictives.predictive import PredictiveStrategy
 
-from bark.bofire_utils.data_models.surrogates.bart import BARTSurrogate
+from bofire_mixed.data_models.surrogates.bart import BARTSurrogate
 
 
 class BARTGridStrategy(PredictiveStrategy):

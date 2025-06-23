@@ -8,14 +8,14 @@ from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import RandomStrategy
 from typing_extensions import NotRequired, TypedDict
 
-from bark.benchmarks import DatasetBenchmark, map_benchmark
-from bark.bofire_utils.data_models.strategies.mapper import strategy_map
-from bark.bofire_utils.data_models.surrogates.api import (
-    BARKSurrogate,
-)
-from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
 from bark.fitting.bark_sampler import DataT, ModelT
 from bark.tree_kernels.tree_gps import batched_forest_gram_matrix
+from bofire_mixed.benchmarks import DatasetBenchmark, map_benchmark
+from bofire_mixed.data_models.strategies.mapper import strategy_map
+from bofire_mixed.data_models.surrogates.api import (
+    BARKSurrogate,
+)
+from bofire_mixed.data_models.surrogates.mapper import surrogate_map
 from bofire_mixed.domain import get_feature_types_array
 
 logger = logging.getLogger(__name__)

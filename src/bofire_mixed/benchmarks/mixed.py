@@ -12,7 +12,7 @@ from bofire.data_models.features.api import (
 from bofire.data_models.objectives.api import MinimizeObjective
 from pandas import DataFrame
 
-from bark.bofire_utils.constraints import FunctionalInequalityConstraint
+from bofire_mixed.constraints import FunctionalInequalityConstraint
 from bofire_mixed.domain import build_integer_input
 
 

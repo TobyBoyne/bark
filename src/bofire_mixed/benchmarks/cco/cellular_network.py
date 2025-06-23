@@ -8,8 +8,8 @@ from bofire.data_models.domain.api import Domain, Inputs, Outputs
 from bofire.data_models.features.api import ContinuousInput, ContinuousOutput
 from bofire.data_models.objectives.api import MinimizeObjective
 
-from bark.benchmarks.cco.problem_formulation import CCORasterBlanketFormulation
-from bark.benchmarks.cco.simulated_rsrp import SimulatedRSRP
+from bofire_mixed.benchmarks.cco.problem_formulation import CCORasterBlanketFormulation
+from bofire_mixed.benchmarks.cco.simulated_rsrp import SimulatedRSRP
 from bofire_mixed.domain import build_integer_input
 
 logging.basicConfig(

@@ -11,7 +11,7 @@ from bofire.data_models.strategies.predictives.sobo import (
 )
 from bofire.strategies.predictives.sobo import SoboStrategy
 
-from bark.bofire_utils.data_models.strategies.relaxed_sobo import (
+from bofire_mixed.data_models.strategies.relaxed_sobo import (
     RelaxedSoboStrategy as RelaxedSoboStrategyDataModel,
 )
 

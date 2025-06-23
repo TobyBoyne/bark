@@ -3,12 +3,12 @@ import pytest
 from bofire.benchmarks.api import Benchmark, Himmelblau
 from bofire.data_models.domain.api import Domain
 
-from bark.benchmarks import StyblinskiTang
 from bark.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
 from bark.forest import batched_forest_gram_matrix, create_empty_forest
 from bark.optimizer import propose
 from bark.optimizer.opt_core import get_opt_core_from_domain
 from bark.optimizer.opt_model import build_opt_model_from_forest
+from bofire_mixed.benchmarks import StyblinskiTang
 from bofire_mixed.domain import get_feature_types_array
 
 
