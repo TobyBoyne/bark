@@ -131,7 +131,7 @@ class ConvVAE(nn.Module):
     def forward(self, x):
         # encoding
         for idx, layer in enumerate(self.enc):
-            x = self.act_map(f"enc_l{idx+1}_act")(layer(x))
+            x = self.act_map(f"enc_l{idx + 1}_act")(layer(x))
 
         batch, _, _, _ = x.shape
         x = F.adaptive_avg_pool2d(x, 1).reshape(batch, -1)
@@ -141,7 +141,7 @@ class ConvVAE(nn.Module):
 
         # encoding fc
         for idx, layer in enumerate(self.fc_enc):
-            x = self.act_map(f"fc_enc_l{idx+1}_act")(layer(x))
+            x = self.act_map(f"fc_enc_l{idx + 1}_act")(layer(x))
 
         if self.verbose:
             print(f"  -> after enc fc: {x.shape}")
@@ -158,11 +158,11 @@ class ConvVAE(nn.Module):
         # decoding fc
         if self.dec:
             for idx, layer in enumerate(self.fc_dec):
-                x = self.act_map(f"fc_dec_l{idx+1}_act")(layer(x))
+                x = self.act_map(f"fc_dec_l{idx + 1}_act")(layer(x))
         else:
             if self.fc_dec:
                 for idx, layer in enumerate(self.fc_dec[:-1]):
-                    x = self.act_map(f"fc_dec_l{idx+1}_act")(layer(x))
+                    x = self.act_map(f"fc_dec_l{idx + 1}_act")(layer(x))
                 x = self.fc_dec[-1](x)
 
         if self.verbose:
@@ -175,7 +175,7 @@ class ConvVAE(nn.Module):
                 print(f"  -> after view: {x.shape}")
 
             for idx, layer in enumerate(self.dec[:-1]):
-                x = self.act_map(f"dec_l{idx+1}_act")(layer(x))
+                x = self.act_map(f"dec_l{idx + 1}_act")(layer(x))
                 if self.verbose:
                     print(f"  -> after dec: {x.shape}")
 

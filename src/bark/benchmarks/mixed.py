@@ -31,7 +31,7 @@ class DiscreteAckley(Benchmark):
                         for i in range(discrete_dim)
                     ),
                     *(
-                        ContinuousInput(key=f"x_{i+discrete_dim}", bounds=(-1.0, 1.0))
+                        ContinuousInput(key=f"x_{i + discrete_dim}", bounds=(-1.0, 1.0))
                         for i in range(cont_dim)
                     ),
                 ]
@@ -74,7 +74,9 @@ class DiscreteRosenbrock(Benchmark):
                         for i in range(discrete_dim)
                     ),
                     *(
-                        ContinuousInput(key=f"x_{i+discrete_dim}", bounds=(-5.0, 10.0))
+                        ContinuousInput(
+                            key=f"x_{i + discrete_dim}", bounds=(-5.0, 10.0)
+                        )
                         for i in range(cont_dim)
                     ),
                 ]

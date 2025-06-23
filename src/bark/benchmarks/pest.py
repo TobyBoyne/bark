@@ -95,7 +95,7 @@ class PestControl(Benchmark):
         self._domain = Domain(
             inputs=Inputs(
                 features=[
-                    CategoricalInput(key=f"stage_{i+1}", categories=self.categories)
+                    CategoricalInput(key=f"stage_{i + 1}", categories=self.categories)
                     for i in range(n_stages)
                 ]
             ),
@@ -105,7 +105,7 @@ class PestControl(Benchmark):
         )
 
     def _f(self, X: pd.DataFrame) -> pd.DataFrame:
-        stages = [f"stage_{i+1}" for i in range(self._n_stages)]
+        stages = [f"stage_{i + 1}" for i in range(self._n_stages)]
         specs = {s: CategoricalEncodingEnum.ORDINAL for s in stages}
         X_transformed = self.domain.inputs.transform(X, specs)
         X_numpy = X_transformed[stages].to_numpy()

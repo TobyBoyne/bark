@@ -89,9 +89,9 @@ class MAXBandit(Benchmark):
         df = pd.DataFrame(
             data, columns=self.domain.inputs.get_keys() + self.domain.outputs.get_keys()
         )
-        assert (
-            not df[self.domain.outputs.get_keys()].isna().all().any()
-        ), "Target column(s) do not exist."
+        assert not df[self.domain.outputs.get_keys()].isna().all().any(), (
+            "Target column(s) do not exist."
+        )
         return df
 
     def _f(self, X: pd.DataFrame, **kwargs):

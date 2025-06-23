@@ -1,4 +1,5 @@
 """Logging helpers for analysing bottlenecks - not a part of public API."""
+
 from collections import defaultdict
 from time import perf_counter
 

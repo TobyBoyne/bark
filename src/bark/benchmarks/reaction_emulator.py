@@ -1,4 +1,4 @@
-"""Taken from BoFire 
+"""Taken from BoFire
 (https://github.com/experimental-design/bofire/blob/main/tutorials/basic_examples/Reaction_Optimization_Example.ipynb)
 """
 

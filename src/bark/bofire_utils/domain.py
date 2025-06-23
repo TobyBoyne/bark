@@ -1,4 +1,5 @@
 """Utils for working with Bofire domains"""
+
 from typing import Literal
 
 import numpy as np

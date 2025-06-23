@@ -1,6 +1,5 @@
 """Inspired by https://github.com/ogrisel/pygbm"""
 
-
 from enum import Enum
 
 import numpy as np

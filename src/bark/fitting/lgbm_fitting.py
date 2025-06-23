@@ -1,4 +1,5 @@
 """Convert an LGBM tree to an instance of Alternating Tree for comparison"""
+
 import warnings
 
 import lightgbm as lgb
