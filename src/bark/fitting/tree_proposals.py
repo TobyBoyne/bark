@@ -6,6 +6,7 @@ import numpy as np
 from numba import njit
 from numba.experimental import jitclass
 
+import bark.forest as forest
 from bark.fitting.tree_traversal import (
     get_node_subspace,
     singly_internal_nodes,
@@ -59,19 +60,17 @@ def _get_two_inactive_nodes(nodes):
 
 
 @njit
-def _assign_node(
-    target, is_leaf, feature_idx, threshold, left, right, parent, depth, active
-) -> None:
+def _assign_node(target, is_leaf, feature_idx, threshold, active) -> None:
     # numba requires individual assignment
     # https://numba.discourse.group/t/assigning-to-numpy-structural-array-using-a-tuple-in-jitclass/549/6
 
     target["is_leaf"] = is_leaf
     target["feature_idx"] = feature_idx
     target["threshold"] = threshold
-    target["left"] = left
-    target["right"] = right
-    target["parent"] = parent
-    target["depth"] = depth
+    # target["left"] = left
+    # target["right"] = right
+    # target["parent"] = parent
+    # target["depth"] = depth
     target["active"] = active
 
 
@@ -147,6 +146,7 @@ def tree_prior_ratio(
 def grow(nodes: np.ndarray, node_proposal: NodeProposal):
     left_idx, right_idx = _get_two_inactive_nodes(nodes)
     depth = nodes[node_proposal.node_idx]["depth"]
+    # FIXME: change to new dtype
     child_node = (1, 0, 0, 0, 0, node_proposal.node_idx, depth + 1, 1)
     new_parent_node = (
         0,
@@ -167,10 +167,11 @@ def grow(nodes: np.ndarray, node_proposal: NodeProposal):
 
 @njit
 def prune(nodes: np.ndarray, node_proposal: NodeProposal):
-    node = nodes[node_proposal.node_idx]
+    node_idx = node_proposal.node_idx
+    node = nodes[node_idx]
     # assert node["is_leaf"] == 0, str(node_proposal.node_idx)
-    nodes[node["left"]]["active"] = 0
-    nodes[node["right"]]["active"] = 0
+    nodes[forest.left(node_idx)]["active"] = 0
+    nodes[forest.right(node_idx)]["active"] = 0
     node["is_leaf"] = 1
     return nodes
 

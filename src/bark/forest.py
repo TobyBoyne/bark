@@ -16,7 +16,7 @@ NODE_RECORD_DTYPE = np.dtype(
         # ("right", np.uint32),
         # ("parent", np.uint32),
         # ("depth", np.uint32),
-        ("active", np.uint8),
+        # ("active", np.uint8),
     ]
 )
 
@@ -27,21 +27,25 @@ class FeatureTypeEnum(Enum):
     Cont = 2
 
 
+@njit
 def depth(idx: int):
     """Get the depth of node at `idx` in the binary tree."""
     return next_power_of_2_exponent(idx) - 1
 
 
+@njit
 def parent(idx: int):
     """Get the parent of node at `idx` in the binary tree."""
     return (idx - 1) // 2
 
 
+@njit
 def left(idx: int):
     """Get the left child of node at `idx` in the binary tree."""
     return 2 * idx + 1
 
 
+@njit
 def right(idx: int):
     """Get the right child of node at `idx` in the binary tree."""
     return 2 * idx + 2
@@ -64,9 +68,9 @@ def _pass_one_through_tree(nodes, X, feat_types):
             cond = X[feature_idx] <= node["threshold"]
 
         if cond:
-            node_idx = node["left"]
+            node_idx = left(node_idx)
         else:
-            node_idx = node["right"]
+            node_idx = right(node_idx)
 
 
 @njit(parallel=False)

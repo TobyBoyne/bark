@@ -4,6 +4,7 @@ import collections as coll
 
 import numpy as np
 
+import bark.forest as forest
 from bark.forest import FeatureTypeEnum
 from bark.utils.bit_operations import next_power_of_2_exponent
 
@@ -315,7 +316,7 @@ class GbmNode(GbmType):
             ]
         self.split_code_pred = threshold
         # TODO: check categorical features
-        child_idx = tree[node_idx]["left"]
+        child_idx = forest.left(node_idx)
         if tree[child_idx]["is_leaf"]:
             self.left = LeafNode(leaf_id=child_idx)
         else:
@@ -324,7 +325,7 @@ class GbmNode(GbmType):
             )
 
         # read right node
-        child_idx = tree[node_idx]["right"]
+        child_idx = forest.right(node_idx)
         if tree[child_idx]["is_leaf"]:
             self.right = LeafNode(leaf_id=child_idx)
         else:
