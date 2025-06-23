@@ -130,23 +130,20 @@ def tree_prior_ratio(
 def grow(nodes: np.ndarray, node_proposal: NodeProposal):
     node_idx = node_proposal.node_idx
     left_idx, right_idx = forest.left(node_idx), forest.right(node_idx)
-    depth = forest.depth(node_proposal.node_idx)
-    # FIXME: change to new dtype
-    child_node = (1, 0, 0, 0, 0, node_proposal.node_idx, depth + 1, 1)
+    child_node = (
+        1,
+        0,
+        0,
+    )
     new_parent_node = (
         0,
         node_proposal.new_feature_idx,
         node_proposal.new_threshold,
-        left_idx,
-        right_idx,
-        nodes[node_proposal.node_idx]["parent"],
-        depth,
-        1,
     )
 
     _assign_node(nodes[left_idx], *child_node)
     _assign_node(nodes[right_idx], *child_node)
-    _assign_node(nodes[node_proposal.node_idx], *new_parent_node)
+    _assign_node(nodes[node_idx], *new_parent_node)
     return nodes
 
 

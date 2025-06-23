@@ -138,5 +138,9 @@ def batched_forest_gram_matrix_no_null(nodes, x1, x2, feat_types):
 
 def create_empty_forest(m: int, node_limit: int = 128):
     forest = np.zeros((m, node_limit), dtype=NODE_RECORD_DTYPE)
-    forest[:, 0] = (1, 0, 0, 1)
+    forest[:, 0] = (
+        1,
+        0,
+        0,
+    )
     return forest

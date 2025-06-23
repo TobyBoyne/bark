@@ -27,7 +27,7 @@ def pre_order_traverse(
 
 
 @njit
-def terminal_nodes(nodes: np.ndarray) -> list[int]:
+def terminal_nodes(nodes: np.ndarray) -> np.ndarray:
     """Find all leaves"""
     terminal_idcs = []
     for node_idx in pre_order_traverse(nodes):
@@ -35,11 +35,11 @@ def terminal_nodes(nodes: np.ndarray) -> list[int]:
         if node["is_leaf"]:
             terminal_idcs.append(node_idx)
 
-    return terminal_idcs
+    return np.asarray(terminal_idcs)
 
 
 @njit
-def singly_internal_nodes(nodes: np.ndarray) -> list[int]:
+def singly_internal_nodes(nodes: np.ndarray) -> np.ndarray:
     """Find all decision nodes where both children are leaves"""
     singly_internal_idcs = []
     for node_idx in pre_order_traverse(nodes):
@@ -51,7 +51,7 @@ def singly_internal_nodes(nodes: np.ndarray) -> list[int]:
         ):
             singly_internal_idcs.append(node_idx)
 
-    return singly_internal_idcs
+    return np.asarray(singly_internal_idcs)
 
 
 @njit
