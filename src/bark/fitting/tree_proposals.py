@@ -44,23 +44,7 @@ class TreeProposalEnum(Enum):
 
 
 @njit
-def _get_two_inactive_nodes(nodes):
-    # return the indices of the first two nodes that are inactive
-    found = 0
-    inactive = [-1, -1]
-    for i, node in enumerate(nodes):
-        if node["active"] == 0:
-            inactive[found] = i
-            found += 1
-        if found == 2:
-            return inactive
-
-    # TODO: handle no inactive nodes
-    raise OverflowError("The tree container is not large enough")
-
-
-@njit
-def _assign_node(target, is_leaf, feature_idx, threshold, active) -> None:
+def _assign_node(target, is_leaf, feature_idx, threshold) -> None:
     # numba requires individual assignment
     # https://numba.discourse.group/t/assigning-to-numpy-structural-array-using-a-tuple-in-jitclass/549/6
 
@@ -71,7 +55,7 @@ def _assign_node(target, is_leaf, feature_idx, threshold, active) -> None:
     # target["right"] = right
     # target["parent"] = parent
     # target["depth"] = depth
-    target["active"] = active
+    # target["active"] = active
 
 
 @njit
@@ -125,7 +109,7 @@ def tree_prior_ratio(
 ):
     alpha = params.alpha
     beta = params.beta
-    depth = nodes[node_proposal.node_idx]["depth"]
+    depth = forest.depth(node_proposal.node_idx)
 
     if proposal_type == TreeProposalEnum.Change:
         return 0.0
@@ -144,8 +128,9 @@ def tree_prior_ratio(
 
 @njit
 def grow(nodes: np.ndarray, node_proposal: NodeProposal):
-    left_idx, right_idx = _get_two_inactive_nodes(nodes)
-    depth = nodes[node_proposal.node_idx]["depth"]
+    node_idx = node_proposal.node_idx
+    left_idx, right_idx = forest.left(node_idx), forest.right(node_idx)
+    depth = forest.depth(node_proposal.node_idx)
     # FIXME: change to new dtype
     child_node = (1, 0, 0, 0, 0, node_proposal.node_idx, depth + 1, 1)
     new_parent_node = (
@@ -167,12 +152,7 @@ def grow(nodes: np.ndarray, node_proposal: NodeProposal):
 
 @njit
 def prune(nodes: np.ndarray, node_proposal: NodeProposal):
-    node_idx = node_proposal.node_idx
-    node = nodes[node_idx]
-    # assert node["is_leaf"] == 0, str(node_proposal.node_idx)
-    nodes[forest.left(node_idx)]["active"] = 0
-    nodes[forest.right(node_idx)]["active"] = 0
-    node["is_leaf"] = 1
+    nodes[node_proposal.node_idx]["is_leaf"] = 1
     return nodes
 
 

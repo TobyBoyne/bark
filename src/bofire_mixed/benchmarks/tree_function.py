@@ -42,7 +42,7 @@ def sample_tree_structure_from_prior(m: int, domain: Domain, rng: np.random.Gene
         new_nodes = [0]
         while new_nodes:
             node_idx = new_nodes.pop()
-            depth = tree[node_idx]["depth"]
+            depth = forest.depth(depth)
             depth_prior = alpha * (1 + depth) ** (-beta)
             if rng.uniform() > depth_prior:
                 continue

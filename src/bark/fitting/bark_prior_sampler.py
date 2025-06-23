@@ -2,9 +2,9 @@
 
 import numpy as np
 
+import bark.forest as forest
 from bark.fitting.tree_proposals import (
     NodeProposal,
-    _get_two_inactive_nodes,
     grow,
     sample_splitting_rule,
 )
@@ -20,16 +20,16 @@ def _sample_single_forest(
     beta: float,
     rng: np.random.Generator,
 ):
-    forest = create_empty_forest(m)
+    nodes = create_empty_forest(m)
 
     for j in range(m):
-        tree = forest[j, :]
+        tree = nodes[j, :]
         node_stack = [0]
         while node_stack:
             node_proposal = NodeProposal()
             node_proposal.node_idx = node_stack.pop()
 
-            depth = tree[node_proposal.node_idx]["depth"]
+            depth = forest.depth(node_proposal.node_idx)
             if rng.uniform() > alpha * (1 + depth) ** (-beta):
                 continue
 
@@ -57,7 +57,10 @@ def _sample_single_forest(
             ):
                 continue
 
-            left, right = _get_two_inactive_nodes(tree)
+            left, right = (
+                forest.left(node_proposal.node_idx),
+                forest.right(node_proposal.node_idx),
+            )
             tree = grow(tree, node_proposal)
             node_stack.append(left)
             node_stack.append(right)
