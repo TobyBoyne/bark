@@ -11,13 +11,13 @@ from bofire.data_models.enum import CategoricalEncodingEnum
 from bofire.data_models.features.api import CategoricalInput
 from bofire.data_models.strategies.api import RandomStrategy
 
-from bark.benchmarks import map_benchmark
 from bark.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
 from bark.forest import create_empty_forest
 from bark.optimizer.opt_core import get_opt_core_from_domain
 from bark.optimizer.opt_model import build_opt_model_from_forest
 from bark.optimizer.proposals import propose
 from bark.tree_kernels.tree_gps import forest_predict
+from bofire_mixed.benchmarks import map_benchmark
 
 
 class Config(TypedDict):

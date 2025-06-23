@@ -11,7 +11,7 @@ TrainingData = namedtuple("TrainingData", ["train_x", "train_y", "space"])
 
 @pytest.fixture(scope="session")
 def training_data():
-    from bark.benchmarks import Himmelblau1D
+    from bofire_mixed.benchmarks import Himmelblau1D
 
     bb_func = Himmelblau1D()
     data = bb_func.get_init_data(num_init=10, rnd_seed=42)
