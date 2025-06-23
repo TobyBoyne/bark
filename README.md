@@ -6,19 +6,16 @@ Fully Bayesian Tree Kernel for Black-box Optimization*.
 ## Installation
 
 To set up a Python environment, we recommend the simplest approach below 
-(for Windows, different platforms may vary):
+(for Windows, different platforms may vary). After cloning this repository:
 ```bash
 python -m venv barkvenv
 barkvenv\Scripts\activate
-python -m pip install -r requirements.txt
+python -m pip install .
 ```
-You can also use `poetry` or `conda` if you'd prefer.
+You can also use `uv`, `poetry`, or `conda` if you'd prefer.
 
 Since we use Gurobi to optimize the acquisition function, you will need a 
 license (you can get a free [academic license](https://www.gurobi.com/academia/academic-program-and-licenses/), if applicable).
-
-Additionally, you will need to install `smac` and `pymc-bart` separately if you 
-would like to use them, as we do not make these requirements for `bark`.
 
 ## Running experiments
 

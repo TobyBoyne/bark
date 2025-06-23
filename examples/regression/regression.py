@@ -12,14 +12,14 @@ from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
 from typing_extensions import NotRequired, TypedDict
 
 import bark.utils.metrics as metrics
-from bark.benchmarks import DatasetBenchmark, map_benchmark
-from bark.bofire_utils.data_models.strategies.mapper import strategy_map
-from bark.bofire_utils.data_models.surrogates.api import (
+from bofire_mixed.benchmarks import DatasetBenchmark, map_benchmark
+from bofire_mixed.data_models.strategies.mapper import strategy_map
+from bofire_mixed.data_models.surrogates.api import (
     BARKSurrogate,
     BARTSurrogate,
     LeafGPSurrogate,
 )
-from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
+from bofire_mixed.data_models.surrogates.mapper import surrogate_map
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

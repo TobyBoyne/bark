@@ -2,8 +2,8 @@ import argparse
 import logging
 import pathlib
 
-import yaml
 import pandas as pd
+import yaml
 from bofire.data_models.acquisition_functions.api import qLogEI, qUCB
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import (
@@ -13,21 +13,21 @@ from bofire.data_models.strategies.api import (
 )
 from typing_extensions import NotRequired, TypedDict
 
-from bark.benchmarks import map_benchmark
-from bark.bofire_utils.data_models.strategies.api import (
+from bark.utils.timer import Timer
+from bofire_mixed.benchmarks import map_benchmark
+from bofire_mixed.data_models.strategies.api import (
     BARTGridStrategy,
     RelaxedSoboStrategy,
     SMACStrategy,
     TreeKernelStrategy,
 )
-from bark.bofire_utils.data_models.strategies.mapper import strategy_map
-from bark.bofire_utils.data_models.surrogates.api import (
+from bofire_mixed.data_models.strategies.mapper import strategy_map
+from bofire_mixed.data_models.surrogates.api import (
     BARKPriorSurrogate,
     BARKSurrogate,
     BARTSurrogate,
     LeafGPSurrogate,
 )
-from bark.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -153,16 +153,15 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
             candidate = strategy.ask(1)
         logger.info("Evaluate")
         experiment = benchmark.f(candidate, return_complete=True)
-        
+
         logger.info("Tell")
         with timer(key="fit"):
             strategy.tell(experiment)
 
         # clear time
-        new_times = pd.DataFrame(timer, index=[itr+1])
+        new_times = pd.DataFrame(timer, index=[itr + 1])
         times = pd.concat((times, new_times))
         timer = Timer()
-
 
     return strategy.experiments, times
 

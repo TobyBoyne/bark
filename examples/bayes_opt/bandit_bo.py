@@ -9,14 +9,14 @@ from bofire.data_models.domain.api import Domain
 from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
 from typing_extensions import NotRequired, TypedDict
 
-from bark.benchmarks import map_benchmark
-from bark.benchmarks.MAX_bandit import MAXBandit
-from bark.bofire_utils.data_models.surrogates.api import (
+from bofire_mixed.benchmarks import map_benchmark
+from bofire_mixed.benchmarks.MAX_bandit import MAXBandit
+from bofire_mixed.data_models.surrogates.api import (
     BARKSurrogate,
     BARTSurrogate,
     LeafGPSurrogate,
 )
-from bark.bofire_utils.data_models.surrogates.mapper import surrogate_map
+from bofire_mixed.data_models.surrogates.mapper import surrogate_map
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
