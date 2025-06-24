@@ -13,38 +13,6 @@ from bofire_mixed.domain import get_feature_bounds, get_feature_types_array
 ModelT = tuple[np.ndarray, float, float]
 DataT = tuple[np.ndarray, np.ndarray]
 
-
-# @dataclass
-# class BARKTrainParams:
-#     # MCMC run parameters
-#     warmup_steps: int = 50
-#     num_samples: int = 5
-#     steps_per_sample: int = 10
-
-#     # noise and scale proposal parameters
-#     use_softplus_transform: bool = True
-#     sample_scale: bool = False
-#     gamma_prior_shape: float = 2.5
-#     gamma_prior_rate: float = 9.0
-
-#     # node depth prior
-#     alpha: float = 0.95
-#     beta: float = 2.0
-
-#     # transition type probabilities
-#     grow_prune_weight: float = 0.5
-#     change_weight: float = 1.0
-
-#     num_chains: int = 1
-#     verbose: bool = False
-
-#     @property
-#     def proposal_weights(self):
-#         p = np.array(
-#             [self.grow_prune_weight, self.grow_prune_weight, self.change_weight]
-#         )
-#         return p / np.sum(p)
-
 BARK_JITCLASS_SPEC = [
     ("warmup_steps", nb.int64),
     ("num_samples", nb.int64),

@@ -65,7 +65,7 @@ def _sample_single_forest(
             node_stack.append(left)
             node_stack.append(right)
 
-    return forest
+    return nodes
 
 
 def sample_forest_prior(
