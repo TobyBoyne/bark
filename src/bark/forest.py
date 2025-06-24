@@ -30,7 +30,7 @@ class FeatureTypeEnum(Enum):
 @njit
 def depth(idx: int):
     """Get the depth of node at `idx` in the binary tree."""
-    return next_power_of_2_exponent(idx) - 1
+    return next_power_of_2_exponent(idx + 1) - 1
 
 
 @njit
