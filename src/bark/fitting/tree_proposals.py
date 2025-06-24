@@ -44,18 +44,19 @@ class TreeProposalEnum(Enum):
 
 
 @njit
-def _assign_node(target, is_leaf, feature_idx, threshold) -> None:
+def _assign_node(target, is_leaf, feature_idx, threshold, active) -> None:
     # numba requires individual assignment
     # https://numba.discourse.group/t/assigning-to-numpy-structural-array-using-a-tuple-in-jitclass/549/6
 
     target["is_leaf"] = is_leaf
     target["feature_idx"] = feature_idx
     target["threshold"] = threshold
+    target["active"] = active
+
     # target["left"] = left
     # target["right"] = right
     # target["parent"] = parent
     # target["depth"] = depth
-    # target["active"] = active
 
 
 @njit
@@ -130,15 +131,21 @@ def tree_prior_ratio(
 def grow(nodes: np.ndarray, node_proposal: NodeProposal):
     node_idx = node_proposal.node_idx
     left_idx, right_idx = forest.left(node_idx), forest.right(node_idx)
+    if left_idx > nodes.shape[0]:
+        raise IndexError(
+            f"Attempted to grow the forest beyond max depth {forest.depth(node_idx)}"
+        )
     child_node = (
         1,
         0,
         0,
+        1,
     )
     new_parent_node = (
         0,
         node_proposal.new_feature_idx,
         node_proposal.new_threshold,
+        1,
     )
 
     _assign_node(nodes[left_idx], *child_node)
@@ -149,7 +156,10 @@ def grow(nodes: np.ndarray, node_proposal: NodeProposal):
 
 @njit
 def prune(nodes: np.ndarray, node_proposal: NodeProposal):
-    nodes[node_proposal.node_idx]["is_leaf"] = 1
+    node_idx = node_proposal.node_idx
+    nodes[node_idx]["is_leaf"] = 1
+    nodes[forest.left(node_idx)]["active"] = 0
+    nodes[forest.right(node_idx)]["active"] = 0
     return nodes
 
 

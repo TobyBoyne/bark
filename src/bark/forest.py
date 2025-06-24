@@ -1,6 +1,7 @@
 """Inspired by https://github.com/ogrisel/pygbm"""
 
 from enum import Enum
+from typing import TypeVar
 
 import numpy as np
 from numba import njit, prange
@@ -9,14 +10,14 @@ from bark.utils.bit_operations import next_power_of_2_exponent
 
 NODE_RECORD_DTYPE = np.dtype(
     [
-        ("is_leaf", np.uint8),
+        ("is_leaf", np.bool_),
         ("feature_idx", np.uint32),
         ("threshold", np.float32),
         # ("left", np.uint32),
         # ("right", np.uint32),
         # ("parent", np.uint32),
         # ("depth", np.uint32),
-        # ("active", np.uint8),
+        ("active", np.bool_),
     ]
 )
 
@@ -27,26 +28,29 @@ class FeatureTypeEnum(Enum):
     Cont = 2
 
 
+TIndex = TypeVar("TIndex", int, np.ndarray)
+
+
 @njit
-def depth(idx: int):
+def depth(idx: TIndex) -> TIndex:
     """Get the depth of node at `idx` in the binary tree."""
     return next_power_of_2_exponent(idx + 1) - 1
 
 
 @njit
-def parent(idx: int):
+def parent(idx: TIndex) -> TIndex:
     """Get the parent of node at `idx` in the binary tree."""
     return (idx - 1) // 2
 
 
 @njit
-def left(idx: int):
+def left(idx: TIndex) -> TIndex:
     """Get the left child of node at `idx` in the binary tree."""
     return 2 * idx + 1
 
 
 @njit
-def right(idx: int):
+def right(idx: TIndex) -> TIndex:
     """Get the right child of node at `idx` in the binary tree."""
     return 2 * idx + 2
 
@@ -142,5 +146,6 @@ def create_empty_forest(m: int, node_limit: int = 128):
         1,
         0,
         0,
+        1,
     )
     return forest

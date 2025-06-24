@@ -29,29 +29,27 @@ def pre_order_traverse(
 @njit
 def terminal_nodes(nodes: np.ndarray) -> np.ndarray:
     """Find all leaves"""
-    terminal_idcs = []
-    for node_idx in pre_order_traverse(nodes):
-        node = nodes[node_idx]
-        if node["is_leaf"]:
-            terminal_idcs.append(node_idx)
-
-    return np.asarray(terminal_idcs)
+    return np.nonzero(nodes["active"] & nodes["is_leaf"])[0]
 
 
 @njit
 def singly_internal_nodes(nodes: np.ndarray) -> np.ndarray:
     """Find all decision nodes where both children are leaves"""
-    singly_internal_idcs = []
-    for node_idx in pre_order_traverse(nodes):
-        node = nodes[node_idx]
-        if (
-            (1 - node["is_leaf"])
-            and nodes[forest.left(node_idx)]["is_leaf"]
-            and nodes[forest.right(node_idx)]["is_leaf"]
-        ):
-            singly_internal_idcs.append(node_idx)
+    node_limit = nodes.shape[0]
+    all_node_idcs = np.arange(node_limit)
 
-    return np.asarray(singly_internal_idcs)
+    # we clip the left/right idcs to prevent accessing out of bounds
+    # this is fine since the last node_limit//2 nodes must be leaves if active,
+    # so will not be singly internal
+    left_idcs = forest.left(all_node_idcs).clip(0, node_limit)
+    right_idcs = forest.right(all_node_idcs).clip(0, node_limit)
+
+    return np.nonzero(
+        nodes["active"]
+        & (1 - nodes["is_leaf"])
+        & nodes[left_idcs]["is_leaf"]
+        & nodes[right_idcs]["is_leaf"]
+    )[0]
 
 
 @njit
