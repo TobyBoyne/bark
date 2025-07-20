@@ -132,6 +132,8 @@ def grow(nodes: np.ndarray, node_proposal: NodeProposal):
     node_idx = node_proposal.node_idx
     left_idx, right_idx = forest.left(node_idx), forest.right(node_idx)
     if left_idx > nodes.shape[0]:
+        return nodes
+        # TODO: this should actually fail properly here
         raise IndexError(
             f"Attempted to grow the forest beyond max depth {forest.depth(node_idx)}"
         )

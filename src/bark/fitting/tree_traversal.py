@@ -41,8 +41,8 @@ def singly_internal_nodes(nodes: np.ndarray) -> np.ndarray:
     # we clip the left/right idcs to prevent accessing out of bounds
     # this is fine since the last node_limit//2 nodes must be leaves if active,
     # so will not be singly internal
-    left_idcs = forest.left(all_node_idcs).clip(0, node_limit)
-    right_idcs = forest.right(all_node_idcs).clip(0, node_limit)
+    left_idcs = forest.left(all_node_idcs).clip(0, node_limit - 1)
+    right_idcs = forest.right(all_node_idcs).clip(0, node_limit - 1)
 
     return np.nonzero(
         nodes["active"]
