@@ -5,7 +5,8 @@ import numpy as np
 from beartype.typing import Optional
 from bofire.data_models.domain.api import Domain
 
-from bark.forest import FeatureTypeEnum, batched_forest_gram_matrix
+from bark import enums, types
+from bark.forest import batched_forest_gram_matrix
 from bofire_mixed.domain import get_feature_types_array
 
 from .tree_model_kernel import TreeAgreementKernel
@@ -57,7 +58,9 @@ class LeafMOGP(gpy.models.ExactGP):
         super().__init__(train_inputs, train_targets, likelihood)
 
         if feat_types is None:
-            feat_types = np.full((train_inputs.shape[0],), FeatureTypeEnum.Cont.value)
+            feat_types = np.full(
+                (train_inputs.shape[0],), enums.FeatureTypeEnum.Cont.value
+            )
 
         self.mean_module = gpy.means.ZeroMean()
         self.covar_module = TreeAgreementKernel(forest, feat_types)
@@ -78,34 +81,38 @@ class LeafMOGP(gpy.models.ExactGP):
 
 
 def forest_predict(
-    model: BARKModel,
     data: tuple[np.ndarray, np.ndarray],
+    model: types.BARKModel,
     candidates: np.ndarray,
     domain: Domain,
     diag: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
-    forest, noise, scale = model
-    forest = forest.reshape(-1, *forest.shape[-2:])
-    noise = noise.reshape(-1)
-    scale = scale.reshape(-1)
-
-    num_samples = scale.shape[0]
+    model = model.get_flat_model()
+    num_samples = model.noise.shape[0]
     num_candidates = candidates.shape[0]
 
     train_x, train_y = data
     feature_types = get_feature_types_array(domain)
-    K_XX = scale[:, None, None] * batched_forest_gram_matrix(
-        forest, train_x, train_x, feature_types
+    K_XX = batched_forest_gram_matrix(
+        train_x,
+        train_x,
+        model.forest.feature_idx,
+        model.forest.threshold,
+        feature_types,
     )
-    K_XX_s = K_XX + (1e-6 + noise[:, None, None]) * np.eye(train_x.shape[0])
+    K_XX_s = K_XX + (1e-6 + model.noise[:, None, None]) * np.eye(train_x.shape[0])
 
     K_inv = np.linalg.inv(K_XX_s)
-    K_xX = scale[:, None, None] * batched_forest_gram_matrix(
-        forest, candidates, train_x, feature_types
+    K_xX = batched_forest_gram_matrix(
+        candidates,
+        train_x,
+        model.forest.feature_idx,
+        model.forest.threshold,
+        feature_types,
     )
 
     mu = K_xX @ K_inv @ train_y
-    var = scale[:, None, None] - K_xX @ K_inv @ K_xX.transpose((0, 2, 1))
+    var = 1.0 - K_xX @ K_inv @ K_xX.transpose((0, 2, 1))
 
     mu = mu.reshape(num_samples, num_candidates)
     if diag:
