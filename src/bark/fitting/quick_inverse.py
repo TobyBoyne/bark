@@ -1,7 +1,9 @@
-"""This is a suggestion for speeding up matrix inverses (for MLL).
-However, it doesn't seem to be much faster..."""
+"""This is a suggestion for speeding up matrix inverses (for MLL)."""
 
+import flax.linen as nn
+import jax.numpy as jnp
 import numpy as np
+from jax import jit
 from jaxtyping import Float
 from numba import njit
 
@@ -33,6 +35,48 @@ def low_rank_det_update(
     return K_logdet + logabsdet
 
 
-@njit
+# @njit
+# def mll(K_inv: InverseType, K_logdet: DetType, y: Float[np.ndarray, "N 1"]) -> float:
+#     return 0.5 * (-y.T @ K_inv @ y - K_logdet)[0, 0]
+
+
+@jit
 def mll(K_inv: InverseType, K_logdet: DetType, y: Float[np.ndarray, "N 1"]) -> float:
-    return 0.5 * (-y.T @ K_inv @ y - K_logdet)[0, 0]
+    return 0.5 * (-y.T @ K_inv @ y - K_logdet).item()
+
+
+class LowRankInverter(nn.Module):
+    """Uses the Sherman-Morrison identity to quickly perform a low-rank update.
+
+    Computes a low-rank update to the matrix inverse, using
+    (K + U UT)^-1 = K^-1 (I - U(UT K^-1 U + I)^-1 UT K^-1)
+    and
+    log|K + U UT| = log|K| + log|I + UT K^-1 U|"""
+
+    K_inv: InverseType
+    K_logdet: DetType
+    U: Float[np.ndarray, "N B"]
+    subtract: bool
+
+    def _low_rank_inverse_update(self) -> InverseType:
+        mul = -1.0 if self.subtract else 1.0
+        den = mul * jnp.eye(self.U.shape[-1]) + (self.U.T @ self.K_inv @ self.U)
+
+        return self.K_inv - self.K_inv @ self.U @ np.linalg.solve(
+            den, self.U.T @ self.K_inv
+        )
+
+    def _low_rank_logdet_update(self) -> DetType:
+        mul = -1.0 if self.subtract else 1.0
+        _, logabsdet = jnp.linalg.slogdet(
+            jnp.eye(self.U.shape[-1]) + mul * (self.U.T @ self.K_inv @ self.U)
+        )
+        return self.K_logdet + logabsdet
+
+    def low_rank_update(self):
+        return LowRankInverter(
+            K_inv=self._low_rank_inverse_update(),
+            K_logdet=self._low_rank_logdet_update(),
+            U=self.U,
+            subtract=not self.subtract,
+        )
