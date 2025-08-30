@@ -1,21 +1,12 @@
-from typing import NamedTuple
-
 import gpytorch as gpy
 import numpy as np
 from beartype.typing import Optional
 from bofire.data_models.domain.api import Domain
 
-from bark import enums, types
-from bark.forest import batched_forest_gram_matrix
+from bark import forest, types
 from bofire_mixed.domain import get_feature_types_array
 
 from .tree_model_kernel import TreeAgreementKernel
-
-
-class BARKModel(NamedTuple):
-    forest: np.ndarray
-    noise: np.ndarray
-    scale: np.ndarray
 
 
 class LeafGP(gpy.models.ExactGP):
@@ -45,41 +36,6 @@ class LeafGP(gpy.models.ExactGP):
         return self.covar_module.base_kernel.forest
 
 
-class LeafMOGP(gpy.models.ExactGP):
-    def __init__(
-        self,
-        train_inputs,
-        train_targets,
-        likelihood,
-        forest: np.ndarray,
-        feat_types: Optional[np.ndarray] = None,
-        num_tasks: int = 2,
-    ):
-        super().__init__(train_inputs, train_targets, likelihood)
-
-        if feat_types is None:
-            feat_types = np.full(
-                (train_inputs.shape[0],), enums.FeatureTypeEnum.Cont.value
-            )
-
-        self.mean_module = gpy.means.ZeroMean()
-        self.covar_module = TreeAgreementKernel(forest, feat_types)
-        self.task_covar_module = gpy.kernels.IndexKernel(num_tasks=num_tasks, rank=1)
-        self.num_tasks = num_tasks
-
-    def forward(self, x, i):
-        mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
-        covar_i = self.task_covar_module(i)
-
-        covar = covar_x.mul(covar_i)
-        return gpy.distributions.MultivariateNormal(mean_x, covar)
-
-    @property
-    def tree_model(self) -> np.ndarray:
-        return self.covar_module.tree_model
-
-
 def forest_predict(
     data: tuple[np.ndarray, np.ndarray],
     model: types.BARKModel,
@@ -93,7 +49,7 @@ def forest_predict(
 
     train_x, train_y = data
     feature_types = get_feature_types_array(domain)
-    K_XX = batched_forest_gram_matrix(
+    K_XX = forest.batched_forest_gram_matrix(
         train_x,
         train_x,
         model.forest.feature_idx,

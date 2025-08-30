@@ -1,46 +1,34 @@
-from enum import Enum
-from typing import TYPE_CHECKING
-
-import numba as nb
 import numpy as np
+from flax import struct
 from numba import njit
-from numba.experimental import jitclass
 
 import bark.forest as forest
+from bark import types
+from bark.enums import FeatureTypeEnum, TreeProposalEnum
 from bark.fitting.tree_traversal import (
     get_node_subspace,
     singly_internal_nodes,
     terminal_nodes,
 )
-from bark.forest import FeatureTypeEnum
 from bark.utils.bit_operations import sample_binary_mask
 
-if TYPE_CHECKING:
-    from bark.fitting.bark_sampler import BARKTrainParamsNumba
 
-
-@jitclass(
-    [
-        ("node_idx", nb.uint32),
-        ("prev_feature_idx", nb.uint32),
-        ("prev_threshold", nb.float32),
-        ("new_feature_idx", nb.uint32),
-        ("new_threshold", nb.float32),
-    ]
-)
+# @jitclass(
+#     [
+#         ("node_idx", nb.uint32),
+#         ("prev_feature_idx", nb.uint32),
+#         ("prev_threshold", nb.float32),
+#         ("new_feature_idx", nb.uint32),
+#         ("new_threshold", nb.float32),
+#     ]
+# )
+@struct.dataclass
 class NodeProposal:
-    def __init__(self):
-        self.node_idx = 0
-        self.prev_feature_idx = 0
-        self.prev_threshold = 0
-        self.new_feature_idx = 0
-        self.new_threshold = 0
-
-
-class TreeProposalEnum(Enum):
-    Grow = 0
-    Prune = 1
-    Change = 2
+    node_idx: int
+    prev_feature_idx: int
+    prev_threshold: float
+    new_feature_idx: int
+    new_threshold: float
 
 
 @njit
@@ -106,7 +94,7 @@ def tree_prior_ratio(
     nodes: np.ndarray,
     proposal_type: int,
     node_proposal: NodeProposal,
-    params: "BARKTrainParamsNumba",
+    params: types.BARKConfig,
 ):
     alpha = params.alpha
     beta = params.beta

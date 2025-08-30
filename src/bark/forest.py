@@ -1,8 +1,8 @@
 """Inspired by https://github.com/ogrisel/pygbm and https://github.com/Gattocrucco/bartz"""
 
+import jax
 import jax.numpy as jnp
 import numpy as np
-from jax import jit, lax, vmap
 from jaxtyping import Array, Bool, Float, Int, UInt
 
 from bark import enums, types
@@ -22,37 +22,37 @@ NODE_RECORD_DTYPE = np.dtype(
 )
 
 
-@jit
+@jax.jit
 def is_leaf(feature_idx: types.IndexT) -> Bool[Array, " *n"]:
     """Return a mask for all leaves in a tree."""
     return feature_idx == -1
 
 
-@jit
+@jax.jit
 def depth(idx: types.IndexT) -> types.IndexT:
     """Get the depth of node at `idx` in the binary tree."""
     return next_power_of_2_exponent(idx + 1) - 1
 
 
-@jit
+@jax.jit
 def parent(idx: types.IndexT) -> types.IndexT:
     """Get the parent of node at `idx` in the binary tree."""
     return (idx - 1) // 2
 
 
-@jit
+@jax.jit
 def left(idx: types.IndexT) -> types.IndexT:
     """Get the left child of node at `idx` in the binary tree."""
     return 2 * idx + 1
 
 
-@jit
+@jax.jit
 def right(idx: types.IndexT) -> types.IndexT:
     """Get the right child of node at `idx` in the binary tree."""
     return 2 * idx + 2
 
 
-# @jit
+# @jax.jit
 # def _pass_one_through_tree(trees: types.Trees, X: Float[Array, " d"], feat_types: types.FeatTypesT):
 #     node_idx = 0
 #     while True:
@@ -74,7 +74,7 @@ def right(idx: types.IndexT) -> types.IndexT:
 #             node_idx = right(node_idx)
 
 
-@jit
+@jax.jit
 def _pass_one_through_tree(
     X: Float[Array, " d"],
     feature_idx_tree: Int[Array, " 2**max_depth"],
@@ -104,12 +104,12 @@ def _pass_one_through_tree(
         return (leaf_found, index), None
 
     max_depth = depth(feature_idx_tree.size)
-    (_, index), _ = lax.scan(loop, carry, None, max_depth, unroll=16)
+    (_, index), _ = jax.lax.scan(loop, carry, None, max_depth, unroll=16)
     return index
 
 
-pass_through_tree = vmap(_pass_one_through_tree, (0, None, None, None))
-pass_through_forest = vmap(pass_through_tree, (None, 0, 0, None))
+pass_through_tree = jax.vmap(_pass_one_through_tree, (0, None, None, None))
+pass_through_forest = jax.vmap(pass_through_tree, (None, 0, 0, None))
 # @njit(parallel=False)
 # def pass_through_tree(nodes, X, feat_types):
 #     out = np.empty(X.shape[0], dtype=np.uint32)
@@ -138,13 +138,15 @@ pass_through_forest = vmap(pass_through_tree, (None, 0, 0, None))
 #     return leaf_vector
 
 
-@jit
 def get_leaf_vectors(
     X: Float[Array, "N d"],
     feature_idx_tree: Int[Array, " 2**max_depth"],
     threshold_tree: Float[Array, " 2**max_depth"],
     feat_types: types.FeatTypesT,
 ) -> UInt[Array, "N"]:
+    # NOTE: this function is not jitted since jnp.unique returns a dynamically shaped
+    # array. It may be possible to do some kind of dispatch, with a static argnum,
+    # however it would require a non-jitted function at some point.
     x_leaves = pass_through_tree(X, feature_idx_tree, threshold_tree, feat_types)
     all_leaves = jnp.unique(x_leaves)
     leaf_vector = (jnp.equal(x_leaves[:, None], all_leaves[None, :])).astype(
@@ -167,7 +169,7 @@ def get_leaf_vectors(
 #     return sim_mat
 
 
-@jit
+@jax.jit
 def forest_gram_matrix(
     X1: Float[Array, "N d"],
     X2: Float[Array, "M d"],
@@ -182,7 +184,9 @@ def forest_gram_matrix(
     return sim_mat
 
 
-batched_forest_gram_matrix = vmap(forest_gram_matrix, in_axes=(None, None, 0, 0, None))
+batched_forest_gram_matrix = jax.vmap(
+    forest_gram_matrix, in_axes=(None, None, 0, 0, None)
+)
 
 
 def batched_forest_gram_matrix_no_null(
