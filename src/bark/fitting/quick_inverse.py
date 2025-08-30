@@ -9,6 +9,7 @@ from numba import njit
 
 InverseType = Float[np.ndarray, "N N"]
 DetType = Float[np.ndarray, ""]
+MLLType = Float[np.ndarray, ""]
 
 
 @njit
@@ -55,28 +56,49 @@ class LowRankInverter(nn.Module):
 
     K_inv: InverseType
     K_logdet: DetType
+    mll: MLLType
     U: Float[np.ndarray, "N B"]
     subtract: bool
+
+    y: Float[np.ndarray, "N 1"]
 
     def _low_rank_inverse_update(self) -> InverseType:
         mul = -1.0 if self.subtract else 1.0
         den = mul * jnp.eye(self.U.shape[-1]) + (self.U.T @ self.K_inv @ self.U)
 
-        return self.K_inv - self.K_inv @ self.U @ np.linalg.solve(
-            den, self.U.T @ self.K_inv
-        )
+        return -self.K_inv @ self.U @ np.linalg.solve(den, self.U.T @ self.K_inv)
 
     def _low_rank_logdet_update(self) -> DetType:
         mul = -1.0 if self.subtract else 1.0
         _, logabsdet = jnp.linalg.slogdet(
             jnp.eye(self.U.shape[-1]) + mul * (self.U.T @ self.K_inv @ self.U)
         )
-        return self.K_logdet + logabsdet
+        return logabsdet
+
+    def _low_rank_mll_update(
+        self, inv_update: InverseType, logdet_update: DetType
+    ) -> MLLType:
+        return 0.5 * (-self.y.T @ inv_update @ self.y - logdet_update)
 
     def low_rank_update(self):
+        inv_update = self._low_rank_inverse_update()
+        logdet_update = self._low_rank_logdet_update()
+        mll_update = self._low_rank_mll_update(inv_update, logdet_update)
         return LowRankInverter(
-            K_inv=self._low_rank_inverse_update(),
-            K_logdet=self._low_rank_logdet_update(),
+            K_inv=self.K_inv + inv_update,
+            K_logdet=self.K_logdet + logdet_update,
+            mll=self.mll + mll_update,
             U=self.U,
             subtract=not self.subtract,
+            y=self.y,
+        )
+
+    def set_low_rank_update_matrix(self, U: Float[np.ndarray, "N B"], subtract: bool):
+        return LowRankInverter(
+            K_inv=self.K_inv,
+            K_logdet=self.K_logdet,
+            mll=self.mll,
+            U=U,
+            subtract=subtract,
+            y=self.y,
         )

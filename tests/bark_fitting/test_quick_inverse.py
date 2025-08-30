@@ -9,6 +9,9 @@ from bark.forest import (
     get_leaf_vectors,
 )
 
+# TODO: test that LowRankInverter._low_rank_mll_update is actually faster than
+# computing the new matrix
+
 
 def random_A_U_Ainv_Alogdet(N: int, B: int, seed=42):
     rng = np.random.default_rng(seed)
