@@ -3,33 +3,38 @@ authors = [
     {name = "TobyBoyne", email = "tobyboyne@gmail.com"},
 ]
 license = {text = "LICENSE"}
-requires-python = "<4.0,>=3.10"
+requires-python = "<4.0,>=3.11"
 dependencies = [
     "torch<3.0.0,>=2.2.0",
-    "numpy<2.0.0,>=1.24.4",
+    "numpy>=2.0,<3.0.0",
     "matplotlib<4.0.0,>=3.8.2",
     "gpytorch<2.0,>=1.11",
     "tqdm<5.0.0,>=4.66.1",
     "scikit-optimize<1.0.0,>=0.9.0",
-    "gurobipy==12",
+    "gurobipy>=11",
     "lightgbm<5.0.0,>=4.3.0",
-    "botorch==0.10.0",
+    "botorch>=0.15.0",
     "beartype<1.0.0,>=0.17.2",
     "ucimlrepo<1.0.0,>=0.0.6",
     "numba<1.0.0,>=0.60.0",
     "xgboost<3.0.0,>=2.1.1",
     "bofire[cheminfo,optimization]<1.0.0,>=0.0.14",
-    "numba-scipy<1.0.0,>=0.4.0",
     "entmoot<3.0.0,>=2.0.2",
-    "arviz>=0.21.0",
-    "pymc-bart>=0.9.2",
-    "jax>=0.4.18",
-    "flax>=0.7.4",
+    "arviz>=0.22.0",
+    "pymc-bart>=0.10.0",
+    "jax>=0.7.1",
+    "flax>=0.11.2",
 ]
 name = "bark"
 version = "0.1.0"
 description = ""
 readme = "README.md"
+
+[[tool.uv.dependency-metadata]]
+# Manually override the entmoot requirements to avoid conflicts 
+# https://docs.astral.sh/uv/concepts/resolution/#dependency-metadata
+name = "entmoot"
+requires-dist = []
 
 
 [tool.ruff.lint]

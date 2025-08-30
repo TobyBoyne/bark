@@ -1,15 +1,16 @@
 """This is a suggestion for speeding up matrix inverses (for MLL)."""
 
-import flax.linen as nn
+import jax
 import jax.numpy as jnp
 import numpy as np
+from flax import struct
 from jax import jit
 from jaxtyping import Float
 from numba import njit
 
-InverseType = Float[np.ndarray, "N N"]
-DetType = Float[np.ndarray, ""]
-MLLType = Float[np.ndarray, ""]
+InverseType = Float[jax.Array, "N N"]
+DetType = Float[jax.Array, ""]
+MLLType = Float[jax.Array, ""]
 
 
 @njit
@@ -42,11 +43,12 @@ def low_rank_det_update(
 
 
 @jit
-def mll(K_inv: InverseType, K_logdet: DetType, y: Float[np.ndarray, "N 1"]) -> float:
-    return 0.5 * (-y.T @ K_inv @ y - K_logdet).item()
+def mll(K_inv: InverseType, K_logdet: DetType, y: Float[jax.Array, "N 1"]) -> MLLType:
+    return 0.5 * (-y.T @ K_inv @ y - K_logdet)
 
 
-class LowRankInverter(nn.Module):
+@struct.dataclass
+class LowRankInverter:
     """Uses the Sherman-Morrison identity to quickly perform a low-rank update.
 
     Computes a low-rank update to the matrix inverse, using
@@ -57,16 +59,17 @@ class LowRankInverter(nn.Module):
     K_inv: InverseType
     K_logdet: DetType
     mll: MLLType
-    U: Float[np.ndarray, "N B"]
-    subtract: bool
+    U: Float[jax.Array, "N B"]
+    subtract: bool = struct.field(pytree_node=False)
 
-    y: Float[np.ndarray, "N 1"]
+    y: Float[jax.Array, "N 1"]
 
     def _low_rank_inverse_update(self) -> InverseType:
         mul = -1.0 if self.subtract else 1.0
         den = mul * jnp.eye(self.U.shape[-1]) + (self.U.T @ self.K_inv @ self.U)
 
-        return -self.K_inv @ self.U @ np.linalg.solve(den, self.U.T @ self.K_inv)
+        # TODO: Cholesky solve
+        return -self.K_inv @ self.U @ jnp.linalg.solve(den, self.U.T @ self.K_inv)
 
     def _low_rank_logdet_update(self) -> DetType:
         mul = -1.0 if self.subtract else 1.0
@@ -80,7 +83,8 @@ class LowRankInverter(nn.Module):
     ) -> MLLType:
         return 0.5 * (-self.y.T @ inv_update @ self.y - logdet_update)
 
-    def low_rank_update(self):
+    @jax.jit
+    def low_rank_update(self) -> "LowRankInverter":
         inv_update = self._low_rank_inverse_update()
         logdet_update = self._low_rank_logdet_update()
         mll_update = self._low_rank_mll_update(inv_update, logdet_update)
@@ -93,7 +97,7 @@ class LowRankInverter(nn.Module):
             y=self.y,
         )
 
-    def set_low_rank_update_matrix(self, U: Float[np.ndarray, "N B"], subtract: bool):
+    def set_low_rank_update_matrix(self, U: Float[jax.Array, "N B"], subtract: bool):
         return LowRankInverter(
             K_inv=self.K_inv,
             K_logdet=self.K_logdet,
