@@ -1,5 +1,8 @@
+import jax
+import jax.numpy as jnp
 import numpy as np
 from flax import struct
+from jaxtyping import Array, Float, Int
 from numba import njit
 
 import bark.forest as forest
@@ -31,27 +34,29 @@ class NodeProposal:
     new_threshold: float
 
 
+# @njit
+# def _assign_node(target, is_leaf, feature_idx, threshold, active) -> None:
+#     # numba requires individual assignment
+#     # https://numba.discourse.group/t/assigning-to-numpy-structural-array-using-a-tuple-in-jitclass/549/6
+
+#     target["is_leaf"] = is_leaf
+#     target["feature_idx"] = feature_idx
+#     target["threshold"] = threshold
+#     target["active"] = active
+
+#     # target["left"] = left
+#     # target["right"] = right
+#     # target["parent"] = parent
+#     # target["depth"] = depth
+
+
 @njit
-def _assign_node(target, is_leaf, feature_idx, threshold, active) -> None:
-    # numba requires individual assignment
-    # https://numba.discourse.group/t/assigning-to-numpy-structural-array-using-a-tuple-in-jitclass/549/6
-
-    target["is_leaf"] = is_leaf
-    target["feature_idx"] = feature_idx
-    target["threshold"] = threshold
-    target["active"] = active
-
-    # target["left"] = left
-    # target["right"] = right
-    # target["parent"] = parent
-    # target["depth"] = depth
-
-
-@njit
-def sample_splitting_rule(bounds: np.ndarray, feat_types: np.ndarray):
-    feature_idx = np.random.randint(0, bounds.shape[0])
+def sample_splitting_rule(
+    bounds: Float[jax.Array, "2 d"], feat_types: types.FeatTypesT, key: jax.Array
+):
+    feature_idx = jax.random.randint(key, (1,), minval=0, maxval=bounds.shape[0])
     if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-        mask = int(bounds[feature_idx, 1])
+        mask = bounds[feature_idx, 1].astype(int)
         threshold = sample_binary_mask(mask)
 
     elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
@@ -161,21 +166,34 @@ def change(nodes: np.ndarray, node_proposal: NodeProposal):
     return nodes
 
 
-@njit
+def _get_grow_proposal():
+    pass
+
+
+def _get_prune_proposal():
+    pass
+
+
+def _get_change_proposal():
+    pass
+
+
 def get_tree_proposal(
-    nodes: np.ndarray,
-    bounds: np.ndarray,
-    feat_types,
-    params: "BARKTrainParamsNumba",
+    feature_idx_tree: Int[Array, " 2**max_depth"],
+    threshold_tree: Float[Array, " 2**max_depth"],
+    bounds: types.BoundsT,
+    feat_types: types.FeatTypesT,
+    params: types.BARKConfig,
+    key: jax.Array,
 ) -> tuple[np.ndarray, float]:
-    node_proposal = NodeProposal()
-    # numba doesn't support weighted choice
-    proposal_idx = np.searchsorted(np.cumsum(params.proposal_weights), np.random.rand())
-    proposal_type = [
-        TreeProposalEnum.Grow,
-        TreeProposalEnum.Prune,
-        TreeProposalEnum.Change,
-    ][proposal_idx]
+    proposal_types = jnp.array(
+        [
+            TreeProposalEnum.Grow,
+            TreeProposalEnum.Prune,
+            TreeProposalEnum.Change,
+        ]
+    )
+    proposal_type = jax.random.choice(key, a=proposal_types, p=params.proposal_weights)
 
     if proposal_type == TreeProposalEnum.Grow:
         valid_nodes = terminal_nodes(nodes)

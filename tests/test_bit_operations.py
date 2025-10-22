@@ -1,5 +1,7 @@
 import math
 
+import jax
+import jax.numpy as jnp
 import pytest
 
 from bark.utils.bit_operations import (
@@ -11,18 +13,24 @@ from bark.utils.bit_operations import (
 
 def test_sample_binary_mask():
     mask = 0b100101
-    for i in range(100):
-        x = sample_binary_mask(mask)
-        assert x != 0
-        assert x != mask
-        assert x & mask == x
+    mask_arr = mask * jnp.ones((100,), dtype=int)
+    keys = jax.random.split(jax.random.key(0), 100)
+    samples = jax.vmap(sample_binary_mask, in_axes=0)(mask_arr, keys)
+
+    assert jnp.all(samples != 0)
+    assert jnp.all(samples != mask)
+    assert jnp.all(samples & mask == samples)
 
 
 def test_sample_binary_mask_one_category():
     mask = 0b00100
-    for i in range(100):
-        x = sample_binary_mask(mask)
-        assert x == 0
+    mask_arr = mask * jnp.ones((100,), dtype=int)
+    keys = jax.random.split(jax.random.key(0), 100)
+    samples = jax.vmap(sample_binary_mask, in_axes=0)(mask_arr, keys)
+
+    assert jnp.all(samples != 0)
+    assert jnp.all(samples != mask)
+    assert jnp.all(samples & mask == samples)
 
 
 @pytest.mark.parametrize(

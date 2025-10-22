@@ -7,7 +7,8 @@ from jaxtyping import Array, Float, Int, UInt
 FeatTypesT = UInt[Array, " d"]
 IndexT = UInt[Array, " *n"]
 
-DataT = tuple[Float[jax.Array, "N D"], Float[jax.Array, "N 1"]]
+DataT = tuple[Float[jax.Array, "N d"], Float[jax.Array, "N 1"]]
+BoundsT = Float[jax.Array, "2 d"]
 
 FeatureIndexT = Int[Array, "*batch m 2**max_depth"]  # not unsigned as -1 is leaf
 ThresholdT = Float[Array, "*batch m 2**max_depth"]

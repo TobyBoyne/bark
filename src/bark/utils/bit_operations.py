@@ -1,4 +1,6 @@
-import numpy as np
+import jax
+import jax.numpy as jnp
+from jaxtyping import Int
 from numba import njit
 
 
@@ -14,8 +16,8 @@ def next_power_of_2(x):
     return p
 
 
-@njit
-def next_power_of_2_exponent(x):
+@jax.jit
+def next_power_of_2_exponent(x: Int[jax.Array, "..."]):
     """Returns the exponent of the next integer that is a power of two.
 
     Specifically, calculates floor(log2(x)) + 1 if x >= 1, else
@@ -28,39 +30,31 @@ def next_power_of_2_exponent(x):
     return e
 
 
-@njit
-def bit_count(x: int):
-    """Number of bits set to 1 in the binary representation of x."""
-
-    count = 0
-    while x:
-        count += x & 1
-        x >>= 1
-    return count
-
-
-@njit
-def sample_binary_mask(x: int):
+@jax.jit
+def sample_binary_mask(x: Int[jax.Array, "..."], key: jax.Array):
     """Uniformly sample each bit in the binary mask.
 
     This function samples a subset of the available categories, without generating
     the redundant splits:
      - split == 0
      - split == available"""
-    num_choices = bit_count(x)
-
-    # there must be at least two categories to choose from
-    if num_choices < 2:
-        return 0
+    num_choices = jnp.bitwise_count(x)
 
     max_sample = (1 << num_choices) - 1
-    bitmask_sample = np.random.randint(1, max_sample)
-    threshold = 0
+    bitmask_sample = jax.random.randint(key, x.shape, minval=1, maxval=max_sample)
 
-    for i in range(next_power_of_2_exponent(x)):
-        if x & (1 << i):
-            bitmask_selected = bitmask_sample & 1
-            threshold |= bitmask_selected << i
-            bitmask_sample >>= 1
+    def body(i, v):
+        x, sampled_mask = v
+        # check that the ith bit is 1, ie. this category is available to be sampled:
+        # if so, set that bit to 0.
+        is_available = (x >> i) & 1
+        x &= ~(is_available << i)
+        # set the ith bit to the next value in the sampled mask - 0 or 1 with equal
+        # probability.
+        x |= (is_available & sampled_mask & 1) << i
+        sampled_mask >>= is_available
 
-    return threshold
+        return x, sampled_mask
+
+    x, sampled_mask = jax.lax.fori_loop(0, 64, body, (x, bitmask_sample))
+    return x

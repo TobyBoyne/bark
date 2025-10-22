@@ -1,8 +1,12 @@
+import jax
+import jax.numpy as jnp
 import numpy as np
+from jaxtyping import Array, Bool, Float, Int
 from numba import njit
 
 import bark.forest as forest
-from bark.forest import FeatureTypeEnum
+from bark import types
+from bark.enums import FeatureTypeEnum, NodeState
 from bark.utils.bit_operations import next_power_of_2
 
 
@@ -26,17 +30,21 @@ def pre_order_traverse(
         current_idx = stack.pop(0)
 
 
-@njit
-def terminal_nodes(nodes: np.ndarray) -> np.ndarray:
+@jax.jit
+def terminal_nodes(
+    feature_idx_tree: Int[Array, "... 2**max_depth"],
+) -> Bool[Array, "... 2**max_depth"]:
     """Find all leaves"""
-    return np.nonzero(nodes["active"] & nodes["is_leaf"])[0]
+    return feature_idx_tree == NodeState.Leaf
 
 
-@njit
-def singly_internal_nodes(nodes: np.ndarray) -> np.ndarray:
+@jax.jit
+def singly_internal_nodes(
+    feature_idx_tree: Int[Array, "... 2**max_depth"],
+) -> Bool[Array, "... 2**max_depth"]:
     """Find all decision nodes where both children are leaves"""
-    node_limit = nodes.shape[0]
-    all_node_idcs = np.arange(node_limit)
+    node_limit = feature_idx_tree.shape[-1]
+    all_node_idcs = jnp.arange(node_limit)
 
     # we clip the left/right idcs to prevent accessing out of bounds
     # this is fine since the last node_limit//2 nodes must be leaves if active,
@@ -44,26 +52,30 @@ def singly_internal_nodes(nodes: np.ndarray) -> np.ndarray:
     left_idcs = forest.left(all_node_idcs).clip(0, node_limit - 1)
     right_idcs = forest.right(all_node_idcs).clip(0, node_limit - 1)
 
-    return np.nonzero(
-        nodes["active"]
-        & (1 - nodes["is_leaf"])
-        & nodes[left_idcs]["is_leaf"]
-        & nodes[right_idcs]["is_leaf"]
-    )[0]
+    return (
+        feature_idx_tree
+        != NodeState.Inactive & feature_idx_tree
+        != NodeState.Leaf & feature_idx_tree[left_idcs]
+        == NodeState.Leaf & feature_idx_tree[right_idcs]
+        == NodeState.Leaf
+    )
 
 
-@njit
+@jax.jit
 def get_node_subspace(
-    tree: np.ndarray, node_idx: int, bounds: np.ndarray, feat_types: np.ndarray
+    feature_idx_tree: Int[Array, "... 2**max_depth"],
+    threshold_tree: Float[Array, "m 2**max_depth"],
+    node_idx: Int[Array, "..."],
+    bounds: types.BoundsT,
+    feat_types: types.FeatTypesT,
 ):
     """Get the subset of the domain that reaches a given node."""
     subspace = bounds.copy()
     parent_idx = forest.parent(node_idx)
     while node_idx != 0:
-        parent_node = tree[parent_idx]
-        feature_idx = parent_node["feature_idx"]
+        feature_idx = feature_idx_tree[parent_idx]
 
-        if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
+        if feat_types[feature_idx] == FeatureTypeEnum.Cat:
             if node_idx == forest.left(parent_idx):
                 subspace[feature_idx, 1] = int(parent_node["threshold"]) & int(
                     subspace[feature_idx, 1]

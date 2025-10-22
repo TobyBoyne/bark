@@ -211,7 +211,8 @@ def batched_forest_gram_matrix_no_null(
 
 
 def create_empty_forest(m: int, max_depth: int = 6) -> types.Trees:
-    feature_idx = jnp.zeros((m, 2**max_depth), dtype=jnp.int16) - 1
+    feature_idx = jnp.full((m, 2**max_depth), enums.NodeState.Inactive, dtype=jnp.int16)
+    feature_idx = feature_idx.at[:, 0].set(enums.NodeState.Leaf)
     threshold = jnp.zeros((m, 2**max_depth), dtype=jnp.float32)
     return types.Trees(
         feature_idx=feature_idx,
