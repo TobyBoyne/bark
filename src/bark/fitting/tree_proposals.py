@@ -7,7 +7,7 @@ from numba import njit
 
 import bark.forest as forest
 from bark import types
-from bark.enums import FeatureTypeEnum, TreeProposalEnum
+from bark.enums import FeatureTypeEnum, NodeState, TreeProposalEnum
 from bark.fitting.tree_traversal import (
     get_node_subspace,
     singly_internal_nodes,
@@ -50,26 +50,27 @@ class NodeProposal:
 #     # target["depth"] = depth
 
 
-@njit
+# @jax.jit
 def sample_splitting_rule(
-    bounds: Float[jax.Array, "2 d"], feat_types: types.FeatTypesT, key: jax.Array
-):
-    feature_idx = jax.random.randint(key, (1,), minval=0, maxval=bounds.shape[0])
-    if feat_types[feature_idx] == FeatureTypeEnum.Cat.value:
-        mask = bounds[feature_idx, 1].astype(int)
-        threshold = sample_binary_mask(mask)
+    bounds: types.BoundsT, feat_types: types.FeatTypesT, key: jax.Array
+) -> tuple[Int[Array, ""], Float[Array, ""] | Int[Array, ""]]:
+    int_bounds = bounds.astype(jnp.uint64)
+    keys = jax.random.split(key, num=4)
+    feature_idx = jax.random.randint(keys[0], (), minval=0, maxval=bounds.shape[0])
 
-    elif feat_types[feature_idx] == FeatureTypeEnum.Int.value:
-        if bounds[feature_idx, 0] == bounds[feature_idx, 1]:
-            # when the bounds are equal, there is no meaningful split
-            # use the upper bound as an indicator
-            threshold = bounds[feature_idx, 1]
-        else:
-            threshold = np.random.randint(
-                int(bounds[feature_idx, 0]), int(bounds[feature_idx, 1])
-            )
-    else:
-        threshold = np.random.uniform(bounds[feature_idx, 0], bounds[feature_idx, 1])
+    cat_sample = sample_binary_mask(int_bounds[feature_idx, 1], keys[1])
+    int_sample = jax.random.randint(
+        keys[2], (), int_bounds[feature_idx, 0] + 1, int_bounds[feature_idx, 1]
+    )
+    cont_sample = jax.random.uniform(
+        keys[3], (), bounds[feature_idx, 0], bounds[feature_idx, 1]
+    )
+
+    condlist = [
+        feat_types[feature_idx] == ft
+        for ft in (FeatureTypeEnum.Cat, FeatureTypeEnum.Int, FeatureTypeEnum.Cont)
+    ]
+    threshold = jnp.select(condlist, [cat_sample, int_sample, cont_sample])
 
     return feature_idx, threshold
 
@@ -92,6 +93,20 @@ def tree_q_ratio(
 
     else:
         return 0.0
+
+
+def prior_ratio_for_grow_proposal(
+    depth: Float[Array, ""],
+    params: types.BARKConfig,
+):
+    alpha = params.alpha
+    beta = params.beta
+
+    return (
+        jnp.log(alpha)
+        + 2 * jnp.log(1 - alpha / jnp.pow(2 + depth, beta))
+        + -jnp.log(jnp.pow(1 + depth, beta) - alpha)
+    )
 
 
 @njit
@@ -120,64 +135,176 @@ def tree_prior_ratio(
         return -prior_ratio
 
 
-@njit
-def grow(nodes: np.ndarray, node_proposal: NodeProposal):
-    node_idx = node_proposal.node_idx
-    left_idx, right_idx = forest.left(node_idx), forest.right(node_idx)
-    if left_idx > nodes.shape[0]:
-        return nodes
-        # TODO: this should actually fail properly here
-        raise IndexError(
-            f"Attempted to grow the forest beyond max depth {forest.depth(node_idx)}"
-        )
-    child_node = (
-        1,
-        0,
-        0,
-        1,
+def grow(
+    feature_idx_tree: Int[Array, " 2**max_depth"],
+    threshold_tree: Float[Array, " 2**max_depth"],
+    node_idx: Int[Array, ""],
+    new_feature_idx: Int[Array, ""],
+    new_threshold: Float[Array, ""],
+) -> tuple[Int[Array, " 2**max_depth"], Float[Array, " 2**max_depth"]]:
+    selected_idcs = [
+        node_idx,
+        forest.left(node_idx),
+        forest.right(node_idx),
+    ]
+
+    feature_idx_tree = feature_idx_tree.at[selected_idcs].set(
+        jnp.array([new_feature_idx, NodeState.Leaf, NodeState.Leaf])
     )
-    new_parent_node = (
-        0,
-        node_proposal.new_feature_idx,
-        node_proposal.new_threshold,
-        1,
+    threshold_tree = threshold_tree.at[selected_idcs].set(
+        jnp.array([new_threshold, 0.0, 0.0])
     )
 
-    _assign_node(nodes[left_idx], *child_node)
-    _assign_node(nodes[right_idx], *child_node)
-    _assign_node(nodes[node_idx], *new_parent_node)
-    return nodes
+    return feature_idx_tree, threshold_tree
 
 
-@njit
-def prune(nodes: np.ndarray, node_proposal: NodeProposal):
-    node_idx = node_proposal.node_idx
-    nodes[node_idx]["is_leaf"] = 1
-    nodes[forest.left(node_idx)]["active"] = 0
-    nodes[forest.right(node_idx)]["active"] = 0
-    return nodes
+def prune(
+    feature_idx_tree: Int[Array, " 2**max_depth"],
+    threshold_tree: Float[Array, " 2**max_depth"],
+    node_idx: Int[Array, ""],
+):
+    selected_idcs = [
+        node_idx,
+        forest.left(node_idx),
+        forest.right(node_idx),
+    ]
+
+    feature_idx_tree = feature_idx_tree.at[selected_idcs].set(
+        jnp.array([NodeState.Leaf, NodeState.Inactive, NodeState.Inactive])
+    )
+    threshold_tree = threshold_tree.at[selected_idcs].set(jnp.array([0.0, 0.0, 0.0]))
+
+    return feature_idx_tree, threshold_tree
 
 
-@njit
-def change(nodes: np.ndarray, node_proposal: NodeProposal):
-    node = nodes[node_proposal.node_idx]
-    node["feature_idx"] = node_proposal.new_feature_idx
-    node["threshold"] = node_proposal.new_threshold
-    return nodes
+def change(
+    feature_idx_tree: Int[Array, " 2**max_depth"],
+    threshold_tree: Float[Array, " 2**max_depth"],
+    node_idx: Int[Array, ""],
+    new_feature_idx: Int[Array, ""],
+    new_threshold: Float[Array, ""],
+) -> tuple[Int[Array, " 2**max_depth"], Float[Array, " 2**max_depth"]]:
+    feature_idx_tree = feature_idx_tree.at[node_idx].set(new_feature_idx)
+    threshold_tree = threshold_tree.at[node_idx].set(new_threshold)
+
+    return feature_idx_tree, threshold_tree
 
 
-def _get_grow_proposal():
-    pass
+def _get_grow_proposal(
+    feature_idx_tree: Int[Array, " 2**max_depth"],
+    threshold_tree: Float[Array, " 2**max_depth"],
+    bounds: types.BoundsT,
+    feat_types: types.FeatTypesT,
+    params: types.BARKConfig,
+    key: jax.Array,
+) -> tuple[
+    Int[Array, " 2**max_depth"], Float[Array, " 2**max_depth"], Float[Array, ""]
+]:
+    valid_nodes = terminal_nodes(feature_idx_tree)
+
+    node_idx = jax.random.choice(key, feature_idx_tree.shape[-1], p=valid_nodes)
+    subspace = get_node_subspace(
+        feature_idx_tree=feature_idx_tree,
+        threshold_tree=threshold_tree,
+        node_idx=node_idx,
+        bounds=bounds,
+        feat_types=feat_types,
+    )
+
+    key, subkey = jax.random.split(key)
+    new_feature_idx, new_threshold = sample_splitting_rule(subspace, feat_types, subkey)
+
+    invalid_threshold = (new_threshold == subspace[:, new_feature_idx]).any(axis=-1)
+
+    # compute the MCMC transition ratio
+    w_0 = terminal_nodes(feature_idx_tree).sum(axis=-1)
+    new_feature_idx_tree, new_threshold_tree = grow(
+        feature_idx_tree, threshold_tree, node_idx, new_feature_idx, new_threshold
+    )
+    w_1_star = singly_internal_nodes(new_feature_idx_tree).sum(axis=-1)
+
+    tree_q_ratio = jnp.log(w_0) - jnp.log(w_1_star)
+    depth = forest.depth(node_idx)
+    tree_prior_ratio = prior_ratio_for_grow_proposal(depth, params)
+
+    tree_q_prior_ratio = jnp.where(
+        invalid_threshold, -jnp.inf, tree_q_ratio + tree_prior_ratio
+    )
+    return (new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio)
 
 
-def _get_prune_proposal():
-    pass
+def _get_prune_proposal(
+    feature_idx_tree: Int[Array, " 2**max_depth"],
+    threshold_tree: Float[Array, " 2**max_depth"],
+    params: types.BARKConfig,
+    key: jax.Array,
+) -> tuple[
+    Int[Array, " 2**max_depth"], Float[Array, " 2**max_depth"], Float[Array, ""]
+]:
+    valid_nodes = singly_internal_nodes(feature_idx_tree)
+
+    node_idx = jax.random.choice(key, feature_idx_tree.shape[-1], p=valid_nodes)
+
+    # compute the MCMC transition ratio
+    w_0_star = terminal_nodes(feature_idx_tree).sum() - 1
+    w_1 = singly_internal_nodes(feature_idx_tree).sum()
+    tree_q_ratio = np.log(w_1) - np.log(w_0_star)
+
+    depth = forest.depth(node_idx)
+    # tree prior ratio is just 1 / grow prior ratio
+    tree_prior_ratio = -prior_ratio_for_grow_proposal(depth, params)
+    tree_q_prior_ratio = tree_q_ratio + tree_prior_ratio
+
+    new_feature_idx_tree, new_threshold_tree = prune(
+        feature_idx_tree, threshold_tree, node_idx
+    )
+
+    return (new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio)
 
 
-def _get_change_proposal():
-    pass
+def _get_change_proposal(
+    feature_idx_tree: Int[Array, " 2**max_depth"],
+    threshold_tree: Float[Array, " 2**max_depth"],
+    bounds: types.BoundsT,
+    feat_types: types.FeatTypesT,
+    params: types.BARKConfig,
+    key: jax.Array,
+) -> tuple[
+    Int[Array, " 2**max_depth"], Float[Array, " 2**max_depth"], Float[Array, ""]
+]:
+    valid_nodes = singly_internal_nodes(feature_idx_tree)
+
+    node_idx = jax.random.choice(key, feature_idx_tree.shape[-1], p=valid_nodes)
+    subspace = get_node_subspace(
+        feature_idx_tree=feature_idx_tree,
+        threshold_tree=threshold_tree,
+        node_idx=node_idx,
+        bounds=bounds,
+        feat_types=feat_types,
+    )
+
+    key, subkey = jax.random.split(key)
+    new_feature_idx, new_threshold = sample_splitting_rule(subspace, feat_types, subkey)
+
+    invalid_threshold = (new_threshold == subspace[:, new_feature_idx]).any(axis=-1)
+
+    # compute the MCMC transition ratio
+    w_0 = terminal_nodes(feature_idx_tree).sum(axis=-1)
+    new_feature_idx_tree, new_threshold_tree = grow(
+        feature_idx_tree, threshold_tree, node_idx, new_feature_idx, new_threshold
+    )
+    w_1_star = singly_internal_nodes(new_feature_idx_tree).sum(axis=-1)
+
+    tree_q_ratio = jnp.log(w_0) - jnp.log(w_1_star)
+    tree_prior_ratio = 0.0
+
+    tree_q_prior_ratio = jnp.where(
+        invalid_threshold, -jnp.inf, tree_q_ratio + tree_prior_ratio
+    )
+    return (new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio)
 
 
+@jax.jit
 def get_tree_proposal(
     feature_idx_tree: Int[Array, " 2**max_depth"],
     threshold_tree: Float[Array, " 2**max_depth"],
@@ -185,7 +312,29 @@ def get_tree_proposal(
     feat_types: types.FeatTypesT,
     params: types.BARKConfig,
     key: jax.Array,
-) -> tuple[np.ndarray, float]:
+) -> tuple[
+    Int[Array, " 2**max_depth"], Float[Array, " 2**max_depth"], Float[Array, ""]
+]:
+    keys = jax.random.split(key, 3)
+    grow_proposal = _get_grow_proposal(
+        feature_idx_tree, threshold_tree, bounds, feat_types, params, keys[0]
+    )
+    prune_proposal = _get_prune_proposal(
+        feature_idx_tree, threshold_tree, params, keys[1]
+    )
+    change_proposal = _get_change_proposal(
+        feature_idx_tree, threshold_tree, bounds, feat_types, params, key
+    )
+
+    (new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio) = (
+        jax.tree_util.tree_map(
+            lambda *xs: jnp.stack(xs, axis=-1),
+            grow_proposal,
+            prune_proposal,
+            change_proposal,
+        )
+    )
+
     proposal_types = jnp.array(
         [
             TreeProposalEnum.Grow,
@@ -193,60 +342,27 @@ def get_tree_proposal(
             TreeProposalEnum.Change,
         ]
     )
-    proposal_type = jax.random.choice(key, a=proposal_types, p=params.proposal_weights)
+    proposal_type = jax.random.choice(
+        key,
+        a=proposal_types,
+        p=params.proposal_weights,
+        shape=feature_idx_tree.shape[:-1],
+    )
+    condlist = [
+        proposal_type == tp
+        for tp in (
+            TreeProposalEnum.Grow,
+            TreeProposalEnum.Prune,
+            TreeProposalEnum.Change,
+        )
+    ]
+    (new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio) = (
+        jax.tree_util.tree_map(
+            lambda *xs: jnp.select(condlist, xs),
+            grow_proposal,
+            prune_proposal,
+            change_proposal,
+        )
+    )
 
-    if proposal_type == TreeProposalEnum.Grow:
-        valid_nodes = terminal_nodes(nodes)
-    else:
-        valid_nodes = singly_internal_nodes(nodes)
-
-    if len(valid_nodes) == 0:
-        return nodes, -np.inf
-
-    node_proposal.node_idx = np.random.choice(valid_nodes)
-
-    node_proposal.prev_feature_idx = nodes[node_proposal.node_idx]["feature_idx"]
-    node_proposal.prev_threshold = nodes[node_proposal.node_idx]["threshold"]
-
-    if (
-        proposal_type == TreeProposalEnum.Grow
-        or proposal_type == TreeProposalEnum.Change
-    ):
-        subspace = get_node_subspace(nodes, node_proposal.node_idx, bounds, feat_types)
-        (
-            node_proposal.new_feature_idx,
-            node_proposal.new_threshold,
-        ) = sample_splitting_rule(subspace, feat_types)
-
-        # catch invalid splits for discrete features
-        if (
-            node_proposal.new_threshold == 0
-            and feat_types[node_proposal.new_feature_idx] == FeatureTypeEnum.Cat.value
-        ):
-            return nodes, -np.inf
-
-        if (
-            node_proposal.new_threshold == subspace[node_proposal.new_feature_idx, 1]
-            and feat_types[node_proposal.new_feature_idx] == FeatureTypeEnum.Int.value
-        ):
-            return nodes, -np.inf
-
-    # I have no idea why this happens
-    # tree_q_ratio has some side effect with the node_idx
-
-    temp = node_proposal.node_idx
-    log_q_ratio = tree_q_ratio(nodes, proposal_type, node_proposal)
-    node_proposal.node_idx = temp
-
-    log_prior_ratio = tree_prior_ratio(nodes, proposal_type, node_proposal, params)
-
-    new_nodes = nodes.copy()
-    if proposal_type == TreeProposalEnum.Grow:
-        new_nodes = grow(new_nodes, node_proposal)
-    elif proposal_type == TreeProposalEnum.Prune:
-        new_nodes = prune(new_nodes, node_proposal)
-    else:
-        new_nodes = change(new_nodes, node_proposal)
-
-    log_q_prior = log_q_ratio + log_prior_ratio
-    return new_nodes, log_q_prior
+    return new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio

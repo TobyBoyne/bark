@@ -1,32 +1,10 @@
 import jax
 import jax.numpy as jnp
-import numpy as np
 from jaxtyping import Array, Bool, Float, Int
-from numba import njit
 
 import bark.forest as forest
 from bark import types
 from bark.enums import FeatureTypeEnum, NodeState
-
-
-@njit
-def pre_order_traverse(
-    nodes: np.ndarray,
-) -> list[int]:
-    stack = []
-    node_idxs = []
-    current_idx = 0
-
-    while True:
-        node_idxs.append(current_idx)
-
-        if not nodes[current_idx]["is_leaf"]:
-            stack.append(forest.left(current_idx))
-            stack.append(forest.right(current_idx))
-
-        if not stack:
-            return node_idxs
-        current_idx = stack.pop(0)
 
 
 @jax.jit
