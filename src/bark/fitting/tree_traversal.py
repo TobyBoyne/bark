@@ -60,7 +60,7 @@ def singly_internal_nodes(
     )
 
 
-@jax.jit
+# @jax.jit
 def get_node_subspace(
     feature_idx_tree: Int[Array, " 2**max_depth"],
     threshold_tree: Float[Array, " 2**max_depth"],
@@ -83,8 +83,8 @@ def get_node_subspace(
 
         cat_threshold = threshold_tree[parent_idx].astype(jnp.uint64)
         cat_threshold = jnp.where(is_left, cat_threshold, ~cat_threshold)
-        cat_subspace = subspace.at[feature_idx, 1].set(
-            cat_threshold & subspace[feature_idx, 1]
+        cat_subspace = subspace.at[1, feature_idx].set(
+            cat_threshold & subspace[1, feature_idx].astype(jnp.uint64)
         )
 
         ord_threshold = threshold_tree[parent_idx]
@@ -93,18 +93,17 @@ def get_node_subspace(
         int_delta = jnp.where(feat_types[feature_idx] == FeatureTypeEnum.Int, 1.0, 0.0)
         ord_threshold = jnp.stack(
             (
-                jnp.where(is_left, subspace[feature_idx, 0], ord_threshold + int_delta),
-                jnp.where(is_left, ord_threshold, subspace[feature_idx, 1]),
+                jnp.where(is_left, subspace[0, feature_idx], ord_threshold + int_delta),
+                jnp.where(is_left, ord_threshold, subspace[1, feature_idx]),
             ),
             axis=-1,
         )
-        ord_subspace = subspace.at[feature_idx, :].set(ord_threshold)
+        ord_subspace = subspace.at[:, feature_idx].set(ord_threshold)
 
         subspace = jnp.where(
             feat_types[feature_idx] == FeatureTypeEnum.Cat, cat_subspace, ord_subspace
         )
-
-        return node_idx, subspace
+        return forest.parent(node_idx), subspace
 
     node_idx, subspace = jax.lax.while_loop(cond, reduce_subspace, (node_idx, bounds))
     return subspace
