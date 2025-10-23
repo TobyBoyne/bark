@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 import jax
+import jax.numpy as jnp
 from flax import struct
 from jaxtyping import Array, Float, Int, UInt
 
@@ -18,7 +19,7 @@ class Tree:
 
 
 @struct.dataclass
-class Trees:
+class Trees(Tree):
     feature_idx: Int[Array, "m max_nodes"]
     threshold: Float[Array, "m max_nodes"]
 
@@ -49,14 +50,21 @@ class BARKModel:
 
 @struct.dataclass
 class BARKConfig:
-    warmup_steps: int
-    num_samples: int
-    steps_per_sample: int
-    num_chains: int
-    alpha: float
-    beta: float
-    proposal_weights: Float[jax.Array, " 3"]
-    verbose: bool
-    use_softplus_transform: bool
-    gamma_prior_shape: float
-    gamma_prior_rate: float
+    warmup_steps: int = 100
+    num_samples: int = 4
+    steps_per_sample: int = 100
+    num_chains: int = 4
+    alpha: float = 0.95
+    beta: float = 20.0
+    num_trees: int = 50
+    prune_grow_weight: float = 0.5
+    change_weight: float = 1.0
+    verbose: bool = False
+    gamma_prior_shape: float = 1.5
+    gamma_prior_rate: float = 5.0
+
+    @property
+    def proposal_weights(self) -> Float[jax.Array, " 3"]:
+        return jnp.array(
+            [self.prune_grow_weight, self.prune_grow_weight, self.change_weight]
+        )

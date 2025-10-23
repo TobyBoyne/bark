@@ -30,11 +30,10 @@ def singly_internal_nodes(
     right_idcs = forest.right(all_node_idcs).clip(0, node_limit - 1)
 
     return (
-        feature_idx_tree
-        != NodeState.Inactive & feature_idx_tree
-        != NodeState.Leaf & feature_idx_tree[left_idcs]
-        == NodeState.Leaf & feature_idx_tree[right_idcs]
-        == NodeState.Leaf
+        (feature_idx_tree != NodeState.Inactive)
+        & (feature_idx_tree != NodeState.Leaf)
+        & (feature_idx_tree[left_idcs] == NodeState.Leaf)
+        & (feature_idx_tree[right_idcs] == NodeState.Leaf)
     )
 
 
@@ -59,8 +58,9 @@ def get_node_subspace(
 
         cat_threshold = tree.threshold[parent_idx].astype(jnp.uint64)
         cat_threshold = jnp.where(is_left, cat_threshold, ~cat_threshold)
+        cat_threshold = cat_threshold & subspace[1, feature_idx].astype(jnp.uint64)
         cat_subspace = subspace.at[1, feature_idx].set(
-            cat_threshold & subspace[1, feature_idx].astype(jnp.uint64)
+            cat_threshold.astype(subspace.dtype)
         )
 
         ord_threshold = tree.threshold[parent_idx]

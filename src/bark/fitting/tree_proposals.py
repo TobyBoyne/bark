@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-import numpy as np
 from jaxtyping import Array, Float, Int
 
 import bark.forest as forest
@@ -14,7 +13,6 @@ from bark.fitting.tree_traversal import (
 from bark.utils.bit_operations import sample_binary_mask
 
 
-# @jax.jit
 def sample_splitting_rule(
     bounds: types.BoundsT, feat_types: types.FeatTypesT, key: jax.Array
 ) -> tuple[Int[Array, ""], Float[Array, ""] | Int[Array, ""]]:
@@ -22,12 +20,18 @@ def sample_splitting_rule(
     keys = jax.random.split(key, num=4)
     feature_idx = jax.random.randint(keys[0], (), minval=0, maxval=bounds.shape[0])
 
-    cat_sample = sample_binary_mask(int_bounds[feature_idx, 1], keys[1])
-    int_sample = jax.random.randint(
-        keys[2], (), int_bounds[feature_idx, 0] + 1, int_bounds[feature_idx, 1]
+    cat_sample = sample_binary_mask(int_bounds[1, feature_idx], keys[1]).astype(
+        bounds.dtype
     )
+    int_sample = jax.random.randint(
+        keys[2], (), int_bounds[0, feature_idx] + 1, int_bounds[1, feature_idx]
+    ).astype(bounds.dtype)
     cont_sample = jax.random.uniform(
-        keys[3], (), bounds[feature_idx, 0], bounds[feature_idx, 1]
+        keys[3],
+        (),
+        minval=bounds[0, feature_idx],
+        maxval=bounds[1, feature_idx],
+        dtype=bounds.dtype,
     )
 
     condlist = [
@@ -59,17 +63,23 @@ def grow(
     new_feature_idx: Int[Array, ""],
     new_threshold: Float[Array, ""],
 ) -> types.Tree:
-    selected_idcs = [
-        node_idx,
-        forest.left(node_idx),
-        forest.right(node_idx),
-    ]
+    selected_idcs = jnp.stack(
+        [
+            node_idx,
+            forest.left(node_idx),
+            forest.right(node_idx),
+        ],
+        axis=-1,
+    )
 
     feature_idx = tree.feature_idx.at[selected_idcs].set(
-        jnp.array([new_feature_idx, NodeState.Leaf, NodeState.Leaf])
+        jnp.array(
+            [new_feature_idx, NodeState.Leaf, NodeState.Leaf],
+            dtype=tree.feature_idx.dtype,
+        )
     )
     threshold = tree.threshold.at[selected_idcs].set(
-        jnp.array([new_threshold, 0.0, 0.0])
+        jnp.array([new_threshold, 0.0, 0.0], dtype=tree.threshold.dtype)
     )
 
     return types.Tree(feature_idx=feature_idx, threshold=threshold)
@@ -79,16 +89,24 @@ def prune(
     tree: types.Tree,
     node_idx: Int[Array, ""],
 ):
-    selected_idcs = [
-        node_idx,
-        forest.left(node_idx),
-        forest.right(node_idx),
-    ]
+    selected_idcs = jnp.stack(
+        [
+            node_idx,
+            forest.left(node_idx),
+            forest.right(node_idx),
+        ],
+        axis=-1,
+    )
 
     feature_idx = tree.feature_idx.at[selected_idcs].set(
-        jnp.array([NodeState.Leaf, NodeState.Inactive, NodeState.Inactive])
+        jnp.array(
+            [NodeState.Leaf, NodeState.Inactive, NodeState.Inactive],
+            dtype=tree.feature_idx.dtype,
+        )
     )
-    threshold = tree.threshold.at[selected_idcs].set(jnp.array([0.0, 0.0, 0.0]))
+    threshold = tree.threshold.at[selected_idcs].set(
+        jnp.array([0.0, 0.0, 0.0], dtype=tree.threshold.dtype)
+    )
 
     return types.Tree(feature_idx=feature_idx, threshold=threshold)
 
@@ -99,8 +117,12 @@ def change(
     new_feature_idx: Int[Array, ""],
     new_threshold: Float[Array, ""],
 ) -> types.Tree:
-    feature_idx = tree.feature_idx.at[node_idx].set(new_feature_idx)
-    threshold = tree.threshold.at[node_idx].set(new_threshold)
+    feature_idx = tree.feature_idx.at[node_idx].set(
+        new_feature_idx.astype(tree.feature_idx.dtype)
+    )
+    threshold = tree.threshold.at[node_idx].set(
+        new_threshold.astype(tree.threshold.dtype)
+    )
 
     return types.Tree(feature_idx=feature_idx, threshold=threshold)
 
@@ -136,8 +158,11 @@ def _get_grow_proposal(
     depth = forest.depth(node_idx)
     tree_prior_ratio = prior_ratio_for_grow_proposal(depth, params)
 
+    # if the new node exceeds the maximum depth of the forest, it is invalid
+    invalid_depth = (1 << (depth + 1)) >= tree.feature_idx.shape[0]
+
     tree_q_prior_ratio = jnp.where(
-        invalid_threshold, -jnp.inf, tree_q_ratio + tree_prior_ratio
+        invalid_threshold | invalid_depth, -jnp.inf, tree_q_ratio + tree_prior_ratio
     )
     return new_tree, tree_q_prior_ratio
 
@@ -154,7 +179,7 @@ def _get_prune_proposal(
     # compute the MCMC transition ratio
     w_0_star = terminal_nodes(tree.feature_idx).sum() - 1
     w_1 = singly_internal_nodes(tree.feature_idx).sum()
-    tree_q_ratio = np.log(w_1) - np.log(w_0_star)
+    tree_q_ratio = jnp.log(w_1) - jnp.log(w_0_star)
 
     depth = forest.depth(node_idx)
     # tree prior ratio is just 1 / grow prior ratio
@@ -202,29 +227,17 @@ def _get_change_proposal(
     return new_tree, tree_q_prior_ratio
 
 
-@jax.jit
 def get_tree_proposal(
     tree: types.Tree,
     bounds: types.BoundsT,
     feat_types: types.FeatTypesT,
     params: types.BARKConfig,
     key: jax.Array,
-) -> tuple[
-    Int[Array, " 2**max_depth"], Float[Array, " 2**max_depth"], Float[Array, ""]
-]:
+) -> tuple[types.Tree, Float[Array, ""]]:
     keys = jax.random.split(key, 3)
     grow_proposal = _get_grow_proposal(tree, bounds, feat_types, params, keys[0])
     prune_proposal = _get_prune_proposal(tree, params, keys[1])
     change_proposal = _get_change_proposal(tree, bounds, feat_types, params, key)
-
-    (new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio) = (
-        jax.tree_util.tree_map(
-            lambda *xs: jnp.stack(xs, axis=-1),
-            grow_proposal,
-            prune_proposal,
-            change_proposal,
-        )
-    )
 
     proposal_types = jnp.array(
         [
@@ -247,13 +260,11 @@ def get_tree_proposal(
             TreeProposalEnum.Change,
         )
     ]
-    (new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio) = (
-        jax.tree_util.tree_map(
-            lambda *xs: jnp.select(condlist, xs),
-            grow_proposal,
-            prune_proposal,
-            change_proposal,
-        )
+    new_tree, tree_q_prior_ratio = jax.tree_util.tree_map(
+        lambda *xs: jnp.select(condlist, xs),
+        grow_proposal,
+        prune_proposal,
+        change_proposal,
     )
 
-    return new_feature_idx_tree, new_threshold_tree, tree_q_prior_ratio
+    return new_tree, tree_q_prior_ratio
