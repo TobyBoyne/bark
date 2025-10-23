@@ -1,6 +1,6 @@
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Bool, Float, Int
+from jaxtyping import Array, Bool, Int
 
 import bark.forest as forest
 from bark import types
@@ -9,16 +9,16 @@ from bark.enums import FeatureTypeEnum, NodeState
 
 @jax.jit
 def terminal_nodes(
-    feature_idx_tree: Int[Array, "... 2**max_depth"],
-) -> Bool[Array, "... 2**max_depth"]:
+    feature_idx_tree: Int[Array, "... max_nodes"],
+) -> Bool[Array, "... max_nodes"]:
     """Find all leaves"""
     return feature_idx_tree == NodeState.Leaf
 
 
 @jax.jit
 def singly_internal_nodes(
-    feature_idx_tree: Int[Array, "... 2**max_depth"],
-) -> Bool[Array, "... 2**max_depth"]:
+    feature_idx_tree: Int[Array, "... max_nodes"],
+) -> Bool[Array, "... max_nodes"]:
     """Find all decision nodes where both children are leaves"""
     node_limit = feature_idx_tree.shape[-1]
     all_node_idcs = jnp.arange(node_limit)
@@ -38,10 +38,8 @@ def singly_internal_nodes(
     )
 
 
-# @jax.jit
 def get_node_subspace(
-    feature_idx_tree: Int[Array, " 2**max_depth"],
-    threshold_tree: Float[Array, " 2**max_depth"],
+    tree: types.Tree,
     node_idx: Int[Array, ""],
     bounds: types.BoundsT,
     feat_types: types.FeatTypesT,
@@ -56,16 +54,16 @@ def get_node_subspace(
         node_idx, subspace = v
 
         parent_idx = forest.parent(node_idx)
-        feature_idx = feature_idx_tree[parent_idx]
+        feature_idx = tree.feature_idx[parent_idx]
         is_left = node_idx == forest.left(parent_idx)
 
-        cat_threshold = threshold_tree[parent_idx].astype(jnp.uint64)
+        cat_threshold = tree.threshold[parent_idx].astype(jnp.uint64)
         cat_threshold = jnp.where(is_left, cat_threshold, ~cat_threshold)
         cat_subspace = subspace.at[1, feature_idx].set(
             cat_threshold & subspace[1, feature_idx].astype(jnp.uint64)
         )
 
-        ord_threshold = threshold_tree[parent_idx]
+        ord_threshold = tree.threshold[parent_idx]
         # if the node is to the right of parent, then we start the integer bound
         # from `threshold + 1` to avoid intersection.
         int_delta = jnp.where(feat_types[feature_idx] == FeatureTypeEnum.Int, 1.0, 0.0)

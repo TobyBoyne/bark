@@ -5,19 +5,22 @@ from flax import struct
 from jaxtyping import Array, Float, Int, UInt
 
 FeatTypesT = UInt[Array, " d"]
-IndexT = UInt[Array, " *n"]
+IndexT = UInt[Array, "..."]
 
 DataT = tuple[Float[jax.Array, "N d"], Float[jax.Array, "N 1"]]
 BoundsT = Float[jax.Array, "2 d"]
 
-FeatureIndexT = Int[Array, "*batch m 2**max_depth"]  # not unsigned as -1 is leaf
-ThresholdT = Float[Array, "*batch m 2**max_depth"]
+
+@struct.dataclass
+class Tree:
+    feature_idx: Int[Array, " max_nodes"]
+    threshold: Float[Array, " max_nodes"]
 
 
 @struct.dataclass
 class Trees:
-    feature_idx: FeatureIndexT
-    threshold: ThresholdT
+    feature_idx: Int[Array, "m max_nodes"]
+    threshold: Float[Array, "m max_nodes"]
 
 
 @struct.dataclass
