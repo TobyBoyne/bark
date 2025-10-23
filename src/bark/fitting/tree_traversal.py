@@ -7,7 +7,6 @@ from numba import njit
 import bark.forest as forest
 from bark import types
 from bark.enums import FeatureTypeEnum, NodeState
-from bark.utils.bit_operations import next_power_of_2
 
 
 @njit
@@ -63,42 +62,49 @@ def singly_internal_nodes(
 
 @jax.jit
 def get_node_subspace(
-    feature_idx_tree: Int[Array, "... 2**max_depth"],
-    threshold_tree: Float[Array, "m 2**max_depth"],
-    node_idx: Int[Array, "..."],
+    feature_idx_tree: Int[Array, " 2**max_depth"],
+    threshold_tree: Float[Array, " 2**max_depth"],
+    node_idx: Int[Array, ""],
     bounds: types.BoundsT,
     feat_types: types.FeatTypesT,
 ):
     """Get the subset of the domain that reaches a given node."""
-    subspace = bounds.copy()
-    parent_idx = forest.parent(node_idx)
-    while node_idx != 0:
+
+    def cond(v: tuple[Int[Array, ""], types.BoundsT]):
+        node_idx, _ = v
+        return node_idx != 0
+
+    def reduce_subspace(v: tuple[Int[Array, ""], types.BoundsT]):
+        node_idx, subspace = v
+
+        parent_idx = forest.parent(node_idx)
         feature_idx = feature_idx_tree[parent_idx]
+        is_left = node_idx == forest.left(parent_idx)
 
-        if feat_types[feature_idx] == FeatureTypeEnum.Cat:
-            if node_idx == forest.left(parent_idx):
-                subspace[feature_idx, 1] = int(parent_node["threshold"]) & int(
-                    subspace[feature_idx, 1]
-                )
-            else:
-                max_threshold = next_power_of_2(int(subspace[feature_idx, 1])) - 1
-                neg_threshold = max_threshold - parent_node["threshold"]
-                subspace[feature_idx, 1] = int(neg_threshold) & int(
-                    subspace[feature_idx, 1]
-                )
-        else:
-            if node_idx == forest.left(parent_idx):
-                subspace[feature_idx, 1] = min(
-                    parent_node["threshold"], subspace[feature_idx, 1]
-                )
-            else:
-                int_delta = (
-                    1 if feat_types[feature_idx] == FeatureTypeEnum.Int.value else 0
-                )
-                subspace[feature_idx, 0] = max(
-                    parent_node["threshold"] + int_delta, subspace[feature_idx, 0]
-                )
+        cat_threshold = threshold_tree[parent_idx].astype(jnp.uint64)
+        cat_threshold = jnp.where(is_left, cat_threshold, ~cat_threshold)
+        cat_subspace = subspace.at[feature_idx, 1].set(
+            cat_threshold & subspace[feature_idx, 1]
+        )
 
-        node_idx, parent_idx = parent_idx, forest.parent(parent_idx)
+        ord_threshold = threshold_tree[parent_idx]
+        # if the node is to the right of parent, then we start the integer bound
+        # from `threshold + 1` to avoid intersection.
+        int_delta = jnp.where(feat_types[feature_idx] == FeatureTypeEnum.Int, 1.0, 0.0)
+        ord_threshold = jnp.stack(
+            (
+                jnp.where(is_left, subspace[feature_idx, 0], ord_threshold + int_delta),
+                jnp.where(is_left, ord_threshold, subspace[feature_idx, 1]),
+            ),
+            axis=-1,
+        )
+        ord_subspace = subspace.at[feature_idx, :].set(ord_threshold)
 
+        subspace = jnp.where(
+            feat_types[feature_idx] == FeatureTypeEnum.Cat, cat_subspace, ord_subspace
+        )
+
+        return node_idx, subspace
+
+    node_idx, subspace = jax.lax.while_loop(cond, reduce_subspace, (node_idx, bounds))
     return subspace
