@@ -1,5 +1,7 @@
 from enum import IntEnum
 
+MAX_DEPTH = 16
+
 
 class FeatureTypeEnum(IntEnum):
     Cat = 0

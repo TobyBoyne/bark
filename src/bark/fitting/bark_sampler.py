@@ -74,7 +74,7 @@ def _step_bark_sampler(
         i: int, val: tuple[BARKModel, Float[Array, ""]]
     ) -> tuple[BARKModel, Float[Array, ""]]:
         model, cur_mll = val
-        selected_tree_mask = jnp.arange(m) == i
+        selected_tree_mask = jnp.expand_dims(jnp.arange(m) == i, axis=-1)
         selected_new_tree = jax.tree_util.tree_map(
             lambda t, nt: jnp.where(selected_tree_mask, nt, t), model.trees, new_trees
         )
@@ -87,19 +87,7 @@ def _step_bark_sampler(
         log_alpha = jnp.clip(log_q_prior + log_ll, min=0.0)
 
         accept = jnp.log(jax.random.uniform(proposal_key[1])) <= log_alpha
-        # TODO: there has to be a better one to select one of the two models?
-        # want to write `model = new_model if accept else model`
-        model = BARKModel(
-            trees=types.Tree(
-                feature_idx=jnp.where(
-                    accept, new_model.trees.feature_idx, model.trees.feature_idx
-                ),
-                threshold=jnp.where(
-                    accept, new_model.trees.threshold, model.trees.threshold
-                ),
-            ),
-            noise=jnp.where(accept, new_model.noise, model.noise),
-        )
+        model = model.update_trees(new_trees, accept)
         cur_mll = jnp.where(accept, new_mll, cur_mll)
         return (model, cur_mll)
 
@@ -119,9 +107,8 @@ def _step_bark_sampler(
     log_ll = new_mll - cur_mll
     log_alpha = jnp.clip(log_q_prior + log_ll, min=0.0)
 
-    if jnp.log(jax.random.uniform(proposal_key[1])) <= log_alpha:
-        # accept - set the new mll and K_inv values
-        cur_mll = new_mll
-        bark_model = new_bark_model
+    accept = jnp.log(jax.random.uniform(proposal_key[1])) <= log_alpha
+    bark_model = bark_model.update_noise(new_bark_model.noise, accept)
+    cur_mll = jnp.where(accept, new_mll, cur_mll)
 
-    return bark_model, cur_mll
+    return bark_model, cur_mll  # pyright: ignore

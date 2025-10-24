@@ -54,19 +54,22 @@ def _pass_one_through_tree(
 
         leaf_found |= is_leaf(feature_idx)
         child_index = left(index)
-        child_index += is_cat * (1 - ((1 << int(X[feature_idx])) & int(threshold)))
+        child_index += is_cat * (
+            1 - ((1 << X[feature_idx].astype(jnp.int64)) & threshold.astype(jnp.int64))
+        )
         child_index += (1 - is_cat) * (X[feature_idx] > threshold)
         index = jnp.where(leaf_found, index, child_index)
 
         return (leaf_found, index), None
 
-    max_depth = depth(tree.feature_idx.size)
-    (_, index), _ = jax.lax.scan(loop, carry, None, max_depth, unroll=16)  # pyright: ignore
+    (_, index), _ = jax.lax.scan(
+        loop, carry, None, enums.MAX_DEPTH, unroll=enums.MAX_DEPTH
+    )
     return index  # pyright: ignore
 
 
 pass_through_tree = jax.vmap(_pass_one_through_tree, (0, None, None))
-pass_through_forest = jax.vmap(pass_through_tree, (None, 0, None))
+pass_through_forest = jax.vmap(pass_through_tree, (None, 0, None), out_axes=1)
 
 
 def get_leaf_vectors(
@@ -124,13 +127,13 @@ batched_forest_gram_matrix = jax.vmap(
 #     return (sim_mat - num_null_trees / num_trees) * scale
 
 
-def create_empty_forest(m: int, max_depth: int = 6) -> types.Trees:
+def create_empty_forest(m: int, max_depth: int = 6) -> types.Tree:
     feature_idx = jnp.full(
         (m, 2**max_depth - 1), enums.NodeState.Inactive, dtype=jnp.int32
     )
     feature_idx = feature_idx.at[:, 0].set(enums.NodeState.Leaf)
     threshold = jnp.zeros((m, 2**max_depth - 1), dtype=jnp.float32)
-    return types.Trees(
+    return types.Tree(
         feature_idx=feature_idx,
         threshold=threshold,
     )

@@ -3,7 +3,7 @@ from dataclasses import replace
 import jax
 import jax.numpy as jnp
 from flax import struct
-from jaxtyping import Array, Float, Int, UInt
+from jaxtyping import Array, Bool, Float, Int, UInt
 
 FeatTypesT = UInt[Array, " d"]
 IndexT = UInt[Array, "..."] | int
@@ -47,6 +47,27 @@ class BARKModel:
     @property
     def num_trees(self):
         return self.trees.threshold.shape[-2]
+
+    def update_trees(self, other_trees: Tree, accept: Bool[Array, " m"]) -> "BARKModel":
+        # this method is a JIT-compatible version of `self if accept else other`
+        return BARKModel(
+            trees=Tree(
+                feature_idx=jnp.where(
+                    accept, other_trees.feature_idx, self.trees.feature_idx
+                ),
+                threshold=jnp.where(
+                    accept, other_trees.threshold, self.trees.threshold
+                ),
+            ),
+            noise=self.noise,
+        )
+
+    def update_noise(
+        self, other_noise: Float[Array, ""], accept: Bool[Array, " m"]
+    ) -> "BARKModel":
+        return BARKModel(
+            trees=self.trees, noise=jnp.where(accept, other_noise, self.noise)
+        )
 
 
 @struct.dataclass

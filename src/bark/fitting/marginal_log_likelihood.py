@@ -18,4 +18,4 @@ def mll_bark_model(bark_model: types.BARKModel, data: types.Data) -> Float[Array
     K_XX_s_y = jax.scipy.linalg.cho_solve(cholesky, train_Y)
 
     _, K_logdet = jnp.linalg.slogdet(K_XX_s)
-    return 0.5 * (-train_Y.T @ K_XX_s_y - K_logdet)
+    return 0.5 * (-train_Y.T @ K_XX_s_y - K_logdet).squeeze((-2, -1))
