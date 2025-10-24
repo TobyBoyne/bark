@@ -42,6 +42,29 @@ def low_rank_det_update(
 #     return 0.5 * (-y.T @ K_inv @ y - K_logdet)[0, 0]
 
 
+# cur_leaf_vectors = invsqrtm * forest.get_leaf_vectors(
+#     train_x,
+#     bark_model.trees.feature_idx[..., tree_idx, :],
+#     bark_model.trees.threshold[..., tree_idx, :],
+#     feat_types,
+# )
+# new_leaf_vectors = invsqrtm * forest.get_leaf_vectors(
+#     train_x,
+#     new_bark_model.forest.feature_idx[..., tree_idx, :],
+#     new_bark_model.forest.threshold[..., tree_idx, :],
+#     feat_types,
+# )
+
+# # compute the rank-one update for the inverse
+# lr_update: LowRankInverter = low_rank_inverter.set_low_rank_update_matrix(
+#     U=cur_leaf_vectors, subtract=True
+# ).low_rank_update()
+
+# lr_update: LowRankInverter = lr_update.set_low_rank_update_matrix(
+#     U=new_leaf_vectors, subtract=False
+# ).low_rank_update()
+
+
 @jit
 def mll(K_inv: InverseType, K_logdet: DetType, y: Float[jax.Array, "N 1"]) -> MLLType:
     return 0.5 * (-y.T @ K_inv @ y - K_logdet)

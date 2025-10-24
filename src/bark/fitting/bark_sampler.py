@@ -1,185 +1,127 @@
-from dataclasses import replace
-
 import jax
 import jax.numpy as jnp
-import numpy as np
-from bofire.data_models.domain.api import Domain
-from jaxtyping import Float
+from jaxtyping import Array, Float, Int
 
-from bark import forest, types
-from bark.fitting.noise_proposals import get_noise_scale_proposal
-from bark.fitting.quick_inverse import LowRankInverter, mll
+from bark import types
+from bark.fitting.marginal_log_likelihood import mll_bark_model
+from bark.fitting.noise_proposals import get_noise_proposal_softplus
 from bark.fitting.tree_proposals import get_forest_proposal
 from bark.types import BARKModel
-from bofire_mixed.domain import get_feature_bounds, get_feature_types_array
 
 
 def run_bark_sampler(
-    bark_model: BARKModel, data: types.DataT, domain: Domain, params: types.BARKConfig
+    bark_model: BARKModel, data: types.Data, params: types.BARKConfig, seed: int
 ) -> BARKModel:
     """Generate samples from the BARK posterior"""
 
-    # unpack the model
-    train_x, train_y = data
+    num_samples = params.num_samples
+    warmup_steps = params.warmup_steps
+    steps_per_sample = params.steps_per_sample
+    num_steps_total = warmup_steps + steps_per_sample * num_samples
 
-    # unpack the domain
-    bounds = [
-        get_feature_bounds(feat, encoding="bitmask") for feat in domain.inputs.get()
-    ]
+    cur_mll = mll_bark_model(bark_model, data)
+    # TODO: check that these keys are different across parallel chains
+    keys = jax.random.split(jax.random.key(seed), num=num_steps_total)
 
-    bounds = np.array(bounds)
+    def step_bark(
+        i: int, val: tuple[BARKModel, Float[Array, ""]]
+    ) -> tuple[BARKModel, Float[Array, ""]]:
+        bark_model, _cur_mll = val
+        return _step_bark_sampler(bark_model, data, params, keys[i])
 
-    feat_type = get_feature_types_array(domain)
+    def sample_bark(
+        carry: tuple[BARKModel, Float[Array, ""]], x: Int[Array, ""]
+    ) -> tuple[tuple[BARKModel, Float[Array, ""]], BARKModel]:
+        carry = jax.lax.fori_loop(
+            lower=x, upper=x + steps_per_sample, body_fun=step_bark, init_val=carry
+        )
+        bark_model = carry[0]
+        return carry, bark_model
 
-    samples = _run_bark_sampler_multichain(
-        bark_model, train_x, train_y, bounds, feat_type, params
+    # generate warmup samples
+    carry = jax.lax.fori_loop(
+        lower=0, upper=warmup_steps, body_fun=step_bark, init_val=(bark_model, cur_mll)
     )
+
+    # generate samples
+    start_steps = jnp.arange(
+        warmup_steps, num_steps_total - warmup_steps, step=steps_per_sample
+    )
+    _carry, samples = jax.lax.scan(sample_bark, carry, start_steps)
 
     return samples
 
 
-def _run_bark_sampler_multichain(
-    bark_model: BARKModel,
-    train_x: Float[jax.Array, "N D"],
-    train_y: Float[jax.Array, "N 1"],
-    bounds: Float[jax.Array, "N 2"],
-    feat_types: types.FeatTypesT,
-    params: types.BARKConfig,
-) -> BARKModel:
-    num_chains = params.num_chains
-    num_samples = params.num_samples
-
-    assert bark_model.trees.threshold.shape[0] == num_chains
-    # unstack the BARKModel
-    # https://gist.github.com/willwhitney/dd89cac6a5b771ccff18b06b33372c75
-    leaves, treedef = jax.tree.flatten(bark_model)
-    # initial_bark_models = [
-    #     treedef.unflatten(leaf) for leaf in zip(*leaves, strict=True)
-    # ]
-
-    warmup_steps = params.warmup_steps
-    steps_per_sample = params.steps_per_sample
-
-    samples = []
-
-    for chain_idx in range(num_chains):
-        # initial values of K_inv and K_logdet
-        K_XX = forest.forest_gram_matrix(
-            train_x,
-            train_x,
-            bark_model.trees.feature_idx,
-            bark_model.trees.threshold,
-            feat_types,
-        )
-        K_XX_s = K_XX + (1e-6 + bark_model.noise) * np.eye(K_XX.shape[0])
-        # In tests, using Cholesky solves does not seem to improve the speed of the
-        # solver.
-        cur_K_inv = np.linalg.inv(K_XX_s)
-        _, cur_K_logdet = np.linalg.slogdet(K_XX_s)
-        cur_mll = mll(cur_K_inv, cur_K_logdet, train_y)
-
-        low_rank_inverter = LowRankInverter(
-            K_inv=cur_K_inv,
-            K_logdet=cur_K_logdet,
-            mll=cur_mll,
-            U=jnp.zeros((K_XX.shape[0], 1)),
-            subtract=False,
-            y=train_y,
-        )
-
-        for itr in range(warmup_steps + num_samples * steps_per_sample):
-            (bark_model, low_rank_inverter) = _step_bark_sampler(
-                bark_model,
-                train_x,
-                train_y,
-                bounds,
-                feat_types,
-                params,
-                low_rank_inverter,
-            )
-            step_itr = itr - warmup_steps
-            if step_itr > 0 and step_itr % steps_per_sample == steps_per_sample - 1:
-                samples.append(bark_model)
-
-    bark_models_stacked = jax.tree.map(lambda *v: jnp.stack(v, axis=0), *samples)
-    return bark_models_stacked
-
-
 def _step_bark_sampler(
     bark_model: BARKModel,
-    train_x: Float[jax.Array, "N D"],
-    train_y: Float[jax.Array, "N 1"],
-    bounds: Float[jax.Array, "N 2"],
-    feat_types: types.FeatTypesT,
+    data: types.Data,
     params: types.BARKConfig,
     key: jax.Array,
     # low_rank_inverter: LowRankInverter,
-) -> tuple[BARKModel, LowRankInverter]:
+) -> tuple[BARKModel, Float[Array, ""]]:
     m = bark_model.num_trees
-
+    # TODO: pass cur_mll from previous iteration
+    cur_mll = mll_bark_model(bark_model, data)
     key, noise_key = jax.random.split(key)
     key, *proposal_key = jax.random.split(key, num=3)
     tree_key = jax.random.split(key, num=m)
 
     new_trees, tree_log_q_prior_ratio = get_forest_proposal(
-        bark_model.trees, bounds, feat_types, params, tree_key
+        bark_model.trees, data.bounds, data.feat_types, params, tree_key
     )
 
-    # invsqrtm = jnp.sqrt(1 / m)
-
-    # cur_leaf_vectors = invsqrtm * forest.get_leaf_vectors(
-    #     train_x,
-    #     bark_model.trees.feature_idx[..., tree_idx, :],
-    #     bark_model.trees.threshold[..., tree_idx, :],
-    #     feat_types,
-    # )
-    # new_leaf_vectors = invsqrtm * forest.get_leaf_vectors(
-    #     train_x,
-    #     new_bark_model.forest.feature_idx[..., tree_idx, :],
-    #     new_bark_model.forest.threshold[..., tree_idx, :],
-    #     feat_types,
-    # )
-
-    # # compute the rank-one update for the inverse
-    # lr_update: LowRankInverter = low_rank_inverter.set_low_rank_update_matrix(
-    #     U=cur_leaf_vectors, subtract=True
-    # ).low_rank_update()
-
-    # lr_update: LowRankInverter = lr_update.set_low_rank_update_matrix(
-    #     U=new_leaf_vectors, subtract=False
-    # ).low_rank_update()
-
-    # log_ll = lr_update.mll - low_rank_inverter.mll
-    log_alpha = tree_log_q_prior_ratio + log_ll
-    if np.log(np.random.uniform()) <= min(log_alpha, 0):
-        # accept - set the new mll and K_inv values
-        low_rank_inverter = lr_update
-        bark_model = new_bark_model
-
-    new_bark_model, log_q_prior = get_noise_scale_proposal(noise, params)
-    K_XX = forest.forest_gram_matrix(
-        train_x,
-        train_x,
-        bark_model.trees.feature_idx,
-        bark_model.trees.threshold,
-        feat_types,
-    )
-    K_XX_s = K_XX + (1e-6 + new_bark_model.noise) * np.eye(K_XX.shape[0])
-    new_K_inv = jnp.linalg.inv(K_XX_s)
-    _, new_K_logdet = jnp.linalg.slogdet(K_XX_s)
-
-    new_mll = mll(new_K_inv, new_K_logdet, train_y)
-    log_ll = new_mll - low_rank_inverter.mll
-    log_alpha = log_q_prior + log_ll
-
-    if np.log(np.random.uniform()) <= min(log_alpha, 0):
-        # accept - set the new mll and K_inv values
-        low_rank_inverter = replace(
-            low_rank_inverter,
-            K_inv=new_K_inv,
-            K_logdet=new_K_logdet,
-            mll=new_mll,
+    def tree_propose_loop(
+        i: int, val: tuple[BARKModel, Float[Array, ""]]
+    ) -> tuple[BARKModel, Float[Array, ""]]:
+        model, cur_mll = val
+        selected_tree_mask = jnp.arange(m) == i
+        selected_new_tree = jax.tree_util.tree_map(
+            lambda t, nt: jnp.where(selected_tree_mask, nt, t), model.trees, new_trees
         )
+        new_model = BARKModel(trees=selected_new_tree, noise=model.noise)
+
+        new_mll = mll_bark_model(new_model, data)
+
+        log_q_prior = tree_log_q_prior_ratio[i]
+        log_ll = new_mll - cur_mll
+        log_alpha = jnp.clip(log_q_prior + log_ll, min=0.0)
+
+        accept = jnp.log(jax.random.uniform(proposal_key[1])) <= log_alpha
+        # TODO: there has to be a better one to select one of the two models?
+        # want to write `model = new_model if accept else model`
+        model = BARKModel(
+            trees=types.Tree(
+                feature_idx=jnp.where(
+                    accept, new_model.trees.feature_idx, model.trees.feature_idx
+                ),
+                threshold=jnp.where(
+                    accept, new_model.trees.threshold, model.trees.threshold
+                ),
+            ),
+            noise=jnp.where(accept, new_model.noise, model.noise),
+        )
+        cur_mll = jnp.where(accept, new_mll, cur_mll)
+        return (model, cur_mll)
+
+    bark_model, cur_mll = jax.lax.fori_loop(
+        0, m, tree_propose_loop, (bark_model, cur_mll)
+    )
+
+    new_noise, log_q_prior = get_noise_proposal_softplus(
+        bark_model.noise, params, noise_key
+    )
+    new_bark_model = BARKModel(
+        trees=bark_model.trees,
+        noise=new_noise,
+    )
+    new_mll = mll_bark_model(bark_model, data)
+
+    log_ll = new_mll - cur_mll
+    log_alpha = jnp.clip(log_q_prior + log_ll, min=0.0)
+
+    if jnp.log(jax.random.uniform(proposal_key[1])) <= log_alpha:
+        # accept - set the new mll and K_inv values
+        cur_mll = new_mll
         bark_model = new_bark_model
 
-    return bark_model, low_rank_inverter
+    return bark_model, cur_mll

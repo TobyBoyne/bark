@@ -44,7 +44,7 @@ def sample_splitting_rule(
 
 
 def prior_ratio_for_grow_proposal(
-    depth: Int[Array, ""],
+    depth: Int[Array, ""] | int,
     params: types.BARKConfig,
 ) -> Float[Array, ""]:
     alpha = params.alpha

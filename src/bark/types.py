@@ -6,27 +6,28 @@ from flax import struct
 from jaxtyping import Array, Float, Int, UInt
 
 FeatTypesT = UInt[Array, " d"]
-IndexT = UInt[Array, "..."]
+IndexT = UInt[Array, "..."] | int
 
-DataT = tuple[Float[jax.Array, "N d"], Float[jax.Array, "N 1"]]
 BoundsT = Float[jax.Array, "2 d"]
 
 
 @struct.dataclass
-class Tree:
-    feature_idx: Int[Array, " max_nodes"]
-    threshold: Float[Array, " max_nodes"]
+class Data:
+    train_X: Float[jax.Array, "N d"]
+    train_Y: Float[jax.Array, "N 1"]
+    bounds: BoundsT
+    feat_types: FeatTypesT
 
 
 @struct.dataclass
-class Trees(Tree):
-    feature_idx: Int[Array, "m max_nodes"]
-    threshold: Float[Array, "m max_nodes"]
+class Tree:
+    feature_idx: Int[Array, "*batch max_nodes"]
+    threshold: Float[Array, "*batch max_nodes"]
 
 
 @struct.dataclass
 class BARKModel:
-    trees: Trees
+    trees: Tree
     noise: Float[Array, ""]
 
     def get_flat_model(self):
