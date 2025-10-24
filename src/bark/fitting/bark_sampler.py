@@ -7,9 +7,9 @@ from bofire.data_models.domain.api import Domain
 from jaxtyping import Float
 
 from bark import forest, types
-from bark.fitting.noise_scale_proposals import get_noise_scale_proposal
+from bark.fitting.noise_proposals import get_noise_scale_proposal
 from bark.fitting.quick_inverse import LowRankInverter, mll
-from bark.fitting.tree_proposals import get_tree_proposal
+from bark.fitting.tree_proposals import get_forest_proposal
 from bark.types import BARKModel
 from bofire_mixed.domain import get_feature_bounds, get_feature_types_array
 
@@ -49,13 +49,13 @@ def _run_bark_sampler_multichain(
     num_chains = params.num_chains
     num_samples = params.num_samples
 
-    assert bark_model.forest.threshold.shape[0] == num_chains
+    assert bark_model.trees.threshold.shape[0] == num_chains
     # unstack the BARKModel
     # https://gist.github.com/willwhitney/dd89cac6a5b771ccff18b06b33372c75
     leaves, treedef = jax.tree.flatten(bark_model)
-    initial_bark_models = [
-        treedef.unflatten(leaf) for leaf in zip(*leaves, strict=True)
-    ]
+    # initial_bark_models = [
+    #     treedef.unflatten(leaf) for leaf in zip(*leaves, strict=True)
+    # ]
 
     warmup_steps = params.warmup_steps
     steps_per_sample = params.steps_per_sample
@@ -67,8 +67,8 @@ def _run_bark_sampler_multichain(
         K_XX = forest.forest_gram_matrix(
             train_x,
             train_x,
-            bark_model.forest.feature_idx,
-            bark_model.forest.threshold,
+            bark_model.trees.feature_idx,
+            bark_model.trees.threshold,
             feat_types,
         )
         K_XX_s = K_XX + (1e-6 + bark_model.noise) * np.eye(K_XX.shape[0])
@@ -112,51 +112,56 @@ def _step_bark_sampler(
     bounds: Float[jax.Array, "N 2"],
     feat_types: types.FeatTypesT,
     params: types.BARKConfig,
-    low_rank_inverter: LowRankInverter,
+    key: jax.Array,
+    # low_rank_inverter: LowRankInverter,
 ) -> tuple[BARKModel, LowRankInverter]:
     m = bark_model.num_trees
-    invsqrtm = jnp.sqrt(1 / m)
 
-    for tree_idx in range(m):
-        new_bark_model, log_q_prior = get_tree_proposal(
-            bark_model[tree_idx], bounds, feat_types, params
-        )
+    key, noise_key = jax.random.split(key)
+    key, *proposal_key = jax.random.split(key, num=3)
+    tree_key = jax.random.split(key, num=m)
 
-        cur_leaf_vectors = invsqrtm * forest.get_leaf_vectors(
-            train_x,
-            bark_model.forest.feature_idx[..., tree_idx, :],
-            bark_model.forest.threshold[..., tree_idx, :],
-            feat_types,
-        )
-        new_leaf_vectors = invsqrtm * forest.get_leaf_vectors(
-            train_x,
-            new_bark_model.forest.feature_idx[..., tree_idx, :],
-            new_bark_model.forest.threshold[..., tree_idx, :],
-            feat_types,
-        )
+    new_trees, tree_log_q_prior_ratio = get_forest_proposal(
+        bark_model.trees, bounds, feat_types, params, tree_key
+    )
 
-        # compute the rank-one update for the inverse
-        lr_update: LowRankInverter = low_rank_inverter.set_low_rank_update_matrix(
-            U=cur_leaf_vectors, subtract=True
-        ).low_rank_update()
+    # invsqrtm = jnp.sqrt(1 / m)
 
-        lr_update: LowRankInverter = lr_update.set_low_rank_update_matrix(
-            U=new_leaf_vectors, subtract=False
-        ).low_rank_update()
+    # cur_leaf_vectors = invsqrtm * forest.get_leaf_vectors(
+    #     train_x,
+    #     bark_model.trees.feature_idx[..., tree_idx, :],
+    #     bark_model.trees.threshold[..., tree_idx, :],
+    #     feat_types,
+    # )
+    # new_leaf_vectors = invsqrtm * forest.get_leaf_vectors(
+    #     train_x,
+    #     new_bark_model.forest.feature_idx[..., tree_idx, :],
+    #     new_bark_model.forest.threshold[..., tree_idx, :],
+    #     feat_types,
+    # )
 
-        log_ll = lr_update.mll - low_rank_inverter.mll
-        log_alpha = log_q_prior + log_ll
-        if np.log(np.random.uniform()) <= min(log_alpha, 0):
-            # accept - set the new mll and K_inv values
-            low_rank_inverter = lr_update
-            bark_model = new_bark_model
+    # # compute the rank-one update for the inverse
+    # lr_update: LowRankInverter = low_rank_inverter.set_low_rank_update_matrix(
+    #     U=cur_leaf_vectors, subtract=True
+    # ).low_rank_update()
+
+    # lr_update: LowRankInverter = lr_update.set_low_rank_update_matrix(
+    #     U=new_leaf_vectors, subtract=False
+    # ).low_rank_update()
+
+    # log_ll = lr_update.mll - low_rank_inverter.mll
+    log_alpha = tree_log_q_prior_ratio + log_ll
+    if np.log(np.random.uniform()) <= min(log_alpha, 0):
+        # accept - set the new mll and K_inv values
+        low_rank_inverter = lr_update
+        bark_model = new_bark_model
 
     new_bark_model, log_q_prior = get_noise_scale_proposal(noise, params)
     K_XX = forest.forest_gram_matrix(
         train_x,
         train_x,
-        bark_model.forest.feature_idx,
-        bark_model.forest.threshold,
+        bark_model.trees.feature_idx,
+        bark_model.trees.threshold,
         feat_types,
     )
     K_XX_s = K_XX + (1e-6 + new_bark_model.noise) * np.eye(K_XX.shape[0])

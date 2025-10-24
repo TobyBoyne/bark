@@ -26,18 +26,18 @@ class Trees(Tree):
 
 @struct.dataclass
 class BARKModel:
-    forest: Trees
-    noise: Float[Array, " *batch"]
+    trees: Trees
+    noise: Float[Array, ""]
 
     def get_flat_model(self):
-        forest_reshape = (-1, *self.forest.feature_idx.shape[-2:])
-        flat_feature_idx = self.forest.feature_idx.reshape(*forest_reshape)
-        flat_threshold = self.forest.threshold.reshape(*forest_reshape)
+        forest_reshape = (-1, *self.trees.feature_idx.shape[-2:])
+        flat_feature_idx = self.trees.feature_idx.reshape(*forest_reshape)
+        flat_threshold = self.trees.threshold.reshape(*forest_reshape)
         return replace(
             self,
             noise=self.noise.reshape(-1),
             forest=replace(
-                self.forest,
+                self.trees,
                 feature_idx=flat_feature_idx,
                 threshold=flat_threshold,
             ),
@@ -45,7 +45,7 @@ class BARKModel:
 
     @property
     def num_trees(self):
-        return self.forest.threshold.shape[-2]
+        return self.trees.threshold.shape[-2]
 
 
 @struct.dataclass

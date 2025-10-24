@@ -52,8 +52,8 @@ def forest_predict(
     K_XX = forest.batched_forest_gram_matrix(
         train_x,
         train_x,
-        model.forest.feature_idx,
-        model.forest.threshold,
+        model.trees.feature_idx,
+        model.trees.threshold,
         feature_types,
     )
     K_XX_s = K_XX + (1e-6 + model.noise[:, None, None]) * np.eye(train_x.shape[0])
@@ -62,8 +62,8 @@ def forest_predict(
     K_xX = batched_forest_gram_matrix(
         candidates,
         train_x,
-        model.forest.feature_idx,
-        model.forest.threshold,
+        model.trees.feature_idx,
+        model.trees.threshold,
         feature_types,
     )
 

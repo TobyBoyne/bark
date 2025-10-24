@@ -43,6 +43,3 @@ def test_get_tree_proposal():
     assert new_trees.feature_idx.shape == trees.feature_idx.shape
     assert tree_q_prior_ratios.shape == (trees.feature_idx.shape[0],)
     assert (tree_q_prior_ratios != -jnp.inf).all()
-
-
-test_get_tree_proposal()

@@ -268,3 +268,6 @@ def get_tree_proposal(
     )
 
     return new_tree, tree_q_prior_ratio
+
+
+get_forest_proposal = jax.vmap(get_tree_proposal, in_axes=(0, None, None, None, 0))
