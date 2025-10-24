@@ -44,9 +44,7 @@ def run_bark_sampler(
     )
 
     # generate samples
-    start_steps = jnp.arange(
-        warmup_steps, num_steps_total - warmup_steps, step=steps_per_sample
-    )
+    start_steps = jnp.arange(warmup_steps, num_steps_total, step=steps_per_sample)
     _carry, samples = jax.lax.scan(sample_bark, carry, start_steps)
 
     return samples
