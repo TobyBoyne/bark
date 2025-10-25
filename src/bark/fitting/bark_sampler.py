@@ -1,3 +1,5 @@
+from functools import partial
+
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float, Int
@@ -9,6 +11,7 @@ from bark.fitting.tree_proposals import get_forest_proposal
 from bark.types import BARKModel
 
 
+@partial(jax.jit, static_argnames=("params", "seed"))
 def run_bark_sampler(
     bark_model: BARKModel, data: types.Data, params: types.BARKConfig, seed: int
 ) -> BARKModel:

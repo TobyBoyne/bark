@@ -1,4 +1,5 @@
 import jax
+import jax.numpy as jnp
 
 from bark import types
 from bark.fitting.bark_sampler import run_bark_sampler
@@ -14,7 +15,7 @@ def test_bark_sampler():
         warmup_steps=30,
         steps_per_sample=12,
     )
-    samples = jax.jit(run_bark_sampler, static_argnames=("params", "seed"))(
+    samples = run_bark_sampler(
         bark_test_case.bark_model,
         data=bark_test_case.data,
         params=params,
@@ -29,5 +30,30 @@ def test_bark_sampler():
         *bark_test_case.bark_model.trees.feature_idx.shape,
     )
 
+    bark_model_parallel = jax.tree_util.tree_map(
+        lambda x: jnp.tile(x, reps=(params.num_chains, *[1 for _ in x.shape])),
+        bark_test_case.bark_model,
+    )
 
-test_bark_sampler()
+    samples_parallel = jax.vmap(run_bark_sampler, in_axes=(0, None, None, None))(
+        bark_model_parallel,
+        bark_test_case.data,
+        params,
+        0,
+    )
+    assert isinstance(samples_parallel, types.BARKModel)
+    assert samples_parallel.num_trees == bark_test_case.bark_model.num_trees
+    assert samples_parallel.noise.shape == (
+        params.num_chains,
+        params.num_samples,
+    )
+    assert samples_parallel.trees.feature_idx.shape == (
+        params.num_chains,
+        params.num_samples,
+        *bark_test_case.bark_model.trees.feature_idx.shape,
+    )
+
+    # check that the random sampling is random, and that each chain isn't identical
+    assert jnp.allclose(
+        samples_parallel.trees.threshold[0], samples_parallel.trees.threshold[1]
+    )
