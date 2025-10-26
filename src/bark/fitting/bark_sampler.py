@@ -11,9 +11,9 @@ from bark.fitting.tree_proposals import get_forest_proposal
 from bark.types import BARKModel
 
 
-@partial(jax.jit, static_argnames=("params", "seed"))
+@partial(jax.jit, static_argnames=("params"))
 def run_bark_sampler(
-    bark_model: BARKModel, data: types.Data, params: types.BARKConfig, seed: int
+    bark_model: BARKModel, data: types.Data, params: types.BARKConfig, key: jax.Array
 ) -> BARKModel:
     """Generate samples from the BARK posterior"""
 
@@ -23,8 +23,7 @@ def run_bark_sampler(
     num_steps_total = warmup_steps + steps_per_sample * num_samples
 
     cur_mll = mll_bark_model(bark_model, data)
-    # TODO: check that these keys are different across parallel chains
-    keys = jax.random.split(jax.random.key(seed), num=num_steps_total)
+    keys = jax.random.split(key, num=num_steps_total)
 
     def step_bark(
         i: int, val: tuple[BARKModel, Float[Array, ""]]

@@ -14,12 +14,13 @@ def test_bark_sampler():
         num_samples=4,
         warmup_steps=30,
         steps_per_sample=12,
+        num_chains=2,
     )
     samples = run_bark_sampler(
         bark_test_case.bark_model,
         data=bark_test_case.data,
         params=params,
-        seed=0,
+        key=jax.random.key(0),
     )
 
     assert isinstance(samples, types.BARKModel)
@@ -35,11 +36,11 @@ def test_bark_sampler():
         bark_test_case.bark_model,
     )
 
-    samples_parallel = jax.vmap(run_bark_sampler, in_axes=(0, None, None, None))(
+    samples_parallel = jax.vmap(run_bark_sampler, in_axes=(0, None, None, 0))(
         bark_model_parallel,
         bark_test_case.data,
         params,
-        0,
+        jax.random.split(jax.random.key(0), num=params.num_chains),
     )
     assert isinstance(samples_parallel, types.BARKModel)
     assert samples_parallel.num_trees == bark_test_case.bark_model.num_trees
@@ -54,6 +55,7 @@ def test_bark_sampler():
     )
 
     # check that the random sampling is random, and that each chain isn't identical
-    assert jnp.allclose(
+    assert not jnp.allclose(
         samples_parallel.trees.threshold[0], samples_parallel.trees.threshold[1]
     )
+    assert not jnp.allclose(samples_parallel.noise[0], samples_parallel.noise[1])
