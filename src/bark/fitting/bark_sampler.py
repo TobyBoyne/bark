@@ -11,12 +11,39 @@ from bark.fitting.tree_proposals import get_forest_proposal
 from bark.types import BARKModel
 
 
-@partial(jax.jit, static_argnames=("params"))
 def run_bark_sampler(
     bark_model: BARKModel, data: types.Data, params: types.BARKConfig, key: jax.Array
 ) -> BARKModel:
     """Generate samples from the BARK posterior"""
 
+    if params.num_chains == 1:
+        return _run_bark_sampler(bark_model, data, params, key)
+
+    if not bark_model.batch_shape:
+        # bark model is a single sample, must create copies
+        bark_model = jax.tree_util.tree_map(
+            lambda x: jnp.tile(x, reps=(params.num_chains, *[1 for _ in x.shape])),
+            bark_model,
+        )
+    elif bark_model.batch_shape[-1] != params.num_chains:
+        raise ValueError(
+            "The trailing batch dimension must be equal to the number of parallel "
+            f"chains (expected {params.num_chains}, got {bark_model.batch_shape[-1]})"
+        )
+
+    keys = jax.random.split(key, params.num_chains)
+    return jax.vmap(_run_bark_sampler, in_axes=(0, None, None, 0))(
+        bark_model,
+        data,
+        params,
+        keys,
+    )
+
+
+@partial(jax.jit, static_argnames=("params"))
+def _run_bark_sampler(
+    bark_model: BARKModel, data: types.Data, params: types.BARKConfig, key: jax.Array
+) -> BARKModel:
     num_samples = params.num_samples
     warmup_steps = params.warmup_steps
     steps_per_sample = params.steps_per_sample

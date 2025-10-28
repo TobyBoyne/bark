@@ -28,7 +28,7 @@ class Tree:
 @struct.dataclass
 class BARKModel:
     trees: Tree
-    noise: Float[Array, ""]
+    noise: Float[Array, " *batch"]
 
     def get_flat_model(self):
         forest_reshape = (-1, *self.trees.feature_idx.shape[-2:])
@@ -47,6 +47,10 @@ class BARKModel:
     @property
     def num_trees(self):
         return self.trees.threshold.shape[-2]
+
+    @property
+    def batch_shape(self):
+        return self.noise.shape
 
     def update_trees(self, other_trees: Tree, accept: Bool[Array, " m"]) -> "BARKModel":
         # this method is a JIT-compatible version of `self if accept else other`

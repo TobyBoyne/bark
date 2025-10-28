@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import jax
 import jax.numpy as jnp
 
@@ -14,7 +16,7 @@ def test_bark_sampler():
         num_samples=4,
         warmup_steps=30,
         steps_per_sample=12,
-        num_chains=2,
+        num_chains=1,
     )
     samples = run_bark_sampler(
         bark_test_case.bark_model,
@@ -31,16 +33,13 @@ def test_bark_sampler():
         *bark_test_case.bark_model.trees.feature_idx.shape,
     )
 
-    bark_model_parallel = jax.tree_util.tree_map(
-        lambda x: jnp.tile(x, reps=(params.num_chains, *[1 for _ in x.shape])),
-        bark_test_case.bark_model,
-    )
+    params = replace(params, num_chains=2)
 
-    samples_parallel = jax.vmap(run_bark_sampler, in_axes=(0, None, None, 0))(
-        bark_model_parallel,
-        bark_test_case.data,
-        params,
-        jax.random.split(jax.random.key(0), num=params.num_chains),
+    samples_parallel = run_bark_sampler(
+        bark_test_case.bark_model,
+        data=bark_test_case.data,
+        params=params,
+        key=jax.random.key(0),
     )
     assert isinstance(samples_parallel, types.BARKModel)
     assert samples_parallel.num_trees == bark_test_case.bark_model.num_trees
