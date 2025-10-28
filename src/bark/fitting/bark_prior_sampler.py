@@ -1,96 +1,71 @@
 """Sample from the BARK prior."""
 
-import numpy as np
+import jax
+import jax.numpy as jnp
+from jaxtyping import Array, Float, Int
 
 import bark.forest as forest
-from bark.fitting.tree_proposals import (
-    NodeProposal,
-    grow,
-    sample_splitting_rule,
-)
+from bark import types
+from bark.enums import NodeState
+from bark.fitting.tree_proposals import grow, sample_splitting_rule
 from bark.fitting.tree_traversal import get_node_subspace
-from bark.forest import FeatureTypeEnum, create_empty_forest
 
 
-def _sample_single_forest(
+def sample_forest(
     m: int,
-    bounds: np.ndarray,
-    feat_types: np.ndarray,
-    alpha: float,
-    beta: float,
-    rng: np.random.Generator,
-):
-    nodes = create_empty_forest(m)
-
-    for j in range(m):
-        tree = nodes[j, :]
-        node_stack = [0]
-        while node_stack:
-            node_proposal = NodeProposal()
-            node_proposal.node_idx = node_stack.pop()
-
-            depth = forest.depth(node_proposal.node_idx)
-            if rng.uniform() > alpha * (1 + depth) ** (-beta):
-                continue
-
-            subspace = get_node_subspace(
-                tree, node_proposal.node_idx, bounds, feat_types
-            )
-
-            (
-                node_proposal.new_feature_idx,
-                node_proposal.new_threshold,
-            ) = sample_splitting_rule(subspace, feat_types)
-
-            if (
-                node_proposal.new_threshold == 0
-                and feat_types[node_proposal.new_feature_idx]
-                == FeatureTypeEnum.Cat.value
-            ):
-                continue
-
-            if (
-                node_proposal.new_threshold
-                == subspace[node_proposal.new_feature_idx, 1]
-                and feat_types[node_proposal.new_feature_idx]
-                == FeatureTypeEnum.Int.value
-            ):
-                continue
-
-            left, right = (
-                forest.left(node_proposal.node_idx),
-                forest.right(node_proposal.node_idx),
-            )
-            tree = grow(tree, node_proposal)
-            node_stack.append(left)
-            node_stack.append(right)
-
-    return nodes
+    bounds: types.BoundsT,
+    feat_types: types.FeatTypesT,
+    params: types.BARKConfig,
+    key: jax.Array,
+) -> types.Tree:
+    trees = forest.create_empty_forest(m, max_depth=6)
+    keys = jax.random.split(key, num=m)
+    return jax.vmap(sample_tree, in_axes=(0, None, None, None, 0))(
+        trees,
+        bounds,
+        feat_types,
+        params,
+        keys,
+    )
 
 
-def sample_forest_prior(
-    m: int,
-    bounds: np.ndarray,
-    feat_types: np.ndarray,
-    alpha: float,
-    beta: float,
-    num_samples: int,
-    rng: np.random.Generator | None = None,
-):
-    if rng is None:
-        rng = np.random.default_rng()
+def sample_tree(
+    tree: types.Tree,
+    bounds: types.BoundsT,
+    feat_types: types.FeatTypesT,
+    params: types.BARKConfig,
+    key: jax.Array,
+) -> types.Tree:
+    def split_node(node_idx: Int[Array, ""], val: tuple[types.Tree, jax.Array]):
+        tree, key = val
+        key, subkey = jax.random.split(key)
+        subspace = get_node_subspace(tree, node_idx, bounds, feat_types)
+        new_feature_idx, new_threshold = sample_splitting_rule(
+            subspace, feat_types, subkey
+        )
+        new_tree = grow(tree, node_idx, new_feature_idx, new_threshold)
 
-    forests = [
-        _sample_single_forest(m, bounds, feat_types, alpha, beta, rng)
-        for _ in range(num_samples)
-    ]
-    return np.array(forests)
+        key, subkey = jax.random.split(key)
+        invalid_threshold = (new_threshold == subspace[:, new_feature_idx]).any(axis=-1)
+        parent_is_leaf = tree.feature_idx[forest.parent(node_idx)] == NodeState.Leaf
+        split_prob = params.alpha * jnp.pow(1 + forest.depth(node_idx), -params.beta)
+        accept = (
+            jax.random.uniform(subkey) + invalid_threshold + parent_is_leaf < split_prob
+        )
+
+        tree = jax.tree_util.tree_map(
+            lambda nt, t: jnp.where(accept, nt, t), new_tree, tree
+        )
+        return (tree, key)
+
+    max_nodes = tree.feature_idx.shape[-1]
+    tree, _ = jax.lax.fori_loop(0, max_nodes // 2, split_node, init_val=(tree, key))
+
+    return tree
 
 
 def sample_noise_prior(
-    gamma_shape: float,
-    gamma_rate: float,
-    num_samples: int,
-    rng: np.random.Generator | None = None,
-) -> float:
-    return rng.gamma(shape=gamma_shape, scale=1 / gamma_rate, size=(num_samples,))
+    params: types.BARKConfig,
+    key: jax.Array,
+) -> Float[Array, ""]:
+    return jax.random.gamma(key, a=params.gamma_prior_shape) / params.gamma_prior_rate

@@ -77,7 +77,7 @@ class BARKConfig:
     steps_per_sample: int = 100
     num_chains: int = 4
     alpha: float = 0.95
-    beta: float = 20.0
+    beta: float = 2.0
     num_trees: int = 50
     prune_grow_weight: float = 0.5
     change_weight: float = 1.0
