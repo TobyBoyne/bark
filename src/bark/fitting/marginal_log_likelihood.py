@@ -9,7 +9,6 @@ def mll_bark_model(bark_model: types.BARKModel, data: types.Data) -> Float[Array
     train_X, train_Y = data.train_X, data.train_Y
     K_XX = forest.forest_gram_matrix(
         train_X,
-        train_X,
         bark_model.trees,
         data.feat_types,
     )

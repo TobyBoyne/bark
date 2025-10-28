@@ -33,6 +33,7 @@ def right(idx: types.IndexT) -> types.IndexT:
     return 2 * idx + 2
 
 
+@jax.jit
 def _pass_one_through_tree(
     X: Float[Array, " d"],
     tree: types.Tree,
@@ -88,7 +89,30 @@ def get_leaf_vectors(
     return leaf_vector
 
 
-def forest_gram_matrix(
+@jax.jit
+def _similarity_matrix(
+    T1: Float[Array, "N m"], T2: Float[Array, "M m"]
+) -> Float[Array, "N M"]:
+    """Compute the proportion of values for which the pairwise leaves are equal.
+
+    The similarity matrix G (N, M) is given by:
+        G_{ij} = sum_k T1_{ik} == T2_{jk}
+    """
+
+    # Use a scan to avoid creating an N x M x m matrix
+    # This should be possible with a nested vmap to automatically reduce
+    # https://github.com/jax-ml/jax/discussions/9505
+    def scan_func(carry, x):
+        t1, t2 = x
+        return carry + jnp.equal(t1[:, None], t2[None, :]), None
+
+    carry = jnp.zeros((T1.shape[0], T2.shape[0]))
+    # iterate over the trees, adding ones where trees agree
+    carry, _ = jax.lax.scan(scan_func, carry, (T1.T, T2.T))
+    return carry / T1.shape[1]
+
+
+def forest_covar_matrix(
     X1: Float[Array, "N d"],
     X2: Float[Array, "M d"],
     trees: types.Tree,
@@ -96,14 +120,16 @@ def forest_gram_matrix(
 ) -> Float[Array, "N M"]:
     x1_leaves = pass_through_forest(X1, trees, feat_types)
     x2_leaves = pass_through_forest(X2, trees, feat_types)
-    sim_mat = jnp.equal(x1_leaves[:, None, :], x2_leaves[None, :, :])  # N x M x m
-    sim_mat = jnp.mean(sim_mat, axis=-1)
-    return sim_mat
+    return _similarity_matrix(x1_leaves, x2_leaves)
 
 
-batched_forest_gram_matrix = jax.vmap(
-    forest_gram_matrix, in_axes=(None, None, 0, 0, None)
-)
+def forest_gram_matrix(
+    X1: Float[Array, "N d"],
+    trees: types.Tree,
+    feat_types: types.FeatTypesT,
+) -> Float[Array, "N N"]:
+    x1_leaves = pass_through_forest(X1, trees, feat_types)
+    return _similarity_matrix(x1_leaves, x1_leaves)
 
 
 # def batched_forest_gram_matrix_no_null(

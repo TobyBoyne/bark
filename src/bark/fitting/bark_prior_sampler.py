@@ -48,10 +48,10 @@ def sample_tree(
         key, subkey = jax.random.split(key)
         invalid_threshold = (new_threshold == subspace[:, new_feature_idx]).any(axis=-1)
         parent_is_leaf = tree.feature_idx[forest.parent(node_idx)] == NodeState.Leaf
+        is_root_node = node_idx == 0
+        cannot_split = invalid_threshold | (parent_is_leaf & ~is_root_node)
         split_prob = params.alpha * jnp.pow(1 + forest.depth(node_idx), -params.beta)
-        accept = (
-            jax.random.uniform(subkey) + invalid_threshold + parent_is_leaf < split_prob
-        )
+        accept = jax.random.uniform(subkey) + cannot_split < split_prob
 
         tree = jax.tree_util.tree_map(
             lambda nt, t: jnp.where(accept, nt, t), new_tree, tree
@@ -60,6 +60,8 @@ def sample_tree(
 
     max_nodes = tree.feature_idx.shape[-1]
     tree, _ = jax.lax.fori_loop(0, max_nodes // 2, split_node, init_val=(tree, key))
+    # tree, key = split_node(0, (tree, key))
+    # tree, key = split_node(1, (tree, key))
 
     return tree
 

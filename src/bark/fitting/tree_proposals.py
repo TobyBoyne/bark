@@ -18,7 +18,7 @@ def sample_splitting_rule(
 ) -> tuple[Int[Array, ""], Float[Array, ""] | Int[Array, ""]]:
     int_bounds = bounds.astype(jnp.uint64)
     keys = jax.random.split(key, num=4)
-    feature_idx = jax.random.randint(keys[0], (), minval=0, maxval=bounds.shape[0])
+    feature_idx = jax.random.randint(keys[0], (), minval=0, maxval=bounds.shape[1])
 
     cat_sample = sample_binary_mask(int_bounds[1, feature_idx], keys[1]).astype(
         bounds.dtype
