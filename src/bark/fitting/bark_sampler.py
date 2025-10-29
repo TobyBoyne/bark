@@ -5,7 +5,11 @@ import jax.numpy as jnp
 from jaxtyping import Array, Float, Int
 
 from bark import types
-from bark.fitting.marginal_log_likelihood import mll_bark_model
+from bark.fitting.marginal_log_likelihood import (
+    get_cached_grams,
+    mll_bark_model,
+    mll_bark_model_cached_gram,
+)
 from bark.fitting.noise_proposals import get_noise_proposal_softplus
 from bark.fitting.tree_proposals import get_forest_proposal
 from bark.types import BARKModel
@@ -96,18 +100,13 @@ def _step_bark_sampler(
     new_trees, tree_log_q_prior_ratio = get_forest_proposal(
         bark_model.trees, data.bounds, data.feat_types, params, tree_key
     )
+    G_XX_init, G_XX_delta = get_cached_grams(bark_model.trees, new_trees, data)
 
     def tree_propose_loop(
-        i: int, val: tuple[BARKModel, Float[Array, ""]]
-    ) -> tuple[BARKModel, Float[Array, ""]]:
-        model, cur_mll = val
-        selected_tree_mask = jnp.expand_dims(jnp.arange(m) == i, axis=-1)
-        selected_new_tree = jax.tree_util.tree_map(
-            lambda t, nt: jnp.where(selected_tree_mask, nt, t), model.trees, new_trees
-        )
-        new_model = BARKModel(trees=selected_new_tree, noise=model.noise)
-
-        new_mll = mll_bark_model(new_model, data)
+        i: int, val: tuple[BARKModel, Float[Array, ""], Float[Array, "N N"]]
+    ) -> tuple[BARKModel, Float[Array, ""], Float[Array, "N N"]]:
+        model, cur_mll, G_XX = val
+        new_mll = mll_bark_model_cached_gram(bark_model, G_XX, G_XX_delta[..., i], data)
 
         log_q_prior = tree_log_q_prior_ratio[i]
         log_ll = new_mll - cur_mll
@@ -116,10 +115,11 @@ def _step_bark_sampler(
         accept = jnp.log(jax.random.uniform(proposal_key[1])) <= log_alpha
         model = model.update_trees(new_trees, accept)
         cur_mll = jnp.where(accept, new_mll, cur_mll)
-        return (model, cur_mll)
+        G_XX = jnp.where(accept, G_XX + G_XX_delta[..., i], G_XX)
+        return (model, cur_mll, G_XX)
 
-    bark_model, cur_mll = jax.lax.fori_loop(
-        0, m, tree_propose_loop, (bark_model, cur_mll)
+    bark_model, cur_mll, _ = jax.lax.fori_loop(
+        0, m, tree_propose_loop, (bark_model, cur_mll, G_XX_init)
     )
 
     new_noise, log_q_prior = get_noise_proposal_softplus(

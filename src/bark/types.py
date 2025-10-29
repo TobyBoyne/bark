@@ -1,4 +1,5 @@
 from dataclasses import replace
+from typing import Self
 
 import jax
 import jax.numpy as jnp
@@ -23,6 +24,11 @@ class Data:
 class Tree:
     feature_idx: Int[Array, "*batch max_nodes"]
     threshold: Float[Array, "*batch max_nodes"]
+
+    def __getitem__(self, idx) -> Self:
+        return self.__class__(
+            feature_idx=self.feature_idx[idx], threshold=self.threshold[idx]
+        )
 
 
 @struct.dataclass

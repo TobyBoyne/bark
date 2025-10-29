@@ -90,7 +90,14 @@ def get_leaf_vectors(
 
 
 @jax.jit
-def _similarity_matrix(
+def similarity_matrix(
+    T1: Float[Array, "N m"], T2: Float[Array, "M m"]
+) -> Float[Array, "N M m"]:
+    return jnp.equal(T1[:, None, :], T2[None, :, :])  # N x M x m
+
+
+@jax.jit
+def similarity_matrix_reduce(
     T1: Float[Array, "N m"], T2: Float[Array, "M m"]
 ) -> Float[Array, "N M"]:
     """Compute the proportion of values for which the pairwise leaves are equal.
@@ -120,7 +127,7 @@ def forest_covar_matrix(
 ) -> Float[Array, "N M"]:
     x1_leaves = pass_through_forest(X1, trees, feat_types)
     x2_leaves = pass_through_forest(X2, trees, feat_types)
-    return _similarity_matrix(x1_leaves, x2_leaves)
+    return similarity_matrix_reduce(x1_leaves, x2_leaves)
 
 
 def forest_gram_matrix(
@@ -129,7 +136,7 @@ def forest_gram_matrix(
     feat_types: types.FeatTypesT,
 ) -> Float[Array, "N N"]:
     x1_leaves = pass_through_forest(X1, trees, feat_types)
-    return _similarity_matrix(x1_leaves, x1_leaves)
+    return similarity_matrix_reduce(x1_leaves, x1_leaves)
 
 
 # def batched_forest_gram_matrix_no_null(
