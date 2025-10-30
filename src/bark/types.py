@@ -73,7 +73,7 @@ class BARKModel:
         )
 
     def update_noise(
-        self, other_noise: Float[Array, ""], accept: Bool[Array, " m"]
+        self, other_noise: Float[Array, ""], accept: Bool[Array, ""]
     ) -> "BARKModel":
         return BARKModel(
             trees=self.trees, noise=jnp.where(accept, other_noise, self.noise)
