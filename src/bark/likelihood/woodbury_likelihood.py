@@ -8,8 +8,8 @@ import jax.numpy as jnp
 from flax import struct
 from jaxtyping import Array, Bool, Float, Int
 
-# from bark.likelihood.marginal_log_likelihood import BARKLikelihood
 from bark import forest, types
+from bark.likelihood.likelihood import BARKLikelihood
 from bark.types import BARKModel
 
 
@@ -84,9 +84,8 @@ def get_similarity_matrix_delta_low_rank(
     return (U_new - U) / m
 
 
-# TODO: create a shared BARKLikelihood class
 @struct.dataclass
-class WoodburyBARKLikelihood:
+class WoodburyBARKLikelihood(BARKLikelihood):
     """Uses the Woodbury identity to quickly perform a low-rank update.
 
     Computes a low-rank update to the matrix inverse, using
@@ -94,7 +93,6 @@ class WoodburyBARKLikelihood:
     and
     log|K + U UT| = log|K| + log|I + UT K^-1 U|"""
 
-    mll: Float[Array, ""]
     similarity_matrix_delta: Float[Array, "N B m"]
     K_inv: Float[Array, "N N"]
     K_logdet: Float[Array, ""]
@@ -135,7 +133,7 @@ class WoodburyBARKLikelihood:
         mll = mll_from_inv_and_logdet(K_inv, K_logdet, data)
         return replace(self, mll=mll, K_inv=K_inv, K_logdet=K_logdet)
 
-    def compute_similarity_matrix_delta(
+    def compute_cache_from_new_tree_proposals(
         self, trees: types.Tree, new_trees: types.Tree, data: types.Data
     ) -> Self:
         U = get_similarity_matrix_delta_low_rank(trees, new_trees, data)

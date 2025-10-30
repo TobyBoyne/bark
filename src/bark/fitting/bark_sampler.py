@@ -99,7 +99,7 @@ def _step_bark_sampler(
     new_trees, tree_log_q_prior_ratio = get_forest_proposal(
         bark_model.trees, data.bounds, data.feat_types, params, tree_key
     )
-    likelihood = likelihood.compute_similarity_matrix_delta(
+    likelihood = likelihood.compute_cache_from_new_tree_proposals(
         bark_model.trees, new_trees, data
     )
 

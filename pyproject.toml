@@ -64,3 +64,7 @@ dev = [
     "ipython<9.0.0,>=8.21.0",
     "pytest-benchmark<5.0.0,>=4.0.0",
 ]
+profiling = [
+    "tensorflow>=2.20.0",
+    "xprof>=2.20.7",
+]

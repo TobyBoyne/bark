@@ -7,6 +7,7 @@ from flax import struct
 from jaxtyping import Array, Bool, Float, Int
 
 from bark import forest, types
+from bark.likelihood.likelihood import BARKLikelihood
 from bark.types import BARKModel
 
 
@@ -59,8 +60,7 @@ def get_cached_similarity_matrix_and_delta(
 
 
 @struct.dataclass
-class BARKLikelihood:
-    mll: Float[Array, ""]
+class CachedGramBARKLikelihood(BARKLikelihood):
     similarity_matrix: Float[Array, "N N"]
     similarity_matrix_delta: Float[Array, "N N m"]
 
@@ -93,7 +93,9 @@ class BARKLikelihood:
         mll = mll_bark_model_cached_gram(bark_model, self.similarity_matrix, data)
         return replace(self, mll=mll)
 
-    def update_from_likelihood(self, other_likelihood: Self, accept: Bool[Array, ""]):
+    def update_from_likelihood(
+        self, other_likelihood: Self, accept: Bool[Array, ""]
+    ) -> Self:
         return type(self)(
             mll=jnp.where(accept, other_likelihood.mll, self.mll),
             similarity_matrix=jnp.where(
@@ -103,7 +105,7 @@ class BARKLikelihood:
             similarity_matrix_delta=self.similarity_matrix_delta,
         )
 
-    def compute_similarity_matrix_delta(
+    def compute_cache_from_new_tree_proposals(
         self, trees: types.Tree, new_trees: types.Tree, data: types.Data
     ) -> Self:
         _, G_XX_delta = get_cached_similarity_matrix_and_delta(trees, new_trees, data)
