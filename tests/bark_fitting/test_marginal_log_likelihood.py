@@ -3,12 +3,12 @@ import jax.numpy as jnp
 
 from bark import forest, types
 from bark.fitting.bark_prior_sampler import sample_forest
-from bark.fitting.marginal_log_likelihood import (
-    get_cached_grams,
+from bark.fitting.tree_proposals import grow
+from bark.likelihood.marginal_log_likelihood import (
+    get_cached_similarity_matrix_and_delta,
     mll_bark_model,
     mll_bark_model_cached_gram,
 )
-from bark.fitting.tree_proposals import grow
 from bark.testing.data_test_cases import get_continuous_data_trid
 
 jax.config.update("jax_enable_x64", True)
@@ -36,9 +36,9 @@ def test_mll_bark_model_cached_gram():
     mll = mll_bark_model(bark_model, data)
     new_mll = mll_bark_model(new_bark_model, data)
 
-    G_XX, G_XX_delta = get_cached_grams(trees, new_trees, data)
+    G_XX, G_XX_delta = get_cached_similarity_matrix_and_delta(trees, new_trees, data)
     new_mll_cached_grams = mll_bark_model_cached_gram(
-        new_bark_model, G_XX, G_XX_delta[..., 0], data
+        new_bark_model, G_XX + G_XX_delta[..., 0], data
     )
 
     # test that adding the tree changes the marginal log likelihood

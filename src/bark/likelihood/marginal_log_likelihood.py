@@ -108,12 +108,3 @@ class BARKLikelihood:
     ) -> Self:
         _, G_XX_delta = get_cached_similarity_matrix_and_delta(trees, new_trees, data)
         return replace(self, similarity_matrix_delta=G_XX_delta)
-
-    # def update_mll(self, other_mll: Float[Array, ""], accept: Bool[Array, ""]) -> Self:
-    #     return replace(self, cached_mll=jnp.where(accept, other_mll, self.cached_mll))
-
-    # def update_similarity_matrix(self, other_sim_mat: Float[Array, "N N"], accept: Bool[Array, ""]) -> Self:
-    #     return replace(self, cached_similarity_matrix=jnp.where(accept, other_sim_mat, self.cached_similarity_matrix))
-
-    # def update_similarity_matrix_delta(self, other_sim_mat_delta: Float[Array, "N N m"], accept: Bool[Array, ""]) -> Self:
-    #     return replace(self, cached_similarity_matrix_delta=jnp.where(accept, other_sim_mat_delta, self.cached_similarity_matrix_delta))

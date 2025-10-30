@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from jaxtyping import Float
 
-from bark.fitting.quick_inverse import LowRankInverter, mll
+from bark.likelihood.woodbury_likelihood import LowRankInverter, mll
 
 jax.config.update("jax_enable_x64", True)
 
