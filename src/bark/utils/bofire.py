@@ -10,7 +10,7 @@ def create_data_from_bofire_inputs(
     train_X: Float[ArrayLike, "N d"], train_Y: Float[ArrayLike, "N 1"], inputs: Inputs
 ):
     bounds = [get_feature_bounds(feat, encoding="bitmask") for feat in inputs.get()]
-    bounds = jnp.asarray(bounds)
+    bounds = jnp.asarray(bounds).T
 
     feat_types = jnp.asarray(get_feature_types_array(inputs))
 

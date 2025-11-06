@@ -60,15 +60,17 @@ def forest_predict(
     )
 
     K_xX = jax.vmap(forest.forest_covar_matrix, in_axes=(None, None, 0, None))(
-        data.train_X,
         test_X,
+        data.train_X,
         bark_model.trees,
         data.feat_types,
     )
 
     cholesky = jax.scipy.linalg.cho_factor(K_XX_s)
 
-    mu = K_xX @ jax.scipy.linalg.cho_solve(cholesky, data.train_Y)
+    mu = K_xX @ jax.vmap(jax.scipy.linalg.cho_solve, in_axes=((0, None), None))(
+        cholesky, data.train_Y
+    )
     var = 1.0 - K_xX @ jax.scipy.linalg.cho_solve(cholesky, K_xX.transpose((0, 2, 1)))
 
     mu = mu.reshape(num_samples, num_test)

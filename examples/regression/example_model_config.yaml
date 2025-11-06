@@ -1,1 +1,6 @@
-model: GP
+model: BARK
+model_params:
+  warmup_steps: 100
+  num_samples: 4
+  steps_per_sample: 50
+  num_chains: 4

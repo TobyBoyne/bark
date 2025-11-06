@@ -24,6 +24,7 @@ dependencies = [
     "pymc-bart>=0.10.0",
     "jax>=0.7.1",
     "flax>=0.11.2",
+    "typer>=0.20.0",
 ]
 name = "bark"
 version = "0.1.0"

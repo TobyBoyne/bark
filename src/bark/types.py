@@ -37,7 +37,7 @@ class BARKModel:
 
     def get_flattened_samples(self):
         return jax.tree_util.tree_map(
-            lambda x: x.reshape(-1, x.shape[len(self.batch_shape) :]), self
+            lambda x: x.reshape(-1, *x.shape[len(self.batch_shape) :]), self
         )
 
     @property

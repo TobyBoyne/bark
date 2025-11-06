@@ -11,7 +11,7 @@ from bofire.data_models.features.api import (
 )
 from bofire.data_models.objectives.api import MinimizeObjective
 
-from bark.fitting.bark_prior_sampler import sample_forest_prior
+# from bark.fitting.bark_prior_sampler import sample_forest_prior
 from bark.forest import create_empty_forest, pass_through_forest
 from bofire_mixed.domain import get_feature_bounds, get_feature_types_array
 

@@ -1,7 +1,7 @@
-benchmark: StyblinskiTang
-# benchmark_params:
-#   dim: 5
-#   m: 50
+benchmark: DatasetBenchmark
+benchmark_save_name: AutoMPG
+benchmark_params:
+  dataset_name: Auto MPG
 
-num_train: 123
-num_test: 231
+num_train: 100
+num_test: 250

@@ -1,19 +1,21 @@
-import argparse
 import logging
-import pathlib
+from pathlib import Path
 from time import perf_counter
+from typing import Annotated
 
+import jax
 import numpy as np
 import pandas as pd
-import yaml
+import typer
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.strategies.api import RandomStrategy
 from bofire.data_models.surrogates.api import SingleTaskGPSurrogate
-from typing_extensions import NotRequired, TypedDict
+from bofire.strategies.api import map as strategy_map
+from typer import Option
 
 import bark.utils.metrics as metrics
+from bark.utils import script_utils
 from bofire_mixed.benchmarks import DatasetBenchmark, map_benchmark
-from bofire_mixed.data_models.strategies.mapper import strategy_map
 from bofire_mixed.data_models.surrogates.api import (
     BARKSurrogate,
     BARTSurrogate,
@@ -21,6 +23,7 @@ from bofire_mixed.data_models.surrogates.api import (
 )
 from bofire_mixed.data_models.surrogates.mapper import surrogate_map
 
+jax.config.update("jax_enable_x64", True)
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -31,23 +34,9 @@ logging.basicConfig(
 NUM_RUNS = 20
 
 
-class BenchmarkConfig(TypedDict):
-    benchmark: str
-    benchmark_save_name: NotRequired[str]
-    benchmark_params: NotRequired[dict]
-    num_train: int
-    num_test: int
-
-
-class ModelConfig(TypedDict):
-    model: str
-    model_save_name: NotRequired[str]
-    model_params: NotRequired[dict]
-
-
-def _get_surrogate_datamodel(model_config: ModelConfig, domain: Domain):
-    model_params = model_config.get("model_params", {})
-    model_name = model_config["model"]
+def _get_surrogate_datamodel(model_config: script_utils.ModelConfig, domain: Domain):
+    model_params = model_config.model_params
+    model_name = model_config.model
     if model_name == "GP":
         return SingleTaskGPSurrogate(inputs=domain.inputs, outputs=domain.outputs)
     if model_name == "BARK":
@@ -72,9 +61,13 @@ def _get_surrogate_datamodel(model_config: ModelConfig, domain: Domain):
     raise KeyError(f"Model {model_name} not found")
 
 
-def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig):
+def run_experiments(
+    seed: int,
+    benchmark_config: script_utils.BenchmarkConfig,
+    model_config: script_utils.ModelConfig,
+) -> pd.DataFrame:
     benchmark = map_benchmark(
-        benchmark_config["benchmark"], **benchmark_config.get("benchmark_params", {})
+        benchmark_config.benchmark, **benchmark_config.benchmark_params
     )
     domain = benchmark.domain
 
@@ -92,8 +85,8 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
         surrogate_dm = _get_surrogate_datamodel(model_config, domain)
         surrogate = surrogate_map(surrogate_dm)
 
-        logger.info(f"Sample train data (n={benchmark_config['num_train']})")
-        train_x = sampler_fn(benchmark_config["num_train"])
+        logger.info(f"Sample train data (n={benchmark_config.num_train})")
+        train_x = sampler_fn(benchmark_config.num_train)
         experiments = benchmark.f(train_x, return_complete=True)
 
         logger.info("Tell experiments and fit surrogate")
@@ -101,8 +94,8 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
         surrogate.fit(experiments)
         time_taken = perf_counter() - start_time
 
-        logger.info(f"Sample test data (n={benchmark_config['num_test']})")
-        test_x = sampler_fn(benchmark_config["num_test"])
+        logger.info(f"Sample test data (n={benchmark_config.num_test})")
+        test_x = sampler_fn(benchmark_config.num_test)
         test_experiments = benchmark.f(test_x, return_complete=True)
 
         logger.info("Predict")
@@ -124,27 +117,23 @@ def main(seed: int, benchmark_config: BenchmarkConfig, model_config: ModelConfig
     return pd.DataFrame(data=all_metrics, columns=["NLPD", "MSE", "Time"])
 
 
-if __name__ == "__main__":
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument("-s", "--seed", type=int)
-    argparser.add_argument("-c", "--config_file_benchmark", type=str)
-    argparser.add_argument("-m", "--config_file_model", type=str)
-    argparser.add_argument("-o", "--output_dir", type=str)
+def main(
+    seed: Annotated[int, Option("--seed", "-s")],
+    benchmark_config_file: Annotated[Path, Option("--benchmark", "-b")],
+    model_config_file: Annotated[Path, Option("--model", "-m")],
+    output_dir: Annotated[Path, Option("--output", "-o")],
+):
+    benchmark_config = script_utils.read_benchmark_config(benchmark_config_file)
+    model_config = script_utils.read_model_config(model_config_file)
 
-    args = argparser.parse_args()
-    seed = args.seed
-    benchmark_config: BenchmarkConfig = yaml.safe_load(open(args.config_file_benchmark))
-    model_config: ModelConfig = yaml.safe_load(open(args.config_file_model))
+    experiments = run_experiments(seed, benchmark_config, model_config)
 
-    experiments = main(seed, benchmark_config, model_config)
-
-    output_dir = (
-        pathlib.Path(args.output_dir)
-        / benchmark_config.get("benchmark_save_name", benchmark_config["benchmark"])
-        / model_config.get("model_save_name", model_config["model"])
+    experiments_output_dir = script_utils.get_output_path(
+        output_dir, benchmark_config, model_config, write_config=True
     )
-    output_dir.mkdir(parents=True, exist_ok=True)
-    experiments.to_csv(output_dir / f"seed={seed}.csv", index=False)
 
-    config = {**benchmark_config, **model_config}
-    yaml.dump(config, open(output_dir / "config.yaml", "w"))
+    experiments.to_csv(experiments_output_dir / f"seed={seed}.csv", index=False)
+
+
+if __name__ == "__main__":
+    typer.run(main)

@@ -5,10 +5,11 @@ from bofire.surrogates.surrogate import Surrogate
 from bofire_mixed.data_models.surrogates import api as bark_data_models
 from bofire_mixed.surrogates.bark import BARKPriorSurrogate, BARKSurrogate
 from bofire_mixed.surrogates.bart import BARTSurrogate
-from bofire_mixed.surrogates.leafgp import LeafGPSurrogate
+
+# from bofire_mixed.surrogates.leafgp import LeafGPSurrogate
 
 SURROGATE_MAP: dict[type[surrogates_data_models.Surrogate], type[Surrogate]] = {
-    bark_data_models.LeafGPSurrogate: LeafGPSurrogate,
+    # bark_data_models.LeafGPSurrogate: LeafGPSurrogate,
     bark_data_models.BARKSurrogate: BARKSurrogate,
     bark_data_models.BARKPriorSurrogate: BARKPriorSurrogate,
     bark_data_models.BARTSurrogate: BARTSurrogate,
@@ -17,7 +18,7 @@ SURROGATE_MAP: dict[type[surrogates_data_models.Surrogate], type[Surrogate]] = {
 
 def surrogate_map(
     data_model: surrogates_data_models.Surrogate,
-) -> BARKSurrogate | LeafGPSurrogate:
+) -> BARKSurrogate:
     if data_model.__class__ not in SURROGATE_MAP:
         return bofire_map_surrogate(data_model)
     cls = SURROGATE_MAP[data_model.__class__]
