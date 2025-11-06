@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import Self
 
 import jax
@@ -36,18 +35,9 @@ class BARKModel:
     trees: Tree
     noise: Float[Array, " *batch"]
 
-    def get_flat_model(self):
-        forest_reshape = (-1, *self.trees.feature_idx.shape[-2:])
-        flat_feature_idx = self.trees.feature_idx.reshape(*forest_reshape)
-        flat_threshold = self.trees.threshold.reshape(*forest_reshape)
-        return replace(
-            self,
-            noise=self.noise.reshape(-1),
-            forest=replace(
-                self.trees,
-                feature_idx=flat_feature_idx,
-                threshold=flat_threshold,
-            ),
+    def get_flattened_samples(self):
+        return jax.tree_util.tree_map(
+            lambda x: x.reshape(-1, x.shape[len(self.batch_shape) :]), self
         )
 
     @property

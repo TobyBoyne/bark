@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-import numpy as np
+import jax.numpy as jnp
 from bofire.data_models.domain.api import Domain, Features, Inputs, Outputs
 from bofire.data_models.features.api import (
     AnyFeature,
@@ -10,8 +10,9 @@ from bofire.data_models.features.api import (
     ContinuousInput,
     DiscreteInput,
 )
+from jaxtyping import Array, Int
 
-from bark.forest import FeatureTypeEnum
+from bark.enums import FeatureTypeEnum
 
 
 def get_feature_by_index(
@@ -38,7 +39,7 @@ def get_feature_bounds(
     elif isinstance(feature, DiscreteInput):
         return (feature.lower_bound, feature.upper_bound)
     elif isinstance(feature, ContinuousInput):
-        return feature.bounds
+        return feature.bounds  # type: ignore
 
     raise TypeError(f"Cannot get bounds for feature of type {feature.type}")
 
@@ -52,15 +53,15 @@ def get_cat_idx_from_domain(domain: Domain) -> set[int]:
     }
 
 
-def get_feature_types_array(domain: Domain) -> np.ndarray:
-    return np.array(
+def get_feature_types_array(inputs: Inputs) -> Int[Array, " d"]:
+    return jnp.array(
         [
             FeatureTypeEnum.Cat.value
             if isinstance(feat, CategoricalInput)
             else FeatureTypeEnum.Int.value
             if isinstance(feat, DiscreteInput)
             else FeatureTypeEnum.Cont.value
-            for feat in domain.inputs.get()
+            for feat in inputs.get()
         ]
     )
 
@@ -68,4 +69,4 @@ def get_feature_types_array(domain: Domain) -> np.ndarray:
 def build_integer_input(*, key: str, unit: str | None = None, bounds: tuple[int, int]):
     lb, ub = bounds
     values = list(range(lb, ub + 1))
-    return DiscreteInput(key=key, unit=unit, values=values)
+    return DiscreteInput(key=key, unit=unit, values=values)  # type: ignore

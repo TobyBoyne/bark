@@ -7,8 +7,8 @@ from jaxtyping import Array, Int
 from bark import types
 from bark.fitting.noise_proposals import get_noise_proposal_softplus
 from bark.fitting.tree_proposals import get_forest_proposal
-from bark.likelihood.marginal_log_likelihood import BARKLikelihood
-from bark.likelihood.woodbury_likelihood import WoodburyBARKLikelihood
+from bark.likelihood.likelihood import BARKLikelihood
+from bark.likelihood.marginal_log_likelihood import CachedGramBARKLikelihood
 from bark.types import BARKModel
 
 
@@ -50,8 +50,8 @@ def _run_bark_sampler(
     steps_per_sample = params.steps_per_sample
     num_steps_total = warmup_steps + steps_per_sample * num_samples
 
-    # likelihood = BARKLikelihood.create_from_bark_model(bark_model, data)
-    likelihood = WoodburyBARKLikelihood.create_from_bark_model(bark_model, data)
+    likelihood = CachedGramBARKLikelihood.create_from_bark_model(bark_model, data)
+    # likelihood = WoodburyBARKLikelihood.create_from_bark_model(bark_model, data)
     keys = jax.random.split(key, num=num_steps_total)
 
     def step_bark(

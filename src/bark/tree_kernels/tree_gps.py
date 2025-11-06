@@ -1,10 +1,11 @@
 import gpytorch as gpy
+import jax
+import jax.numpy as jnp
 import numpy as np
 from beartype.typing import Optional
-from bofire.data_models.domain.api import Domain
+from jaxtyping import Array, Float
 
 from bark import forest, types
-from bofire_mixed.domain import get_feature_types_array
 
 from .tree_model_kernel import TreeAgreementKernel
 
@@ -37,50 +38,50 @@ class LeafGP(gpy.models.ExactGP):
 
 
 def forest_predict(
-    data: tuple[np.ndarray, np.ndarray],
-    model: types.BARKModel,
-    candidates: np.ndarray,
-    domain: Domain,
+    bark_model: types.BARKModel,
+    data: types.Data,
+    test_X: Float[Array, "M d"],
     diag: bool = True,
-) -> tuple[np.ndarray, np.ndarray]:
-    model = model.get_flat_model()
-    num_samples = model.noise.shape[0]
-    num_candidates = candidates.shape[0]
+) -> tuple[
+    Float[Array, "batch M"], Float[Array, "batch M M"] | Float[Array, "batch M"]
+]:
+    # flatten model
+    bark_model = bark_model.get_flattened_samples()
+    num_samples = bark_model.noise.shape[0]
+    num_test = test_X.shape[0]
 
-    train_x, train_y = data
-    feature_types = get_feature_types_array(domain)
-    K_XX = forest.batched_forest_gram_matrix(
-        train_x,
-        train_x,
-        model.trees.feature_idx,
-        model.trees.threshold,
-        feature_types,
+    K_XX = jax.vmap(forest.forest_gram_matrix, in_axes=(None, 0, None))(
+        data.train_X,
+        bark_model.trees,
+        data.feat_types,
     )
-    K_XX_s = K_XX + (1e-6 + model.noise[:, None, None]) * np.eye(train_x.shape[0])
-
-    K_inv = np.linalg.inv(K_XX_s)
-    K_xX = batched_forest_gram_matrix(
-        candidates,
-        train_x,
-        model.trees.feature_idx,
-        model.trees.threshold,
-        feature_types,
+    K_XX_s = K_XX + (1e-6 + bark_model.noise[:, None, None]) * np.eye(
+        data.train_X.shape[0]
     )
 
-    mu = K_xX @ K_inv @ train_y
-    var = 1.0 - K_xX @ K_inv @ K_xX.transpose((0, 2, 1))
+    K_xX = jax.vmap(forest.forest_covar_matrix, in_axes=(None, None, 0, None))(
+        data.train_X,
+        test_X,
+        bark_model.trees,
+        data.feat_types,
+    )
 
-    mu = mu.reshape(num_samples, num_candidates)
+    cholesky = jax.scipy.linalg.cho_factor(K_XX_s)
+
+    mu = K_xX @ jax.scipy.linalg.cho_solve(cholesky, data.train_Y)
+    var = 1.0 - K_xX @ jax.scipy.linalg.cho_solve(cholesky, K_xX.transpose((0, 2, 1)))
+
+    mu = mu.reshape(num_samples, num_test)
     if diag:
-        var = np.diagonal(var, axis1=1, axis2=2)
+        var = jnp.diagonal(var, axis1=1, axis2=2)
     return mu, var
 
 
 def mixture_of_gaussians_as_normal(
-    mu: np.ndarray,
-    var: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Find the mean and variance of a mixture of Gaussians.
+    mu: Float[Array, "batch N"],
+    var: Float[Array, "batch N"],
+) -> tuple[Float[Array, "N"], Float[Array, "N"]]:
+    r"""Find the mean and variance of a mixture of Gaussians.
 
     Since we take samples from the posterior, where each sample has a normal
     distribution over the output, we obtain a prediction that is a mixture of
