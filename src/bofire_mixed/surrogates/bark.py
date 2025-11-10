@@ -72,7 +72,7 @@ class _BARKSurrogateBase(Surrogate, TrainableSurrogate):
         if predict_observed:
             # y ~ N(f, noise)
             # all observations have the same noise
-            var += self.bark_model.noise.reshape(-1, 1)
+            var += self.bark_model.noise_var.reshape(-1, 1)
 
         if not batched:
             mu, var = mixture_of_gaussians_as_normal(mu, var)
@@ -182,4 +182,4 @@ class BARKPriorSurrogate(_BARKSurrogateBase):
             key=noise_key,
         )
 
-        self.bark_model = types.BARKModel(trees=trees, noise=noise)
+        self.bark_model = types.BARKModel(trees=trees, noise_var=noise)

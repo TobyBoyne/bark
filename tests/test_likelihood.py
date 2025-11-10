@@ -29,14 +29,14 @@ def test_bark_likelihoods(likelihood_cls: type[BARKLikelihood]):
     trees = jax.tree_util.tree_map(
         lambda et, rt: jnp.concat((et, rt), axis=0), empty_tree, random_trees
     )
-    bark_model = types.BARKModel(trees=trees, noise=jnp.array(0.1))
+    bark_model = types.BARKModel(trees=trees, noise_var=jnp.array(0.1))
     mll = mll_bark_model(bark_model, data)
 
     new_tree = grow(empty_tree[0], jnp.array(0), jnp.array(0), jnp.array(0.5))
     new_trees = jax.tree_util.tree_map(
         lambda nt, rt: jnp.concat((nt[None, :], rt), axis=0), new_tree, random_trees
     )
-    new_bark_model = types.BARKModel(trees=new_trees, noise=jnp.array(0.1))
+    new_bark_model = types.BARKModel(trees=new_trees, noise_var=jnp.array(0.1))
 
     likelihood = likelihood_cls.create_from_bark_model(bark_model, data)
     likelihood_mll = likelihood.mll

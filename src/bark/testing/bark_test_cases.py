@@ -36,7 +36,7 @@ def get_continuous_bark_test_case() -> BarkModelTestCase:
         new_threshold=jnp.array([0.25, 2.7, 4.0]),
     )
 
-    bark_model = types.BARKModel(trees=trees, noise=jnp.array(1.0))
+    bark_model = types.BARKModel(trees=trees, noise_var=jnp.array(1.0))
 
     key = jax.random.key(0)
     train_X = jax.random.uniform(

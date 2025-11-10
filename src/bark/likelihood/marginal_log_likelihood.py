@@ -18,7 +18,7 @@ def mll_bark_model(bark_model: BARKModel, data: types.Data) -> Float[Array, ""]:
         bark_model.trees,
         data.feat_types,
     )
-    K_XX_s = K_XX + (1e-6 + bark_model.noise) * jnp.eye(K_XX.shape[0])
+    K_XX_s = K_XX + (1e-6 + bark_model.noise_var) * jnp.eye(K_XX.shape[0])
     cholesky = jax.scipy.linalg.cho_factor(K_XX_s)
     K_XX_s_y = jax.scipy.linalg.cho_solve(cholesky, train_Y)
 
@@ -33,7 +33,7 @@ def mll_bark_model_cached_gram(
 ) -> Float[Array, ""]:
     train_Y = data.train_Y
 
-    K_XX_s = K_XX + (1e-6 + bark_model.noise) * jnp.eye(K_XX.shape[0])
+    K_XX_s = K_XX + (1e-6 + bark_model.noise_var) * jnp.eye(K_XX.shape[0])
     cholesky = jax.scipy.linalg.cho_factor(K_XX_s)
     K_XX_s_y = jax.scipy.linalg.cho_solve(cholesky, train_Y)
 

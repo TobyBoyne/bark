@@ -1,6 +1,6 @@
 import jax
 import jax.numpy as jnp
-import scipy.special as special
+import jax.scipy.special as special
 from jaxtyping import Array, Float
 
 from bark import types
@@ -17,8 +17,8 @@ def inverse_gamma_logpdf(x, shape, rate):
 
 
 def propose_positive_transition_softplus(
-    cur_value: Float[Array, "..."], step_size: Float[Array, ""], key: jax.Array
-) -> Float[Array, "..."]:
+    cur_value: Float[Array, ""], step_size: float, key: jax.Array
+) -> Float[Array, ""]:
     cur_transformed_value = jnp.log(jnp.exp(cur_value) - 1)
     u = jax.random.normal(key, cur_value.shape, dtype=cur_value.dtype)
     new_transformed_value = cur_transformed_value + step_size * u
@@ -27,9 +27,9 @@ def propose_positive_transition_softplus(
 
 
 def get_noise_proposal_softplus(
-    noise: Float[Array, "..."], params: types.BARKConfig, key: jax.Array
-) -> tuple[Float[Array, "..."], Float[Array, ""]]:
-    noise_step = jnp.array(1.0)
+    noise: Float[Array, ""], params: types.BARKConfig, key: jax.Array
+) -> tuple[Float[Array, ""], Float[Array, ""]]:
+    noise_step = params.noise_step_size
     new_noise = propose_positive_transition_softplus(noise, noise_step, key)
 
     noise_step_var = noise_step**2

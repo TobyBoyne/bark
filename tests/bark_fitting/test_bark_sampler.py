@@ -27,7 +27,7 @@ def test_bark_sampler():
 
     assert isinstance(samples, types.BARKModel)
     assert samples.num_trees == bark_test_case.bark_model.num_trees
-    assert samples.noise.shape == (params.num_samples,)
+    assert samples.noise_var.shape == (params.num_samples,)
     assert samples.trees.feature_idx.shape == (
         params.num_samples,
         *bark_test_case.bark_model.trees.feature_idx.shape,
@@ -43,7 +43,7 @@ def test_bark_sampler():
     )
     assert isinstance(samples_parallel, types.BARKModel)
     assert samples_parallel.num_trees == bark_test_case.bark_model.num_trees
-    assert samples_parallel.noise.shape == (
+    assert samples_parallel.noise_var.shape == (
         params.num_chains,
         params.num_samples,
     )
@@ -57,4 +57,6 @@ def test_bark_sampler():
     assert not jnp.allclose(
         samples_parallel.trees.threshold[0], samples_parallel.trees.threshold[1]
     )
-    assert not jnp.allclose(samples_parallel.noise[0], samples_parallel.noise[1])
+    assert not jnp.allclose(
+        samples_parallel.noise_var[0], samples_parallel.noise_var[1]
+    )

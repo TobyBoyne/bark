@@ -33,7 +33,7 @@ class Tree:
 @struct.dataclass
 class BARKModel:
     trees: Tree
-    noise: Float[Array, " *batch"]
+    noise_var: Float[Array, " *batch"]
 
     def get_flattened_samples(self):
         return jax.tree_util.tree_map(
@@ -46,7 +46,7 @@ class BARKModel:
 
     @property
     def batch_shape(self):
-        return self.noise.shape
+        return self.noise_var.shape
 
     def update_trees(self, other_trees: Tree, accept: Bool[Array, " m"]) -> "BARKModel":
         # this method is a JIT-compatible version of `self if accept else other`
@@ -59,14 +59,14 @@ class BARKModel:
                     accept, other_trees.threshold, self.trees.threshold
                 ),
             ),
-            noise=self.noise,
+            noise_var=self.noise_var,
         )
 
     def update_noise(
         self, other_noise: Float[Array, ""], accept: Bool[Array, ""]
     ) -> "BARKModel":
         return BARKModel(
-            trees=self.trees, noise=jnp.where(accept, other_noise, self.noise)
+            trees=self.trees, noise_var=jnp.where(accept, other_noise, self.noise_var)
         )
 
 
@@ -84,6 +84,7 @@ class BARKConfig:
     verbose: bool = False
     gamma_prior_shape: float = 1.5
     gamma_prior_rate: float = 5.0
+    noise_step_size: float = 0.1
 
     @property
     def proposal_weights(self) -> Float[jax.Array, " 3"]:

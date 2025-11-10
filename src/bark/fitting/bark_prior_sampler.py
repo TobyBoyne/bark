@@ -60,8 +60,6 @@ def sample_tree(
 
     max_nodes = tree.feature_idx.shape[-1]
     tree, _ = jax.lax.fori_loop(0, max_nodes // 2, split_node, init_val=(tree, key))
-    # tree, key = split_node(0, (tree, key))
-    # tree, key = split_node(1, (tree, key))
 
     return tree
 

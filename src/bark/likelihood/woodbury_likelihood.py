@@ -23,7 +23,7 @@ def get_K_inv_logdet(
         bark_model.trees,
         data.feat_types,
     )
-    K_XX_s = K_XX + (1e-6 + bark_model.noise) * jnp.eye(N)
+    K_XX_s = K_XX + (1e-6 + bark_model.noise_var) * jnp.eye(N)
     cholesky = jax.scipy.linalg.cho_factor(K_XX_s)
     K_inv = jax.scipy.linalg.cho_solve(cholesky, jnp.eye(N))
     _, K_logdet = jnp.linalg.slogdet(K_XX_s)

@@ -125,11 +125,11 @@ def _step_bark_sampler(
     )
 
     new_noise, log_q_prior = get_noise_proposal_softplus(
-        bark_model.noise, params, noise_key
+        bark_model.noise_var, params, noise_key
     )
     new_bark_model = BARKModel(
         trees=bark_model.trees,
-        noise=new_noise,
+        noise_var=new_noise,
     )
     new_likelihood = likelihood.compute_new_noise_likelihood(new_bark_model, data)
 
@@ -137,7 +137,7 @@ def _step_bark_sampler(
     log_alpha = jnp.clip(log_q_prior + log_ll, min=0.0)
 
     accept = jnp.log(jax.random.uniform(proposal_key[1])) <= log_alpha
-    bark_model = bark_model.update_noise(new_bark_model.noise, accept)
+    bark_model = bark_model.update_noise(new_bark_model.noise_var, accept)
     likelihood = likelihood.update_from_likelihood(new_likelihood, accept)
 
     return bark_model, likelihood
