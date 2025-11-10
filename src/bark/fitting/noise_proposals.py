@@ -6,7 +6,7 @@ from jaxtyping import Array, Float
 from bark import types
 
 
-def inverse_gamma_logpdf(x, shape, rate):
+def inverse_gamma_logpdf(x: Float[Array, "..."], shape: float, rate: float):
     scale = 1 / rate
     return (
         -(shape + 1) * jnp.log(x)
@@ -26,23 +26,28 @@ def propose_positive_transition_softplus(
     return new_value
 
 
+def compute_log_q_noise(
+    noise: Float[Array, ""], new_noise: Float[Array, ""]
+) -> Float[Array, ""]:
+    return jnp.log(1 - jnp.exp(-new_noise)) - jnp.log(1 - jnp.exp(-noise))
+
+
+def compute_log_prior_noise(
+    noise: Float[Array, ""], new_noise: Float[Array, ""], params: types.BARKConfig
+) -> Float[Array, ""]:
+    return inverse_gamma_logpdf(
+        new_noise, params.gamma_prior_shape, params.gamma_prior_rate
+    ) - inverse_gamma_logpdf(noise, params.gamma_prior_shape, params.gamma_prior_rate)
+
+
 def get_noise_proposal_softplus(
     noise: Float[Array, ""], params: types.BARKConfig, key: jax.Array
 ) -> tuple[Float[Array, ""], Float[Array, ""]]:
     noise_step = params.noise_step_size
     new_noise = propose_positive_transition_softplus(noise, noise_step, key)
 
-    noise_step_var = noise_step**2
-    log_q = -(
-        (jnp.log(jnp.exp(noise) - 1) - jnp.log(jnp.exp(new_noise) - 1)) ** 2
-        / noise_step_var
-        + jnp.log(1 - jnp.exp(-noise))
-        - jnp.log(1 - jnp.exp(-new_noise))
-    )
-
-    log_prior = inverse_gamma_logpdf(
-        new_noise, params.gamma_prior_shape, params.gamma_prior_rate
-    ) - inverse_gamma_logpdf(noise, params.gamma_prior_shape, params.gamma_prior_rate)
+    log_q = compute_log_q_noise(noise, new_noise)
+    log_prior = compute_log_prior_noise(noise, new_noise, params)
 
     log_q_prior = log_q + log_prior
     return new_noise, log_q_prior

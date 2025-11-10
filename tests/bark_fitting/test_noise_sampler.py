@@ -5,6 +5,8 @@ import pytest
 
 from bark import types
 from bark.fitting.noise_proposals import (
+    compute_log_prior_noise,
+    compute_log_q_noise,
     get_noise_proposal_softplus,
     inverse_gamma_logpdf,
 )
@@ -43,7 +45,7 @@ def test_get_noise_proposal_softplus():
     keys = jax.random.split(jax.random.key(0), num=10_000)
     initial_noise = jnp.array(1.0)
     params = types.BARKConfig(
-        noise_step_size=0.5, gamma_prior_rate=5.0, gamma_prior_shape=1.5
+        noise_step_size=1.0, gamma_prior_rate=5.0, gamma_prior_shape=1.5
     )
 
     def loop(noise, key):
@@ -57,9 +59,15 @@ def test_get_noise_proposal_softplus():
             "log_q_prior": log_q_prior,
         }
 
-    _, noises = jax.lax.scan(loop, initial_noise, keys)
-    plt.plo
-    print(noises)
+    _, ys = jax.lax.scan(loop, initial_noise, keys)
+    assert 0.2 <= ys["accept"].mean().item() <= 0.8
 
-
-test_get_noise_proposal_softplus()
+    # test symmetry of proposal
+    new_noise = jnp.array(0.5)
+    log_q_prior_fwd = compute_log_q_noise(
+        initial_noise, new_noise
+    ) + compute_log_prior_noise(initial_noise, new_noise, params)
+    log_q_prior_bwd = compute_log_q_noise(
+        new_noise, initial_noise
+    ) + compute_log_prior_noise(new_noise, initial_noise, params)
+    assert jnp.allclose(log_q_prior_fwd, -log_q_prior_bwd)

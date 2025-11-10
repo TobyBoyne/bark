@@ -84,7 +84,7 @@ class BARKConfig:
     verbose: bool = False
     gamma_prior_shape: float = 1.5
     gamma_prior_rate: float = 5.0
-    noise_step_size: float = 0.1
+    noise_step_size: float = 1.0
 
     @property
     def proposal_weights(self) -> Float[jax.Array, " 3"]:
