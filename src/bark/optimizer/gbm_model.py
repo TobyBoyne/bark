@@ -4,22 +4,17 @@ import collections as coll
 
 import numpy as np
 
-import bark.forest as forest
-from bark.forest import FeatureTypeEnum
+from bark import forest, types
+from bark.enums import FeatureTypeEnum, NodeState
 from bark.utils.bit_operations import next_power_of_2_exponent
 
 ThresholdT = float | list[int]
 
 
-def _build_tree(tree: np.ndarray, feature_types: np.ndarray) -> "GbmNode":
+def _build_tree(tree: types.Tree, feature_types: types.FeatTypesT) -> "GbmNode | None":
     node_idx = 0
-    # TODO: if a tree is a single leaf, can it be skipped entirely?
-    if tree[node_idx]["is_leaf"]:
+    if tree.feature_idx[0] == NodeState.Leaf:
         return None
-        # tree = np.zeros_like(tree)
-        # tree[0] = (0, 0, -np.inf, 1, 2, 0, 1)
-        # tree[1] = (1, 0, 0, 0, 0, 0, 1)
-        # tree[2] = (1, 0, 0, 0, 0, 0, 1)
 
     return GbmNode(tree=tree, node_idx=node_idx, feature_types=feature_types)
 
@@ -44,9 +39,9 @@ class GbmModel:
 
     """
 
-    def __init__(self, forest: np.ndarray, feature_types: np.ndarray):
-        trees = [_build_tree(tree, feature_types) for tree in forest]
-        self.trees = [tree for tree in trees if tree is not None]
+    def __init__(self, trees: types.Tree, feature_types: types.FeatTypesT):
+        gbm_trees = [_build_tree(tree, feature_types) for tree in trees]
+        self.trees = [tree for tree in gbm_trees if tree is not None]
 
         self.n_trees = len(self.trees)
 
@@ -303,9 +298,11 @@ class GbmNode(GbmType):
         List of node dicts that define the tree
     """
 
-    def __init__(self, tree: np.ndarray, node_idx: int, feature_types: np.ndarray):
-        feature_idx: int = tree[node_idx]["feature_idx"]
-        threshold: ThresholdT = tree[node_idx]["threshold"]
+    def __init__(
+        self, tree: types.Tree, node_idx: int, feature_types: types.FeatTypesT
+    ):
+        feature_idx = tree.feature_idx[node_idx].item()
+        threshold = tree.threshold[node_idx].item()
 
         self.split_var = feature_idx
         if feature_types[feature_idx] == FeatureTypeEnum.Cat.value:
@@ -317,7 +314,7 @@ class GbmNode(GbmType):
         self.split_code_pred = threshold
         # TODO: check categorical features
         child_idx = forest.left(node_idx)
-        if tree[child_idx]["is_leaf"]:
+        if forest.is_leaf(tree.feature_idx[child_idx]):
             self.left = LeafNode(leaf_id=child_idx)
         else:
             self.left = GbmNode(
@@ -326,7 +323,7 @@ class GbmNode(GbmType):
 
         # read right node
         child_idx = forest.right(node_idx)
-        if tree[child_idx]["is_leaf"]:
+        if forest.is_leaf(tree.feature_idx[child_idx]):
             self.right = LeafNode(leaf_id=child_idx)
         else:
             self.right = GbmNode(

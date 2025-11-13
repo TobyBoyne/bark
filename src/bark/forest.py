@@ -10,7 +10,7 @@ from bark.utils.bit_operations import next_power_of_2_exponent
 
 def is_leaf(feature_idx: types.IndexT) -> Bool[Array, "..."] | bool:
     """Return a mask for all leaves in a tree."""
-    return feature_idx == -1
+    return feature_idx == enums.NodeState.Leaf
 
 
 def depth(idx: types.IndexT) -> types.IndexT:
@@ -139,25 +139,21 @@ def forest_gram_matrix(
     return similarity_matrix_reduce(x1_leaves, x1_leaves)
 
 
-# def batched_forest_gram_matrix_no_null(
-#     X1: Float[Array, "N d"],
-#     X2: Float[Array, "M d"],
-#     feature_idx_trees: Int[Array, "batch m 2**max_depth"],
-#     threshold_trees: Float[Array, "batch m 2**max_depth"],
-#     feat_types: types.FeatTypesT,
-# ) -> Float[Array, "N M"]:
-#     """Compute the gram matrix after removing empty trees."""
-#     sim_mat = batched_forest_gram_matrix(
-#         X1, X2, feature_idx_trees, threshold_trees, feat_types
-#     )
+def forest_gram_matrix_no_null(
+    X1: Float[Array, "N d"],
+    trees: types.Tree,
+    feat_types: types.FeatTypesT,
+) -> Float[Array, "N N"]:
+    """Compute the gram matrix after removing empty trees."""
+    sim_mat = forest_gram_matrix(X1, trees, feat_types)
 
-#     num_trees = feature_idx_trees.shape[-2]
-#     roots = feature_idx_trees[:, :, 0]
-#     num_null_trees = jnp.sum(is_leaf(roots), axis=-1)[:, None, None]
-#     num_non_null_trees = num_trees - num_null_trees
+    num_trees = trees.feature_idx.shape[-2]
+    roots = trees.feature_idx[..., 0]
+    num_null_trees = jnp.sum(is_leaf(roots), axis=-1)
+    num_non_null_trees = num_trees - num_null_trees
 
-#     scale = feature_idx_trees.shape[-2] / jnp.maximum(num_non_null_trees, 1)
-#     return (sim_mat - num_null_trees / num_trees) * scale
+    scale = num_trees / jnp.maximum(num_non_null_trees, 1)
+    return (sim_mat - num_null_trees / num_trees) * scale
 
 
 def create_empty_forest(m: int, max_depth: int = 6) -> types.Tree:

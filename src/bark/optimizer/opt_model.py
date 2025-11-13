@@ -1,6 +1,8 @@
 """From Leaf-GP"""
 
 import gurobipy as gp
+import jax
+import jax.numpy as jnp
 import numpy as np
 import torch
 from beartype.typing import Optional
@@ -8,61 +10,52 @@ from bofire.data_models.domain.api import Domain
 from gurobipy import GRB, MVar
 from scipy.linalg import cho_factor, cho_solve
 
-from bark.forest import batched_forest_gram_matrix_no_null
-from bark.tree_kernels.tree_gps import LeafGP, LeafMOGP
-from bofire_mixed.domain import get_cat_idx_from_domain, get_feature_types_array
+from bark import forest, types
+from bark.enums import FeatureTypeEnum
+from bark.tree_kernels.tree_gps import LeafGP
+from bofire_mixed.domain import get_cat_idx_from_domain
 
 from .gbm_model import GbmModel
 from .opt_core import add_gbm_to_opt_model, get_opt_core, get_opt_core_copy
 
 
 def build_opt_model_from_forest(
-    domain: Domain,
-    gp_samples: tuple[np.ndarray, float | np.ndarray, float | np.ndarray],
-    data: tuple[np.ndarray, np.ndarray],
+    bark_model: types.BARKModel,
+    data: types.Data,
     kappa: float,
     model_core: gp.Model,
 ):
     opt_model = get_opt_core_copy(model_core)
-    train_x, train_y = data
-    train_y = (train_y - train_y.mean()) / train_y.std()
+    train_X, train_Y = data.train_X, data.train_Y
+    train_Y = (train_Y - train_Y.mean()) / train_Y.std()
 
     # unpack samples
-    forest_samples, noise_samples, scale_samples = gp_samples
-    while forest_samples.ndim < 4:
-        forest_samples = forest_samples[None, ...]
-    noise_samples = np.atleast_2d(noise_samples)
-    scale_samples = np.atleast_2d(scale_samples)
+    bark_model = bark_model.get_flattened_samples()
 
-    # combine chain and sample dimensions
-    forest_samples = forest_samples.reshape(-1, *forest_samples.shape[-2:])
-    noise_samples = noise_samples.reshape(-1)
-    scale_samples = scale_samples.reshape(-1)
-
-    num_samples = forest_samples.shape[0]
-    num_data = train_x.shape[0]
+    num_samples = bark_model.batch_shape[0]
+    num_data = train_X.shape[0]
 
     # build tree model
-    feature_types = get_feature_types_array(domain)
-    gbm_models = [GbmModel(forest, feature_types) for forest in forest_samples]
+    gbm_model_dict: dict[str, GbmModel] = {}
+    for sample_idx in range(num_samples):
+        trees = jax.tree_util.tree_map(lambda t: t[sample_idx], bark_model.trees)
+        gbm_model_dict[f"tree_sample_{sample_idx}"] = GbmModel(trees, data.feat_types)
 
-    gbm_model_dict = {f"tree_sample_{i}": gbm for i, gbm in enumerate(gbm_models)}
-    cat_idx = get_cat_idx_from_domain(domain)
-    feature_types = get_feature_types_array(domain)
+    cat_idx = {i for i, f in data.feat_types if f == FeatureTypeEnum.Cat}
     add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
-
-    K_XX = scale_samples[:, None, None] * batched_forest_gram_matrix_no_null(
-        forest_samples, train_x, train_x, feature_types
+    K_XX = jax.vmap(forest.forest_gram_matrix_no_null, in_axes=(None, 0, None))(
+        train_X, bark_model.trees, data.feat_types
     )
-    K_XX_s = K_XX + (1e-6 + noise_samples[:, None, None]) * np.eye(num_data)
+
+    K_XX_s = K_XX + (1e-6 + bark_model.noise_var[:, None, None]) * np.eye(num_data)
     # cholesky decomposition doesn't support batching
-    K_inv = np.linalg.inv(K_XX_s)
+    K_inv = jnp.linalg.inv(K_XX_s)
 
     num_sub_k = num_samples * num_data
     sub_k = opt_model.addVars(range(num_sub_k), lb=0, ub=1, name="sub_k", vtype="C")
     for i, (gbm_name, gbm_model) in enumerate(gbm_model_dict.items()):
         # create active leaf variables
-        act_leave_vars = gbm_model.get_active_leaf_vars(train_x, opt_model, gbm_name)
+        act_leave_vars = gbm_model.get_active_leaf_vars(train_X, opt_model, gbm_name)
 
         opt_model.addConstrs(
             (
@@ -80,15 +73,15 @@ def build_opt_model_from_forest(
     )
 
     # pre- and post-multiply by scale
-    quadr_term = -(scale_samples**2)[:, None, None] * K_inv
-    const_term = scale_samples  # + noise_samples
-    zeros = np.zeros((train_x.shape[0], 1))
+    quadr_term = -K_inv
+    const_term = jnp.ones_like(bark_model.noise_var)
+    zeros = np.zeros((train_X.shape[0], 1))
 
     for i in range(num_samples):
         quadr_constr = np.block([[quadr_term[i], zeros], [zeros.T, -1.0]])
         sub_k_sample = [sub_k[j] for j in range(i * num_data, (i + 1) * num_data)]
         sub_k_std = MVar.fromlist(sub_k_sample + [opt_model._std[i]])
-        opt_model.addMQConstr(
+        opt_model.addMQConstr(  # type: ignore
             quadr_constr,
             None,
             sense=">",
@@ -98,7 +91,7 @@ def build_opt_model_from_forest(
         )
 
     ## add linear objective
-    lin_term = scale_samples[:, None, None] * (K_inv @ train_y[None, :, :])
+    lin_term = K_inv @ train_Y[None, :, :]
     lin_term = lin_term.squeeze(-1)
 
     obj = 0
