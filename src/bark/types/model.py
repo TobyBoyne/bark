@@ -3,20 +3,7 @@ from typing import Self
 import jax
 import jax.numpy as jnp
 from flax import struct
-from jaxtyping import Array, Bool, Float, Int, UInt
-
-FeatTypesT = UInt[Array, " d"]
-IndexT = UInt[Array, "..."] | int
-
-BoundsT = Float[jax.Array, "2 d"]
-
-
-@struct.dataclass
-class Data:
-    train_X: Float[jax.Array, "N d"]
-    train_Y: Float[jax.Array, "N 1"]
-    bounds: BoundsT
-    feat_types: FeatTypesT
+from jaxtyping import Array, Bool, Float, Int
 
 
 @struct.dataclass
