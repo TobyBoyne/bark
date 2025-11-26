@@ -11,10 +11,13 @@ from bofire.data_models.features.api import (
 )
 from gurobipy import GRB, quicksum
 
+from bark import types
+from bark.enums import FeatureTypeEnum
+from bark.utils.bit_operations import next_power_of_2_exponent
 from bofire_mixed.constraints import apply_constraint_to_model
 
 if TYPE_CHECKING:
-    from bark.optimizer.gbm_model import GbmModel
+    from bark.optimizer.mip_model import TreesMIPModel
 
 
 def get_opt_core(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
@@ -115,6 +118,51 @@ def get_opt_core_from_domain(domain: Domain, env: Optional[gp.Env] = None) -> gp
     # return model_core
 
 
+def get_opt_core_from_bark_data(
+    data: types.Data, env: Optional[gp.Env] = None
+) -> gp.Model:
+    """Create an optimization model from a domain (including constraints)"""
+    model = gp.Model(env=env)
+    model._cont_var_dict = {}
+    model._cat_var_dict = {}
+
+    for idx, feat_type in enumerate(data.feat_types):
+        var_name = f"input_{idx}"
+
+        if feat_type == FeatureTypeEnum.Cat:
+            model._cat_var_dict[idx] = {}
+            num_categories = next_power_of_2_exponent(data.bounds[1, idx])
+
+            for i in range(num_categories):
+                model._cat_var_dict[idx][i] = model.addVar(
+                    name=f"{var_name}_{i}", vtype=GRB.BINARY
+                )
+
+            # constr vars need to add up to one
+            model.addConstr(  # type: ignore
+                sum([model._cat_var_dict[idx][i] for i in range(num_categories)]) == 1
+            )
+
+        else:
+            lb, ub = data.bounds[:, idx]
+            if feat_type == FeatureTypeEnum.Cont:
+                vtype = "C"
+            else:
+                vtype = "B" if (lb, ub) == (0, 1) else "I"
+
+            model._cont_var_dict[idx] = model.addVar(
+                lb=lb, ub=ub, name=var_name, vtype=vtype
+            )
+
+    model._n_feat = len(model._cont_var_dict) + len(model._cat_var_dict)
+
+    model.Params.LogToConsole = 0
+    model.Params.NonConvex = 2
+
+    model.update()
+    return model
+
+
 ### GBT HANDLER
 ## gbt model helper functions
 
@@ -131,25 +179,16 @@ def tree_index(model: gp.Model):
             yield (label, tree)
 
 
-tree_index.dimen = 2
-
-
 def leaf_index(model: gp.Model):
     for label, tree in tree_index(model):
         for leaf in model._leaves(label, tree):
             yield (label, tree, leaf)
 
 
-leaf_index.dimen = 3
-
-
 def misic_interval_index(model: gp.Model):
     for var in model._breakpoint_index:
         for j in range(len(model._breakpoints(var))):
             yield (var, j)
-
-
-misic_interval_index.dimen = 2
 
 
 def misic_split_index(model: gp.Model):
@@ -159,41 +198,37 @@ def misic_split_index(model: gp.Model):
             yield (label, tree, encoding)
 
 
-misic_split_index.dimen = 3
-
-
 def alt_interval_index(model: gp.Model):
     for var in model.breakpoint_index:
         for j in range(1, len(model.breakpoints[var]) + 1):
             yield (var, j)
 
 
-alt_interval_index.dimen = 2
-
-
-def add_gbm_to_opt_model(cat_idx: set[int], gbm_model_dict: dict, model: gp.Model):
-    add_gbm_parameters(cat_idx, gbm_model_dict, model)
-    add_gbm_variables(model)
-    add_gbm_constraints(cat_idx, model)
-
-
-def add_gbm_parameters(
-    cat_idx: set[int], gbm_model_dict: dict[str, "GbmModel"], model: gp.Model
+def add_trees_to_opt_model(
+    cat_idx: set[int], trees_mip_model_dict: dict[str, TreesMIPModel], model: gp.Model
 ):
-    model._gbm_models = gbm_model_dict
+    add_tree_parameters(cat_idx, trees_mip_model_dict, model)
+    add_tree_variables(model)
+    add_tree_constraints(cat_idx, model)
 
-    model._gbm_set = set(gbm_model_dict.keys())
-    model._num_trees = lambda label: gbm_model_dict[label].n_trees
+
+def add_tree_parameters(
+    cat_idx: set[int], trees_mip_model_dict: dict[str, TreesMIPModel], model: gp.Model
+):
+    model._tree_models = trees_mip_model_dict
+
+    model._trees_set = set(trees_mip_model_dict.keys())
+    model._num_trees = lambda label: trees_mip_model_dict[label].n_trees
 
     model._leaves = lambda label, tree: tuple(
-        gbm_model_dict[label].get_leaf_encodings(tree)
+        trees_mip_model_dict[label].get_leaf_encodings(tree)
     )
 
-    model._leaf_weight = lambda label, tree, leaf: gbm_model_dict[
-        label
-    ].get_leaf_weight(tree, leaf)
+    # model._leaf_weight = lambda label, tree, leaf: gbm_model_dict[
+    #     label
+    # ].get_leaf_weight(tree, leaf)
 
-    vbs = [v.get_var_break_points() for v in gbm_model_dict.values()]
+    vbs = [v.get_var_break_points() for v in trees_mip_model_dict.values()]
 
     all_breakpoints = {}
     for i in range(model._n_feat):
@@ -211,12 +246,12 @@ def add_gbm_parameters(
 
     model._breakpoints = lambda i: all_breakpoints[i]
 
-    model._leaf_vars = lambda label, tree, leaf: tuple(
-        i for i in gbm_model_dict[label].get_participating_variables(tree, leaf)
-    )
+    # model._leaf_vars = lambda label, tree, leaf: tuple(
+    #     i for i in gbm_model_dict[label].get_participating_variables(tree, leaf)
+    # )
 
 
-def add_gbm_variables(model: gp.Model):
+def add_tree_variables(model: gp.Model):
     model._z_l = model.addVars(
         leaf_index(model), lb=0, ub=1, name="z_l", vtype=GRB.BINARY
     )
@@ -225,7 +260,7 @@ def add_gbm_variables(model: gp.Model):
     model.update()
 
 
-def add_gbm_constraints(cat_idx, model):
+def add_tree_constraints(cat_idx, model):
     def single_leaf_rule(model_, label, tree):
         z_l, leaves = model_._z_l, model_._leaves
         return quicksum(z_l[label, tree, leaf] for leaf in leaves(label, tree)) == 1

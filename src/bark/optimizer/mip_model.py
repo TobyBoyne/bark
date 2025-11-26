@@ -43,7 +43,7 @@ def _build_tree(
     )
 
 
-class MIPModel:
+class TreesMIPModel:
     def __init__(self, trees: types.Tree, feature_types: types.FeatTypesT):
         mip_trees = [_build_tree(tree, feature_types) for tree in trees]
         self.trees = [tree for tree in mip_trees if not isinstance(tree, MIPLeaf)]

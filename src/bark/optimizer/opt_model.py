@@ -15,8 +15,8 @@ from bark.enums import FeatureTypeEnum
 from bark.tree_kernels.tree_gps import LeafGP
 from bofire_mixed.domain import get_cat_idx_from_domain
 
-from .gbm_model import GbmModel
-from .opt_core import add_gbm_to_opt_model, get_opt_core, get_opt_core_copy
+from .mip_model import TreesMIPModel
+from .opt_core import add_trees_to_opt_model, get_opt_core, get_opt_core_copy
 
 
 def build_opt_model_from_forest(
@@ -36,13 +36,15 @@ def build_opt_model_from_forest(
     num_data = train_X.shape[0]
 
     # build tree model
-    gbm_model_dict: dict[str, GbmModel] = {}
+    gbm_model_dict: dict[str, TreesMIPModel] = {}
     for sample_idx in range(num_samples):
         trees = jax.tree_util.tree_map(lambda t: t[sample_idx], bark_model.trees)
-        gbm_model_dict[f"tree_sample_{sample_idx}"] = GbmModel(trees, data.feat_types)
+        gbm_model_dict[f"tree_sample_{sample_idx}"] = TreesMIPModel(
+            trees, data.feat_types
+        )
 
     cat_idx = {i for i, f in data.feat_types if f == FeatureTypeEnum.Cat}
-    add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
+    add_trees_to_opt_model(cat_idx, gbm_model_dict, opt_model)
     K_XX = jax.vmap(forest.forest_gram_matrix_no_null, in_axes=(None, 0, None))(
         train_X, bark_model.trees, data.feat_types
     )
@@ -110,57 +112,10 @@ def build_opt_model_from_forest(
     return opt_model
 
 
-def warm_start_from_candidate(
-    # domain: Domain,
-    # model: tuple[np.ndarray, float, float],
-    # data: tuple[np.ndarray, np.ndarray],
-    # kappa: float,
-    # model_core: gp.Model,
-    candidates: np.ndarray,
-    domain: Domain,
-    opt_model: gp.Model,
-):
-    """
-
-    ."""
-    gbm_model_dict = opt_model._gbm_models
-    opt_model.NumStart = candidates.shape[0]
-    opt_model.update()
-
-    test_arr = []
-
-    for start in range(opt_model.NumStart):
-        opt_model.params.StartNumber = start
-        opt_model.update()
-        x = candidates[start]
-
-        # set continuous variables
-        for idx, var_name in enumerate(domain.inputs.get_keys()):
-            opt_model.getVarByName(var_name).Start = x[idx]
-        # TODO: set cat variables
-
-        # set leaf variables
-        for i, (gbm_name, gbm_model) in enumerate(gbm_model_dict.items()):
-            gbm_model: GbmModel
-            act_leaves_x = gbm_model.get_active_leaves(x)
-            z_arr = []
-            for key, z in opt_model._z_l.items():
-                z_gbm_name, z_tree_idx, z_leaf_encoding = key
-                if z_gbm_name != gbm_name:
-                    continue
-
-                z.Start = 1 if act_leaves_x[z_tree_idx] == z_leaf_encoding else 0
-
-                # opt_model.addConstr(z == (1 if act_leaves_x[z_tree_idx] == z_leaf_encoding else 0))
-                z_arr.append(1 if act_leaves_x[z_tree_idx] == z_leaf_encoding else 0)
-
-            test_arr.append(z_arr)
-
-
 def build_opt_model_from_gp(
     domain: Domain,
     gbm_model: GbmModel,
-    tree_gp: LeafGP | LeafMOGP,
+    tree_gp: LeafGP,
     kappa: float,
     model_core: Optional[gp.Model] = None,
 ):
@@ -179,41 +134,17 @@ def build_opt_model_from_gp(
     cat_idx = get_cat_idx_from_domain(domain)
     add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
 
-    if isinstance(tree_gp, LeafMOGP):
-        # multi-fidelity case - evaluate for highest fidelity
-        # get tree_gp hyperparameters
-        kernel_var = (
-            tree_gp.task_covar_module._eval_covar_matrix()[0, 0].detach().numpy()
-        )
-        noise_var = tree_gp.likelihood.noise[0].detach().numpy()
+    # get tree_gp hyperparameters
+    kernel_var = tree_gp.covar_module.outputscale.detach().numpy()
+    noise_var = tree_gp.likelihood.noise.detach().numpy()
 
-        # get tree_gp matrices
-        (train_x_all, train_i) = tree_gp.train_inputs
-        # only optimise on highest fidelity
-        target_f = (train_i == 0).flatten()
-        assert target_f.any(), "No data for highest fidelity"
-        train_x = train_x_all[..., target_f, :]
-        Kmm = tree_gp.covar_module(train_x).numpy()
-        k_diag = np.diagonal(Kmm)
-        s_diag = tree_gp.likelihood._shaped_noise_covar(
-            torch.Size(k_diag.shape), [torch.zeros((k_diag.shape[0], 1))]
-        ).numpy()
-        s_diag = s_diag.squeeze(-3)
+    # get tree_gp matrices
+    (train_x,) = tree_gp.train_inputs
+    Kmm = tree_gp.covar_module(train_x).numpy()
+    k_diag = np.diagonal(Kmm)
+    s_diag = tree_gp.likelihood._shaped_noise_covar(k_diag.shape).numpy()
 
-        y_vals = tree_gp.train_targets[target_f].numpy()
-
-    else:
-        # get tree_gp hyperparameters
-        kernel_var = tree_gp.covar_module.outputscale.detach().numpy()
-        noise_var = tree_gp.likelihood.noise.detach().numpy()
-
-        # get tree_gp matrices
-        (train_x,) = tree_gp.train_inputs
-        Kmm = tree_gp.covar_module(train_x).numpy()
-        k_diag = np.diagonal(Kmm)
-        s_diag = tree_gp.likelihood._shaped_noise_covar(k_diag.shape).numpy()
-
-        y_vals = tree_gp.train_targets.numpy()
+    y_vals = tree_gp.train_targets.numpy()
 
     ks = Kmm + s_diag
 
