@@ -7,6 +7,7 @@ from gurobipy import GRB
 
 from bark import types
 from bark.enums import FeatureTypeEnum
+from bark.types.optimizer import GurobiOptimizerModel
 from bofire_mixed.domain import get_feature_bounds
 
 from .opt_core import (
@@ -43,8 +44,8 @@ def get_opt_sol(feat_types: types.FeatTypesT, opt_model: gp.Model):
 
 def propose(
     feat_types: types.FeatTypesT,
-    opt_model: gp.Model,
-    model_core: Optional[gp.Model],
+    opt_model: GurobiOptimizerModel,
+    model_core: Optional[gp.Model] = None,
 ):
     next_x_area, next_val = _get_global_sol(feat_types, opt_model)
 
@@ -70,7 +71,7 @@ def propose(
 
 def _get_global_sol(
     feat_types: types.FeatTypesT,
-    opt_model: gp.Model,
+    opt_model: GurobiOptimizerModel,
     time_limit: int = 100,
 ):
     # provides global solution to the optimization problem

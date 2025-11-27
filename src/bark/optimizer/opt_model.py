@@ -1,29 +1,21 @@
-"""From Leaf-GP"""
-
-import gurobipy as gp
 import jax
 import jax.numpy as jnp
 import numpy as np
-import torch
-from beartype.typing import Optional
-from bofire.data_models.domain.api import Domain
 from gurobipy import GRB, MVar
-from scipy.linalg import cho_factor, cho_solve
 
 from bark import forest, types
 from bark.enums import FeatureTypeEnum
-from bark.tree_kernels.tree_gps import LeafGP
-from bofire_mixed.domain import get_cat_idx_from_domain
+from bark.types.optimizer import GurobiOptimizerModel
 
 from .mip_model import TreesMIPModel
-from .opt_core import add_trees_to_opt_model, get_opt_core, get_opt_core_copy
+from .opt_core import add_trees_to_opt_model, get_opt_core_copy
 
 
 def build_opt_model_from_forest(
     bark_model: types.BARKModel,
     data: types.Data,
     kappa: float,
-    model_core: gp.Model,
+    model_core: GurobiOptimizerModel,
 ):
     opt_model = get_opt_core_copy(model_core)
     train_X, train_Y = data.train_X, data.train_Y
@@ -108,101 +100,5 @@ def build_opt_model_from_forest(
     ## add mu variable
     # opt_model._sub_z_mu = MVar.fromlist(sub_k.values())
     # opt_model._mu_coeff = lin_term
-
-    return opt_model
-
-
-def build_opt_model_from_gp(
-    domain: Domain,
-    gbm_model: GbmModel,
-    tree_gp: LeafGP,
-    kappa: float,
-    model_core: Optional[gp.Model] = None,
-):
-    """Build an optimization model for the acquisition function"""
-    # build opt_model core
-
-    # check if there's already a model core with extra constraints
-    if model_core is None:
-        opt_model = get_opt_core(domain)
-    else:
-        # copy model core in case there are constr given already
-        opt_model = get_opt_core_copy(model_core)
-
-    # build tree model
-    gbm_model_dict = {"1st_obj": gbm_model}
-    cat_idx = get_cat_idx_from_domain(domain)
-    add_gbm_to_opt_model(cat_idx, gbm_model_dict, opt_model)
-
-    # get tree_gp hyperparameters
-    kernel_var = tree_gp.covar_module.outputscale.detach().numpy()
-    noise_var = tree_gp.likelihood.noise.detach().numpy()
-
-    # get tree_gp matrices
-    (train_x,) = tree_gp.train_inputs
-    Kmm = tree_gp.covar_module(train_x).numpy()
-    k_diag = np.diagonal(Kmm)
-    s_diag = tree_gp.likelihood._shaped_noise_covar(k_diag.shape).numpy()
-
-    y_vals = tree_gp.train_targets.numpy()
-
-    ks = Kmm + s_diag
-
-    # invert gram matrix
-
-    id_ks = np.eye(ks.shape[0])
-    inv_ks = cho_solve(cho_factor(ks, lower=True), id_ks)
-
-    # add tree_gp logic to opt_model
-
-    train_x: torch.Tensor
-    act_leave_vars = gbm_model.get_active_leaf_vars(
-        train_x.numpy(), opt_model, "1st_obj"
-    )
-
-    sub_k = opt_model.addVars(
-        range(len(act_leave_vars)), lb=0, ub=1, name="sub_k", vtype="C"
-    )
-
-    opt_model.addConstrs(
-        (sub_k[idx] == act_leave_vars[idx] for idx in range(len(act_leave_vars))),
-        name="sub_k_constr",
-    )
-
-    ## add quadratic constraints
-    # \sigma <= K_xx - K_xX @ K_XX^-1 @ X_xX^T
-    opt_model._var = opt_model.addVar(lb=0, ub=GRB.INFINITY, name="var", vtype="C")
-
-    opt_model._sub_k_var = MVar(sub_k.values() + [opt_model._var])
-
-    quadr_term = -(kernel_var**2) * inv_ks
-    const_term = kernel_var + noise_var
-
-    zeros = np.zeros((train_x.shape[0], 1))
-    quadr_constr = np.block([[quadr_term, zeros], [zeros.T, -1.0]])
-
-    opt_model.addMQConstr(
-        quadr_constr,
-        None,
-        sense=">",
-        rhs=-const_term,
-        xQ_L=opt_model._sub_k_var,
-        xQ_R=opt_model._sub_k_var,
-    )
-
-    ## add linear objective
-    opt_model._sub_z_obj = MVar(sub_k.values() + [opt_model._var])
-
-    lin_term = kernel_var * (inv_ks @ y_vals)
-
-    lin_obj = np.concatenate((lin_term, [-kappa]))
-
-    opt_model.setMObjective(
-        None, lin_obj, 0, xc=opt_model._sub_z_obj, sense=GRB.MINIMIZE
-    )
-
-    ## add mu variable
-    opt_model._sub_z_mu = MVar(sub_k.values())
-    opt_model._mu_coeff = lin_term
 
     return opt_model

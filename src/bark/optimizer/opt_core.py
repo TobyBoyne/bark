@@ -1,69 +1,21 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import gurobipy as gp
 from beartype.typing import Optional
-from bofire.data_models.domain.api import Domain
-from bofire.data_models.features.api import (
-    CategoricalInput,
-    ContinuousInput,
-    DiscreteInput,
-    NumericalInput,
-)
 from gurobipy import GRB, quicksum
 
 from bark import types
 from bark.enums import FeatureTypeEnum
+from bark.types.optimizer import GurobiOptimizerModel
 from bark.utils.bit_operations import next_power_of_2_exponent
-from bofire_mixed.constraints import apply_constraint_to_model
 
 if TYPE_CHECKING:
     from bark.optimizer.mip_model import TreesMIPModel
 
 
-def get_opt_core(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
-    """Build the optimization core with input features"""
-    model = gp.Model(env=env)
-    model._cont_var_dict = {}
-    model._cat_var_dict = {}
-
-    for idx, feat in enumerate(domain.inputs.get()):
-        var_name = feat.key
-
-        if isinstance(feat, CategoricalInput):
-            model._cat_var_dict[idx] = {}
-
-            for i, cat in enumerate(feat.categories):
-                model._cat_var_dict[idx][i] = model.addVar(
-                    name=f"{var_name}_{cat}", vtype=GRB.BINARY
-                )
-
-            # constr vars need to add up to one
-            model.addConstr(
-                sum([model._cat_var_dict[idx][i] for i in range(len(feat.categories))])
-                == 1
-            )
-
-        elif isinstance(feat, NumericalInput):
-            if isinstance(feat, ContinuousInput):
-                lb, ub = feat.bounds
-                vtype = "C"
-            elif isinstance(feat, DiscreteInput):
-                lb, ub = feat.lower_bound, feat.upper_bound
-                vtype = "B" if (lb, ub) == (0, 1) else "I"
-
-            model._cont_var_dict[idx] = model.addVar(
-                lb=lb, ub=ub, name=var_name, vtype=vtype
-            )
-
-    model._n_feat = len(model._cont_var_dict) + len(model._cat_var_dict)
-
-    model.update()
-    return model
-
-
-def get_opt_core_copy(opt_core: gp.Model) -> gp.Model:
+def get_opt_core_copy(opt_core: GurobiOptimizerModel) -> GurobiOptimizerModel:
     """Create a copy of an optimization core."""
-    new_opt_core = opt_core.copy()
+    new_opt_core = cast(GurobiOptimizerModel, opt_core.copy())
     new_opt_core._n_feat = opt_core._n_feat
 
     # transfer var dicts
@@ -74,7 +26,9 @@ def get_opt_core_copy(opt_core: gp.Model) -> gp.Model:
     for var in opt_core._cont_var_dict.keys():
         var_name = opt_core._cont_var_dict[var].VarName
 
-        new_opt_core._cont_var_dict[var] = new_opt_core.getVarByName(var_name)
+        new_var = new_opt_core.getVarByName(var_name)
+        assert new_var is not None
+        new_opt_core._cont_var_dict[var] = new_var
 
     ## transfer cat_var_dict
     for var in opt_core._cat_var_dict.keys():
@@ -84,45 +38,18 @@ def get_opt_core_copy(opt_core: gp.Model) -> gp.Model:
             if var not in new_opt_core._cat_var_dict.keys():
                 new_opt_core._cat_var_dict[var] = {}
 
-            new_opt_core._cat_var_dict[var][cat] = new_opt_core.getVarByName(var_name)
+            new_var = new_opt_core.getVarByName(var_name)
+            assert new_var is not None
+            new_opt_core._cat_var_dict[var][cat] = new_var
 
     return new_opt_core
 
 
-def get_opt_core_from_domain(domain: Domain, env: Optional[gp.Env] = None) -> gp.Model:
-    """Create an optimization model from a domain (including constraints)"""
-    model_core = get_opt_core(domain, env=env)
-    for constraint in domain.constraints:
-        apply_constraint_to_model(constraint, model_core)
-
-    model_core.Params.LogToConsole = 0
-    model_core.Params.NonConvex = 2
-
-    model_core.update()
-    return model_core
-    # add equality constraints to model core
-    #     for func in self.eq_constr_funcs:
-    #         model_core.addConstr(func(model_core._cont_var_dict) == 0.0)
-
-    #     # add inequality constraints to model core
-    #     for func in self.ineq_constr_funcs:
-    #         model_core.addConstr(func(model_core._cont_var_dict) <= 0.0)
-
-    #     # set solver parameter if function is nonconvex
-    #     model_core.Params.LogToConsole = 0
-    #     if self.is_nonconvex:
-    #         model_core.Params.NonConvex = 2
-
-    #     model_core.update()
-
-    # return model_core
-
-
 def get_opt_core_from_bark_data(
     data: types.Data, env: Optional[gp.Env] = None
-) -> gp.Model:
+) -> GurobiOptimizerModel:
     """Create an optimization model from a domain (including constraints)"""
-    model = gp.Model(env=env)
+    model = cast(GurobiOptimizerModel, gp.Model(env=env))
     model._cont_var_dict = {}
     model._cat_var_dict = {}
 
@@ -139,8 +66,9 @@ def get_opt_core_from_bark_data(
                 )
 
             # constr vars need to add up to one
-            model.addConstr(  # type: ignore
-                sum([model._cat_var_dict[idx][i] for i in range(num_categories)]) == 1
+            model.addConstr(
+                quicksum([model._cat_var_dict[idx][i] for i in range(num_categories)])
+                == 1
             )
 
         else:
@@ -156,9 +84,6 @@ def get_opt_core_from_bark_data(
 
     model._n_feat = len(model._cont_var_dict) + len(model._cat_var_dict)
 
-    model.Params.LogToConsole = 0
-    model.Params.NonConvex = 2
-
     model.update()
     return model
 
@@ -167,45 +92,41 @@ def get_opt_core_from_bark_data(
 ## gbt model helper functions
 
 
-def label_leaf_index(model: gp.Model, label: str):
+def label_leaf_index(model: GurobiOptimizerModel, label: str):
     for tree in range(model._num_trees(label)):
         for leaf in model._leaves(label, tree):
             yield (tree, leaf)
 
 
-def tree_index(model: gp.Model):
-    for label in model._gbm_set:
+def tree_index(model: GurobiOptimizerModel):
+    for label in model._trees_set:
         for tree in range(model._num_trees(label)):
             yield (label, tree)
 
 
-def leaf_index(model: gp.Model):
+def leaf_index(model: GurobiOptimizerModel):
     for label, tree in tree_index(model):
         for leaf in model._leaves(label, tree):
             yield (label, tree, leaf)
 
 
-def misic_interval_index(model: gp.Model):
+def misic_interval_index(model: GurobiOptimizerModel):
     for var in model._breakpoint_index:
         for j in range(len(model._breakpoints(var))):
             yield (var, j)
 
 
-def misic_split_index(model: gp.Model):
-    gbm_models = model._gbm_models
+def misic_split_index(model: GurobiOptimizerModel):
+    tree_models = model._tree_models
     for label, tree in tree_index(model):
-        for encoding in gbm_models[label].get_branch_encodings(tree):
+        for encoding in tree_models[label].get_branch_encodings(tree):
             yield (label, tree, encoding)
 
 
-def alt_interval_index(model: gp.Model):
-    for var in model.breakpoint_index:
-        for j in range(1, len(model.breakpoints[var]) + 1):
-            yield (var, j)
-
-
 def add_trees_to_opt_model(
-    cat_idx: set[int], trees_mip_model_dict: dict[str, TreesMIPModel], model: gp.Model
+    cat_idx: set[int],
+    trees_mip_model_dict: dict[str, TreesMIPModel],
+    model: GurobiOptimizerModel,
 ):
     add_tree_parameters(cat_idx, trees_mip_model_dict, model)
     add_tree_variables(model)
@@ -213,7 +134,9 @@ def add_trees_to_opt_model(
 
 
 def add_tree_parameters(
-    cat_idx: set[int], trees_mip_model_dict: dict[str, TreesMIPModel], model: gp.Model
+    cat_idx: set[int],
+    trees_mip_model_dict: dict[str, TreesMIPModel],
+    model: GurobiOptimizerModel,
 ):
     model._tree_models = trees_mip_model_dict
 
@@ -251,7 +174,7 @@ def add_tree_parameters(
     # )
 
 
-def add_tree_variables(model: gp.Model):
+def add_tree_variables(model: GurobiOptimizerModel):
     model._z_l = model.addVars(
         leaf_index(model), lb=0, ub=1, name="z_l", vtype=GRB.BINARY
     )
@@ -260,7 +183,7 @@ def add_tree_variables(model: gp.Model):
     model.update()
 
 
-def add_tree_constraints(cat_idx, model):
+def add_tree_constraints(cat_idx, model: GurobiOptimizerModel):
     def single_leaf_rule(model_, label, tree):
         z_l, leaves = model_._z_l, model_._leaves
         return quicksum(z_l[label, tree, leaf] for leaf in leaves(label, tree)) == 1

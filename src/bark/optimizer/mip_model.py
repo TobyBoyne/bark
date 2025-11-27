@@ -2,7 +2,7 @@ import collections as coll
 from dataclasses import dataclass
 from typing import Generator, Literal
 
-import jax.numpy as jnp
+import gurobipy as gp
 from jaxtyping import Array, Float
 
 from bark import forest, types
@@ -96,22 +96,21 @@ class TreesMIPModel:
 
     def get_active_leaf_vars(
         self, X: Float[Array, "N d"], model: GurobiOptimizerModel, gbm_label: str
-    ) -> Float[Array, " N"]:
+    ) -> list[gp.LinExpr]:
         # get active leaves for X
         act_leaves_x = [self.get_active_leaves(x) for x in X]
 
         # generate active_leave_vars
-        act_leaf_vars: list[float] = []
+        act_leaf_vars: list[gp.LinExpr] = []
         for data_enc in act_leaves_x:
-            temp_lhs = 0
-            for tree_id, leaf_enc in enumerate(data_enc):
-                temp_lhs += model._z_l[gbm_label, tree_id, leaf_enc]
-
-            temp_lhs *= 1 / len(data_enc)
+            temp_lhs = gp.quicksum(
+                model._z_l[gbm_label, tree_id, leaf_enc]
+                for tree_id, leaf_enc in enumerate(data_enc)
+            ) / len(data_enc)
 
             act_leaf_vars.append(temp_lhs)
 
-        return jnp.asarray(act_leaf_vars)
+        return act_leaf_vars
 
 
 @dataclass
