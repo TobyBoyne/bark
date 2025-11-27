@@ -8,8 +8,8 @@ from bofire.data_models.types import InputTransformSpecs
 from bofire.strategies.api import RandomStrategy
 from bofire.strategies.predictives.predictive import PredictiveStrategy
 
+from bark.optimizer.build_opt_model import build_opt_model_from_forest
 from bark.optimizer.opt_core import get_opt_core_from_domain
-from bark.optimizer.opt_model import build_opt_model_from_forest
 from bark.optimizer.proposals import propose
 from bofire_mixed.data_models.strategies.tree_kernel import (
     TreeKernelStrategy as DataModel,

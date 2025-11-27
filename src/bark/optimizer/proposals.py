@@ -1,14 +1,12 @@
 import logging
 
-import gurobipy as gp
 import numpy as np
-from beartype.typing import Optional
 from gurobipy import GRB
+from jaxtyping import Array, Float
 
 from bark import types
 from bark.enums import FeatureTypeEnum
 from bark.types.optimizer import GurobiOptimizerModel
-from bofire_mixed.domain import get_feature_bounds
 
 from .opt_core import (
     get_opt_core_copy,
@@ -18,7 +16,20 @@ from .opt_core import (
 logging.getLogger("gurobipy").setLevel(logging.ERROR)
 
 
-def get_opt_sol(feat_types: types.FeatTypesT, opt_model: gp.Model):
+def _features_as_list(
+    features: types.Features,
+) -> list[tuple[float, float] | list[int]]:
+    def aslist(bound: Float[Array, " 2"], feat_type: FeatureTypeEnum):
+        if feat_type == FeatureTypeEnum.Cat:
+            return list(range(bound[1]))
+        else:
+            return (float(bound[0]), float(bound[1]))
+
+    ordinal_bounds = features.ordinal_bounds
+    return [aslist(b, f) for b, f in zip(ordinal_bounds.T, features.feat_types)]
+
+
+def get_opt_sol(feat_types: types.FeatTypesT, opt_model: GurobiOptimizerModel):
     # get optimal solution from gurobi model
     next_x = []
     for idx, feat_type in enumerate(feat_types):
@@ -26,7 +37,7 @@ def get_opt_sol(feat_types: types.FeatTypesT, opt_model: gp.Model):
         try:
             if feat_type == FeatureTypeEnum.Cat:
                 # check which category is active
-                category_dict: dict[int, gp.Var] = opt_model._cat_var_dict[idx]
+                category_dict = opt_model._cat_var_dict[idx]
                 for cat_i, var in category_dict.items():
                     if var.X > 0.5:
                         x_val = cat_i
@@ -35,7 +46,7 @@ def get_opt_sol(feat_types: types.FeatTypesT, opt_model: gp.Model):
 
         except AttributeError:
             raise ValueError(
-                f"Gurobi was unable to converge; ended with status code {opt_model.Status} (failed on {feat.key}). See https://docs.gurobi.com/projects/optimizer/en/current/reference/numericcodes/statuscodes.html#secstatuscodes for more information."
+                f"Gurobi was unable to converge; ended with status code {opt_model.Status} (failed on {idx}). See https://docs.gurobi.com/projects/optimizer/en/current/reference/numericcodes/statuscodes.html#secstatuscodes for more information."
             )
 
         next_x.append(x_val)
@@ -43,34 +54,34 @@ def get_opt_sol(feat_types: types.FeatTypesT, opt_model: gp.Model):
 
 
 def propose(
-    feat_types: types.FeatTypesT,
+    features: types.Features,
     opt_model: GurobiOptimizerModel,
-    model_core: Optional[gp.Model] = None,
+    model_core: GurobiOptimizerModel | None = None,
 ):
-    next_x_area, next_val = _get_global_sol(feat_types, opt_model)
+    next_x_area, next_val = _get_global_sol(features, opt_model)
 
     # add epsilon if input constr. exist
     # i.e. tree splits are rounded to the 5th decimal when adding them to the model,
     # and this may make optimization problems infeasible if the feasible region is very small
     if model_core is not None:
-        _add_epsilon_to_bnds(next_x_area, feat_types)
+        _add_epsilon_to_bnds(next_x_area, features.feat_types)
 
         while True:
             try:
                 next_center = _get_leaf_min_center_dist(
-                    next_x_area, feat_types, model_core
+                    next_x_area, features.feat_types, model_core
                 )
                 break
             except ValueError:
-                _add_epsilon_to_bnds(next_x_area, feat_types)
+                _add_epsilon_to_bnds(next_x_area, features.feat_types)
     else:
-        next_center = _get_leaf_center(next_x_area, feat_types)
+        next_center = _get_leaf_center(next_x_area, features.feat_types)
 
     return next_center
 
 
 def _get_global_sol(
-    feat_types: types.FeatTypesT,
+    features: types.Features,
     opt_model: GurobiOptimizerModel,
     time_limit: int = 100,
 ):
@@ -88,12 +99,11 @@ def _get_global_sol(
     ## optimize opt_model to determine area to focus on
     opt_model.optimize()
 
-    # FIXME
-    var_bnds = [get_feature_bounds(feat, encoding="ordinal") for feat in input_feats]
+    var_bnds = _features_as_list(features)
 
     # get active leaf area
     errors = []
-    for label, gbm_model in opt_model._gbm_models.items():
+    for label, tree_model in opt_model._tree_models.items():
         present_solns = [
             (tree_id, leaf_enc)
             for tree_id, leaf_enc in label_leaf_index(opt_model, label)
@@ -104,14 +114,14 @@ def _get_global_sol(
         active_enc = [
             (tree_id, leaf_enc)
             for tree_id, leaf_enc in present_solns
-            if round(opt_model._z_l[label, tree_id, leaf_enc].x) == 1.0
+            if round(opt_model._z_l[label, tree_id, leaf_enc].X) == 1.0
         ]
-        gbm_model.update_var_bounds(active_enc, var_bnds)
+        tree_model.update_var_bounds_inplace(active_enc, var_bnds)
     if errors:
         # Would use exceptiongroups but not supported by python 3.10
         raise ValueError(f"No active solutions found for labels {errors}")
     # reading x_val
-    next_x = get_opt_sol(feat_types, opt_model)
+    next_x = get_opt_sol(features.feat_types, opt_model)
 
     return var_bnds, next_x
 
@@ -136,7 +146,7 @@ def _get_leaf_center(x_area, feat_types: types.FeatTypesT):
 
 
 def _get_leaf_min_center_dist(
-    x_area, feat_types: types.FeatTypesT, model_core: gp.Model
+    x_area, feat_types: types.FeatTypesT, model_core: GurobiOptimizerModel
 ):
     """returns the feasible point closest to the x_area center"""
     # build opt_model core
