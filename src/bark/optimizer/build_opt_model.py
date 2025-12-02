@@ -35,7 +35,7 @@ def build_opt_model_from_forest(
             trees, data.feat_types
         )
 
-    cat_idx = {i for i, f in data.feat_types if f == FeatureTypeEnum.Cat}
+    cat_idx = {i for i, f in enumerate(data.feat_types) if f == FeatureTypeEnum.Cat}
     add_trees_to_opt_model(cat_idx, gbm_model_dict, opt_model)
     K_XX = jax.vmap(forest.forest_gram_matrix_no_null, in_axes=(None, 0, None))(
         train_X, bark_model.trees, data.feat_types

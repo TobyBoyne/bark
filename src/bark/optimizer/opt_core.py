@@ -192,7 +192,7 @@ def add_tree_constraints(cat_idx, model: GurobiOptimizerModel):
     )
 
     def left_split_r(model_, label, tree, split_enc):
-        gbt = model_._gbm_models[label]
+        gbt = model_._tree_models[label]
         split_var, split_val = gbt.get_branch_partition_pair(tree, split_enc)
         y_var = split_var
 
@@ -214,7 +214,7 @@ def add_tree_constraints(cat_idx, model: GurobiOptimizerModel):
             ) <= quicksum(model_._cat_var_dict[split_var][cat] for cat in split_val)
 
     def right_split_r(model_, label, tree, split_enc):
-        gbt = model_._gbm_models[label]
+        gbt = model_._tree_models[label]
         split_var, split_val = gbt.get_branch_partition_pair(tree, split_enc)
         y_var = split_var
         if not isinstance(split_val, list):

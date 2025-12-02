@@ -159,7 +159,8 @@ class MIPDecisionNode:
                 raise ValueError("Cannot get leaves from leaf.")
             yield from next_node._get_child_leaves(encoding[1:], direction)
         else:
-            yield from self.left.get_leaf_encodings(direction)
+            next_node = self._get_next_node(direction)
+            yield from next_node.get_leaf_encodings(direction)
 
     def get_left_leaves(self, encoding: str):
         return self._get_child_leaves(encoding, direction="0")
