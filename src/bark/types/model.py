@@ -16,6 +16,27 @@ class Tree:
             feature_idx=self.feature_idx[idx], threshold=self.threshold[idx]
         )
 
+    def __iter__(self):
+        return TreeIterator(self)
+
+
+class TreeIterator:
+    def __init__(self, tree: Tree):
+        self.tree = tree
+        self.tree_index = 0
+        shape = tree.feature_idx.shape
+        assert len(shape) == 2
+        self.m = shape[0]
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.tree_index >= self.m:
+            raise StopIteration
+        self.tree_index += 1
+        return self.tree[self.tree_index]
+
 
 @struct.dataclass
 class BARKModel:

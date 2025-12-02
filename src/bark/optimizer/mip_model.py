@@ -125,11 +125,11 @@ class MIPDecisionNode:
     def _get_next_node(self, direction: str):
         return self.right if int(direction) else self.left
 
-    def get_leaf_encodings(self, current_string="") -> Generator[str]:
+    def get_leaf_encodings(self, current_string="") -> Generator[str, None, None]:
         yield from self.left.get_leaf_encodings(current_string + "0")
         yield from self.right.get_leaf_encodings(current_string + "1")
 
-    def get_branch_encodings(self, current_string="") -> Generator[str]:
+    def get_branch_encodings(self, current_string="") -> Generator[str, None, None]:
         yield current_string
         yield from self.left.get_branch_encodings(current_string + "0")
         yield from self.right.get_branch_encodings(current_string + "1")
@@ -143,14 +143,16 @@ class MIPDecisionNode:
                 raise ValueError("Cannot get partition pair from leaf.")
             return next_node.get_branch_partition_pair(encoding[1:])
 
-    def get_all_partition_pairs(self) -> Generator[tuple[int, float | list[int]]]:
+    def get_all_partition_pairs(
+        self,
+    ) -> Generator[tuple[int, float | list[int]], None, None]:
         yield (self.feature_idx, self.threshold)
         yield from self.left.get_all_partition_pairs()
         yield from self.right.get_all_partition_pairs()
 
     def _get_child_leaves(
         self, encoding: str, direction: Literal["0", "1"]
-    ) -> Generator[str]:
+    ) -> Generator[str, None, None]:
         if encoding:
             next_node = self._get_next_node(encoding[0])
             if isinstance(next_node, MIPLeaf):

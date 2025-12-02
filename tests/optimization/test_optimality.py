@@ -1,108 +1,68 @@
-import numpy as np
-import pytest
-from bofire.benchmarks.api import Benchmark, Himmelblau
-from bofire.data_models.domain.api import Domain
+import jax
+import jax.numpy as jnp
+from jaxtyping import Array, Float
 
-from bark.fitting.bark_sampler import BARKTrainParams, run_bark_sampler
-from bark.forest import batched_forest_gram_matrix, create_empty_forest
-from bark.optimizer import propose
-from bark.optimizer.opt_core import get_opt_core_from_domain
-from bark.optimizer.opt_model import build_opt_model_from_forest
-from bofire_mixed.benchmarks import StyblinskiTang
-from bofire_mixed.domain import get_feature_types_array
+from bark import types
+from bark.fitting.bark_prior_sampler import sample_forest
+from bark.optimizer.build_opt_model import build_opt_model_from_forest
+from bark.optimizer.opt_core import get_opt_core_from_bark_data
+from bark.optimizer.proposals import propose
+from bark.testing.data_test_cases import get_continuous_data_trid
+from bark.tree_kernels.tree_gps import forest_predict
 
-
-def train_data(benchmark: Benchmark, n: int) -> tuple[np.ndarray, np.ndarray]:
-    train_x = benchmark.domain.inputs.sample(n)
-    train_y = benchmark.f(train_x)["y"]
-
-    train_x_transformed = train_x.to_numpy()
-    train_y_transformed = ((train_y - train_y.mean()) / train_y.std()).to_numpy()[
-        :, None
-    ]
-    return (train_x_transformed, train_y_transformed)
+jax.config.update("jax_enable_x64", True)
 
 
-def forest_predict(
-    model: tuple[np.ndarray, np.ndarray, np.ndarray],
-    data: tuple[np.ndarray, np.ndarray],
-    candidates: np.ndarray,
-    domain: Domain,
-) -> np.ndarray:
-    forest, noise, scale = model
-    forest = forest.reshape(-1, *forest.shape[-2:])
-    noise = noise.reshape(-1)
-    scale = scale.reshape(-1)
-
-    num_samples = scale.shape[0]
-    num_candidates = candidates.shape[0]
-
-    train_x, train_y = data
-    feature_types = get_feature_types_array(domain)
-    K_XX = scale[:, None, None] * batched_forest_gram_matrix(
-        forest, train_x, train_x, feature_types
-    )
-    K_XX_s = K_XX + noise[:, None, None] * np.eye(train_x.shape[0])
-
-    K_inv = np.linalg.inv(K_XX_s)
-    K_xX = scale[:, None, None] * batched_forest_gram_matrix(
-        forest, candidates, train_x, feature_types
-    )
-
-    mu = K_xX @ K_inv @ train_y
-    var = scale[:, None, None] - K_xX @ K_inv @ K_xX.transpose((0, 2, 1))
-
-    mu = mu.reshape(num_samples, num_candidates)
-    var = np.diagonal(var, axis1=1, axis2=2)
-    return mu, var
-
-
-def calculate_acqf(mu: np.ndarray, var: np.ndarray, kappa: float) -> np.ndarray:
-    std = np.sqrt(var)
+def calculate_acqf(
+    mu: Float[Array, "batch M"], var: Float[Array, "batch M"], kappa: float
+) -> Float[Array, " M"]:
+    std = jnp.sqrt(var)
     acqf = mu - kappa * std
-    return acqf.mean(axis=0)
+    return acqf.mean(axis=-2)
 
 
-# @pytest.mark.slow
-@pytest.mark.parametrize("benchmark", [Himmelblau(), StyblinskiTang(dim=10)])
-def test_proposal_maximises_acqf(benchmark: Benchmark):
-    domain = benchmark.domain
-    data_numpy = train_data(benchmark, n=15)
+def test_proposal_maximises_acqf():
+    data = get_continuous_data_trid(N=20, dim=4)
 
-    model_core = get_opt_core_from_domain(domain)
+    model_core = get_opt_core_from_bark_data(data)
 
-    bark_params = BARKTrainParams(
-        warmup_steps=500, n_steps=400, thinning=200, num_chains=4
+    params = types.BARKConfig()
+    keys = jax.random.split(jax.random.key(0), 10)
+    trees = jax.vmap(sample_forest, in_axes=(None, None, None, None, 0))(
+        50, data.bounds, data.feat_types, params, keys
     )
-
-    forest = create_empty_forest(m=50)
-    forest = np.tile(forest, (bark_params.num_chains, 1, 1))
-    noise = np.tile(0.1, (bark_params.num_chains,))
-    scale = np.tile(1.0, (bark_params.num_chains,))
-
-    samples = run_bark_sampler(
-        model=(forest, noise, scale),
-        data=data_numpy,
-        domain=domain,
-        params=bark_params,
-    )
+    bark_model = types.BARKModel(trees=trees, noise_var=jnp.full((10,), 0.1))
 
     opt_model = build_opt_model_from_forest(
-        domain=benchmark.domain,
-        gp_samples=samples,
-        data=data_numpy,
+        bark_model=bark_model,
+        data=data,
         kappa=1.96,
         model_core=model_core,
     )
 
-    next_x = propose(benchmark.domain, opt_model, model_core)
-    next_x_candidate = np.array([next_x])
-    candidates = domain.inputs.sample(n=1000, seed=42).to_numpy()
+    features = types.Features(bounds=data.bounds, feat_types=data.feat_types)
 
-    mu, var = forest_predict(samples, data_numpy, candidates, domain)
+    next_X = propose(features, opt_model, model_core)
+    next_X_candidate = jnp.array([next_X])
+    key_candidates = jax.random.key(92103)
+    candidates = jax.random.uniform(key_candidates, (1000, data.train_X.shape[-1]))
+
+    mu, var = forest_predict(bark_model, data, candidates, diag=True)
     acqf = calculate_acqf(mu, var, kappa=1.96)
 
-    mux, varx = forest_predict(samples, data_numpy, next_x_candidate, domain)
+    mux, varx = forest_predict(bark_model, data, next_X_candidate, diag=True)
     acqfx = calculate_acqf(mux, varx, kappa=1.96)
 
     assert acqfx.item() <= acqf.min()
+
+
+def test_mu_var_match_model():
+    pass
+    # extract the mean and var from the model
+    # curr_var = opt_model._var.x
+    # curr_mean = sum(
+    #     [
+    #         opt_model._mu_coeff[idx] * opt_model._sub_z_mu[idx].x
+    #         for idx in range(len(opt_model._mu_coeff))
+    #     ]
+    # )

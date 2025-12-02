@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import gurobipy as gp
 from beartype.typing import Optional
@@ -6,11 +6,9 @@ from gurobipy import GRB, quicksum
 
 from bark import types
 from bark.enums import FeatureTypeEnum
+from bark.optimizer.mip_model import TreesMIPModel
 from bark.types.optimizer import GurobiOptimizerModel
 from bark.utils.bit_operations import next_power_of_2_exponent
-
-if TYPE_CHECKING:
-    from bark.optimizer.mip_model import TreesMIPModel
 
 
 def get_opt_core_copy(opt_core: GurobiOptimizerModel) -> GurobiOptimizerModel:
