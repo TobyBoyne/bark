@@ -28,11 +28,11 @@ def _build_tree(
     left_child = _build_tree(tree, feature_types, node_idx=forest.left(node_idx))
     right_child = _build_tree(tree, feature_types, node_idx=forest.right(node_idx))
     feature_idx = int(tree.feature_idx[node_idx])
-    threshold = int(tree.threshold[node_idx])
+    threshold = float(tree.threshold[node_idx])
     feature_type = FeatureTypeEnum(int(feature_types[feature_idx]))
 
     if feature_type == FeatureTypeEnum.Cat:
-        threshold = _binary_mask_threshold_to_list(threshold)
+        threshold = _binary_mask_threshold_to_list(int(threshold))
 
     return MIPDecisionNode(
         left=left_child,

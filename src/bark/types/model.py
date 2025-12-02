@@ -23,7 +23,7 @@ class Tree:
 class TreeIterator:
     def __init__(self, tree: Tree):
         self.tree = tree
-        self.tree_index = 0
+        self.tree_index = -1
         shape = tree.feature_idx.shape
         assert len(shape) == 2
         self.m = shape[0]
@@ -32,7 +32,7 @@ class TreeIterator:
         return self
 
     def __next__(self):
-        if self.tree_index >= self.m:
+        if self.tree_index + 1 >= self.m:
             raise StopIteration
         self.tree_index += 1
         return self.tree[self.tree_index]

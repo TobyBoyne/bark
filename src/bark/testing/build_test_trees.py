@@ -6,7 +6,7 @@ from bark import forest, types
 from bark.fitting.tree_proposals import grow
 
 type TreeKey = tuple[int, float | int]
-type TreeDict = Mapping[TreeKey, tuple[TreeDict | None, TreeDict | None]]
+type TreeDict = Mapping[TreeKey, tuple[TreeDict | None, TreeDict | None]] | None
 
 
 def build_trees_from_dict(tree_dicts: Sequence[TreeDict], max_depth: int = 6):
@@ -14,15 +14,15 @@ def build_trees_from_dict(tree_dicts: Sequence[TreeDict], max_depth: int = 6):
     trees = forest.create_empty_forest(m=m, max_depth=max_depth)
 
     def _recurse_trees(t: types.Tree, d: TreeDict, node_idx) -> types.Tree:
+        if d is None:
+            return t
         root = next(iter(d.keys()))
         feature_idx, threshold = root
         left, right = d[root]
 
         t = grow(t, node_idx, jnp.array(feature_idx), jnp.array(threshold))
-        if left is not None:
-            t = _recurse_trees(t, left, forest.left(node_idx))
-        if right is not None:
-            t = _recurse_trees(t, right, forest.right(node_idx))
+        t = _recurse_trees(t, left, forest.left(node_idx))
+        t = _recurse_trees(t, right, forest.right(node_idx))
 
         return t
 
