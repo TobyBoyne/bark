@@ -55,14 +55,15 @@ def test_proposal_maximises_acqf():
 
     assert acqfx.item() <= acqf.min()
 
+    # test that the mu, var match between the model and the optimizer
+    cand_mu, cand_var = forest_predict(bark_model, data, next_X_candidate, diag=True)
 
-def test_mu_var_match_model():
-    pass
-    # extract the mean and var from the model
-    # curr_var = opt_model._var.x
-    # curr_mean = sum(
-    #     [
-    #         opt_model._mu_coeff[idx] * opt_model._sub_z_mu[idx].x
-    #         for idx in range(len(opt_model._mu_coeff))
-    #     ]
-    # )
+    cand_mu_opt = (
+        (opt_model._mu_coeff * opt_model._sub_z_mu.X.reshape(opt_model._mu_coeff.shape))
+        .sum(axis=-1)
+        .mean()
+    )
+    cand_var_opt = jnp.array([s.X**2 for s in opt_model._std.values()])
+
+    assert jnp.isclose(cand_mu.mean(), cand_mu_opt.mean(), rtol=0.1)
+    assert jnp.isclose(cand_var.mean(), cand_var_opt.mean(), rtol=0.05)

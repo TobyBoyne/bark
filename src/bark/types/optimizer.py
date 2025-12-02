@@ -33,3 +33,9 @@ class GurobiOptimizerModel(gp.Model):
     """Binary leaf variables, indexed by (label, tree_index, leaf_encoding)."""
 
     _y: Any
+
+    _mu_coeff: Any
+
+    _sub_z_mu: Any
+
+    _std: Any

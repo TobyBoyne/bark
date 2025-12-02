@@ -98,7 +98,7 @@ def build_opt_model_from_forest(
     opt_model.setObjective(expr=obj, sense=GRB.MINIMIZE)
 
     ## add mu variable
-    # opt_model._sub_z_mu = MVar.fromlist(sub_k.values())
-    # opt_model._mu_coeff = lin_term
+    opt_model._sub_z_mu = MVar.fromlist(list(sub_k.values()))
+    opt_model._mu_coeff = lin_term
 
     return opt_model
