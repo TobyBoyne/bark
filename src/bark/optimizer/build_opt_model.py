@@ -1,7 +1,8 @@
+import gurobipy as gp
 import jax
 import jax.numpy as jnp
 import numpy as np
-from gurobipy import GRB, MVar
+from gurobipy import GRB
 
 from bark import forest, types
 from bark.enums import FeatureTypeEnum
@@ -43,27 +44,24 @@ def build_opt_model_from_forest(
 
     K_XX_s = K_XX + (1e-6 + bark_model.noise_var[:, None, None]) * np.eye(num_data)
     # cholesky decomposition doesn't support batching
-    K_inv = jnp.linalg.inv(K_XX_s)
+    K_inv = np.asarray(jnp.linalg.inv(K_XX_s))
 
-    num_sub_k = num_samples * num_data
-    sub_k = opt_model.addVars(range(num_sub_k), lb=0, ub=1, name="sub_k", vtype="C")
+    sub_k = opt_model.addMVar(
+        shape=(num_samples, num_data), lb=0, ub=1, name="sub_k", vtype="C"
+    )
     for i, (gbm_name, gbm_model) in enumerate(gbm_model_dict.items()):
         # create active leaf variables
         act_leave_vars = gbm_model.get_active_leaf_vars(train_X, opt_model, gbm_name)
-
         opt_model.addConstrs(
-            (
-                sub_k[idx + i * len(act_leave_vars)] == act_leave_vars[idx]
-                for idx in range(len(act_leave_vars))
-            ),
+            (sub_k[i, idx] == act_leave_vars[idx] for idx in range(num_data)),
             name=f"sub_k_constr_{gbm_name}",
         )
 
     ## add quadratic constraints
     # \sigma <= K_xx - K_xX @ K_XX^-1 @ X_xX^T
 
-    opt_model._std = opt_model.addVars(
-        range(num_samples), lb=0, ub=GRB.INFINITY, name="std", vtype="C"
+    opt_model._std = opt_model.addMVar(
+        shape=(num_samples,), lb=0.0, ub=GRB.INFINITY, vtype="C"
     )
 
     # pre- and post-multiply by scale
@@ -73,32 +71,31 @@ def build_opt_model_from_forest(
 
     for i in range(num_samples):
         quadr_constr = np.block([[quadr_term[i], zeros], [zeros.T, -1.0]])
-        sub_k_sample = [sub_k[j] for j in range(i * num_data, (i + 1) * num_data)]
-        sub_k_std = MVar.fromlist(sub_k_sample + [opt_model._std[i]])
+        sub_k_sample_std = gp.concatenate(
+            (sub_k[i, :], opt_model._std[i][None]), axis=0
+        )  # type: ignore
         opt_model.addMQConstr(  # type: ignore
             quadr_constr,
             None,
             sense=">",
             rhs=-const_term[i],
-            xQ_L=sub_k_std,
-            xQ_R=sub_k_std,
+            xQ_L=sub_k_sample_std,
+            xQ_R=sub_k_sample_std,
         )
 
     ## add linear objective
     lin_term = K_inv @ train_Y[None, :, :]
     lin_term = lin_term.squeeze(-1)
 
-    obj = 0
-    for i in range(num_samples):
-        sub_z_sample = [sub_k[j] for j in range(i * num_data, (i + 1) * num_data)]
-        sub_z_obj = MVar.fromlist(sub_z_sample + [opt_model._std[i]])
-        lin_obj = np.concatenate((lin_term[i], [-kappa]))
-        obj += (1 / num_samples) * lin_obj @ sub_z_obj
+    sub_z_obj = gp.concatenate((sub_k, opt_model._std[:, None]), axis=1)  # type: ignore
+    lin_obj = np.concatenate((lin_term, np.full((num_samples, 1), -kappa)), axis=1)
+    # compute row-wise dot product
+    obj = (lin_obj * sub_z_obj).sum() / num_samples
 
     opt_model.setObjective(expr=obj, sense=GRB.MINIMIZE)
 
     ## add mu variable
-    opt_model._sub_z_mu = MVar.fromlist(list(sub_k.values()))
+    opt_model._sub_z_mu = sub_k
     opt_model._mu_coeff = lin_term
 
     return opt_model

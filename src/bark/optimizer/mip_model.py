@@ -101,16 +101,14 @@ class TreesMIPModel:
         act_leaves_x = [self.get_active_leaves(x) for x in X]
 
         # generate active_leave_vars
-        act_leaf_vars: list[gp.LinExpr] = []
-        for data_enc in act_leaves_x:
-            temp_lhs = gp.quicksum(
+        return [
+            gp.quicksum(
                 model._z_l[gbm_label, tree_id, leaf_enc]
                 for tree_id, leaf_enc in enumerate(data_enc)
-            ) / len(data_enc)
-
-            act_leaf_vars.append(temp_lhs)
-
-        return act_leaf_vars
+            )
+            / len(data_enc)
+            for data_enc in act_leaves_x
+        ]
 
 
 @dataclass

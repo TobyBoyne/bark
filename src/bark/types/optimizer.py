@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING, Any, Callable
 
 import gurobipy as gp
+import numpy as np
+from jaxtyping import Float
 
 if TYPE_CHECKING:
     from bark.optimizer.mip_model import TreesMIPModel
@@ -34,8 +36,8 @@ class GurobiOptimizerModel(gp.Model):
 
     _y: Any
 
-    _mu_coeff: Any
+    _mu_coeff: Float[np.ndarray, "num_samples num_data"]
 
-    _sub_z_mu: Any
+    _sub_z_mu: gp.MVar
 
-    _std: Any
+    _std: gp.MVar
