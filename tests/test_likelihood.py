@@ -10,20 +10,28 @@ from bark.likelihood.marginal_log_likelihood import (
     CachedGramBARKLikelihood,
     mll_bark_model,
 )
+from bark.likelihood.woodbury_likelihood import WoodburyBARKLikelihood
 from bark.testing.data_test_cases import get_continuous_data_trid
 
 jax.config.update("jax_enable_x64", True)
 
 
-@pytest.mark.parametrize(["likelihood_cls"], [[CachedGramBARKLikelihood]])
-def test_bark_likelihoods(likelihood_cls: type[BARKLikelihood]):
-    # we currently don't test the WoodburyBARKLikelihood as it is not sufficiently
-    # accurate
-    data = get_continuous_data_trid(N=20, dim=10)
+@pytest.mark.parametrize(
+    ("likelihood_cls", "rtol"),
+    [(WoodburyBARKLikelihood, 5e-3), (CachedGramBARKLikelihood, 1e-5)],
+)
+def test_bark_likelihoods(likelihood_cls: type[BARKLikelihood], rtol: float):
+    num_data = 2
+    num_trees = 25
+    data = get_continuous_data_trid(N=num_data, dim=10)
     params = types.BARKConfig(beta=1.0)
     key = jax.random.key(0)
     random_trees = sample_forest(
-        m=49, bounds=data.bounds, feat_types=data.feat_types, params=params, key=key
+        m=num_trees - 1,
+        bounds=data.bounds,
+        feat_types=data.feat_types,
+        params=params,
+        key=key,
     )
     empty_tree = forest.create_empty_forest(m=1)
     trees = jax.tree_util.tree_map(
@@ -32,7 +40,10 @@ def test_bark_likelihoods(likelihood_cls: type[BARKLikelihood]):
     bark_model = types.BARKModel(trees=trees, noise_var=jnp.array(0.1))
     mll = mll_bark_model(bark_model, data)
 
-    new_tree = grow(empty_tree[0], jnp.array(0), jnp.array(0), jnp.array(0.5))
+    # ensure that new tree splits the last two data for a non-trivial
+    # change in mll
+    new_threshold = data.train_X[-2:, 0].mean()
+    new_tree = grow(empty_tree[0], jnp.array(0), jnp.array(0), new_threshold)
     new_trees = jax.tree_util.tree_map(
         lambda nt, rt: jnp.concat((nt[None, :], rt), axis=0), new_tree, random_trees
     )
@@ -53,4 +64,4 @@ def test_bark_likelihoods(likelihood_cls: type[BARKLikelihood]):
     assert not jnp.allclose(mll, new_mll)
 
     # test that the cached approach gives the correct answer
-    assert jnp.allclose(new_mll, likelihood.mll, rtol=1e-4)
+    assert jnp.allclose(new_mll, likelihood.mll, rtol=rtol)

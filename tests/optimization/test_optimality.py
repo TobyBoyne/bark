@@ -62,4 +62,4 @@ def test_proposal_maximises_acqf():
     cand_var_opt = opt_model._std.X**2
 
     assert jnp.isclose(cand_mu.mean(), cand_mu_opt.mean(), rtol=0.1)
-    assert jnp.isclose(cand_var.mean(), cand_var_opt.mean(), rtol=0.05)
+    assert jnp.isclose(cand_var.mean(), cand_var_opt.mean(), rtol=0.05)  # type: ignore

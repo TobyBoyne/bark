@@ -1,40 +1,9 @@
-import gpytorch as gpy
 import jax
 import jax.numpy as jnp
 import numpy as np
-from beartype.typing import Optional
 from jaxtyping import Array, Float
 
 from bark import forest, types
-
-from .tree_model_kernel import TreeAgreementKernel
-
-
-class LeafGP(gpy.models.ExactGP):
-    def __init__(
-        self,
-        train_inputs,
-        train_targets,
-        likelihood,
-        forest: np.ndarray,
-        feat_types: Optional[np.ndarray] = None,
-    ):
-        super().__init__(train_inputs, train_targets, likelihood)
-        self.mean_module = gpy.means.ZeroMean()
-
-        if feat_types is None:
-            feat_types = np.full((train_inputs.shape[0],), FeatureTypeEnum.Cont.value)
-        tree_kernel = TreeAgreementKernel(forest, feat_types)
-        self.covar_module = gpy.kernels.ScaleKernel(tree_kernel)
-
-    def forward(self, x):
-        mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
-        return gpy.distributions.MultivariateNormal(mean_x, covar_x)
-
-    @property
-    def forest(self) -> np.ndarray:
-        return self.covar_module.base_kernel.forest
 
 
 def forest_predict(
