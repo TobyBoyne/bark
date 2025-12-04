@@ -68,4 +68,5 @@ def sample_noise_prior(
     params: types.BARKConfig,
     key: jax.Array,
 ) -> Float[Array, ""]:
-    return jax.random.gamma(key, a=params.gamma_prior_shape) / params.gamma_prior_rate
+    gamma_samples = jax.random.gamma(key, a=params.gamma_prior_shape)
+    return (1 / gamma_samples) / params.gamma_prior_rate

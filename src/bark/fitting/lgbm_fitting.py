@@ -9,8 +9,6 @@ from beartype.typing import Optional
 from bofire.data_models.domain.api import Domain
 from bofire.data_models.features.api import CategoricalInput
 
-from bark.forest import NODE_RECORD_DTYPE
-
 
 def fit_lgbm_forest(
     train_x: pd.DataFrame,

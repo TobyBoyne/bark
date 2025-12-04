@@ -26,6 +26,7 @@ class Timer:
         pass
 
     def __exit__(self, *args):
+        assert self.current_start is not None
         num_calls, duration = self.durations.get(self.current_key, (0, 0.0))
         self.durations[self.current_key] = (
             num_calls + 1,

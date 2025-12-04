@@ -1,34 +1,38 @@
 """Inspired by https://github.com/ogrisel/pygbm and https://github.com/Gattocrucco/bartz"""
 
+from typing import TypeVar
+
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Bool, Float, UInt
+from jaxtyping import Array, Float, UInt
 
 from bark import enums, types
 from bark.utils.bit_operations import next_power_of_2_exponent
 
+IT = TypeVar("IT", int, Array, types.IndexT)
 
-def is_leaf(feature_idx: types.IndexT) -> Bool[Array, "..."] | bool:
+
+def is_leaf(feature_idx: IT) -> IT | bool:
     """Return a mask for all leaves in a tree."""
     return feature_idx == enums.NodeState.Leaf
 
 
-def depth(idx: types.IndexT) -> types.IndexT:
+def depth(idx: IT) -> IT:
     """Get the depth of node at `idx` in the binary tree."""
     return next_power_of_2_exponent(idx + 1) - 1
 
 
-def parent(idx: types.IndexT) -> types.IndexT:
+def parent(idx: IT) -> IT:
     """Get the parent of node at `idx` in the binary tree."""
     return (idx - 1) // 2
 
 
-def left(idx: types.IndexT) -> types.IndexT:
+def left(idx: IT) -> IT:
     """Get the left child of node at `idx` in the binary tree."""
     return 2 * idx + 1
 
 
-def right(idx: types.IndexT) -> types.IndexT:
+def right(idx: IT) -> IT:
     """Get the right child of node at `idx` in the binary tree."""
     return 2 * idx + 2
 
@@ -66,7 +70,7 @@ def _pass_one_through_tree(
     (_, index), _ = jax.lax.scan(
         loop, carry, None, enums.MAX_DEPTH, unroll=enums.MAX_DEPTH
     )
-    return index  # pyright: ignore
+    return index
 
 
 pass_through_tree = jax.vmap(_pass_one_through_tree, (0, None, None))

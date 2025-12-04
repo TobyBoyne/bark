@@ -284,6 +284,7 @@ dependencies = [
 dev = [
     { name = "ipython" },
     { name = "pre-commit" },
+    { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
     { name = "ruff" },
@@ -321,6 +322,7 @@ requires-dist = [
 dev = [
     { name = "ipython", specifier = ">=8.21.0,<9.0.0" },
     { name = "pre-commit", specifier = ">=3.6.0,<4.0.0" },
+    { name = "pyright", specifier = ">=1.1.407" },
     { name = "pytest", specifier = ">=8.0.0,<9.0.0" },
     { name = "pytest-benchmark", specifier = ">=4.0.0,<5.0.0" },
     { name = "ruff", specifier = ">=0.2.0,<1.0.0" },
@@ -3170,6 +3172,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a7/53/5bc2532536e921c48366ad1047c1344ccef6afa5e84053f0f6e20a453767/pyre_extensions-0.0.32.tar.gz", hash = "sha256:5396715f14ea56c4d5fd0a88c57ca7e44faa468f905909edd7de4ad90ed85e55", size = 10852, upload-time = "2024-11-22T19:26:44.152Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a4/7a/9812cb8be9828ab688203c5ac5f743c60652887f0c00995a6f6f19f912bd/pyre_extensions-0.0.32-py3-none-any.whl", hash = "sha256:a63ba6883ab02f4b1a9f372ed4eb4a2f4c6f3d74879aa2725186fdfcfe3e5c68", size = 12766, upload-time = "2024-11-22T19:26:42.465Z" },
+]
+
+[[package]]
+name = "pyright"
+version = "1.1.407"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "nodeenv" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a6/1b/0aa08ee42948b61745ac5b5b5ccaec4669e8884b53d31c8ec20b2fcd6b6f/pyright-1.1.407.tar.gz", hash = "sha256:099674dba5c10489832d4a4b2d302636152a9a42d317986c38474c76fe562262", size = 4122872, upload-time = "2025-10-24T23:17:15.145Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/93/b69052907d032b00c40cb656d21438ec00b3a471733de137a3f65a49a0a0/pyright-1.1.407-py3-none-any.whl", hash = "sha256:6dd419f54fcc13f03b52285796d65e639786373f433e243f8b94cf93a7444d21", size = 5997008, upload-time = "2025-10-24T23:17:13.159Z" },
 ]
 
 [[package]]
