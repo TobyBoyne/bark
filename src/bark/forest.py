@@ -160,7 +160,7 @@ def forest_gram_matrix_no_null(
     return (sim_mat - num_null_trees / num_trees) * scale
 
 
-def create_empty_forest(m: int, max_depth: int = 6) -> types.Tree:
+def create_empty_forest(m: int, max_depth: int = enums.MAX_DEPTH) -> types.Tree:
     feature_idx = jnp.full(
         (m, 2**max_depth - 1), enums.NodeState.Inactive, dtype=jnp.int32
     )
