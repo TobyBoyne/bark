@@ -72,8 +72,9 @@ def build_opt_model_from_forest(
     for i in range(num_samples):
         quadr_constr = np.block([[quadr_term[i], zeros], [zeros.T, -1.0]])
         sub_k_sample_std = gp.concatenate(
-            (sub_k[i, :], opt_model._std[i][None]), axis=0
-        )  # type: ignore
+            (sub_k[i, :], opt_model._std[i][None]),
+            axis=0,  # type: ignore
+        )
         opt_model.addMQConstr(  # type: ignore
             quadr_constr,
             None,

@@ -161,9 +161,11 @@ class MIPDecisionNode:
             yield from next_node.get_leaf_encodings(direction)
 
     def get_left_leaves(self, encoding: str):
+        """Find all leaves to the left of the node at position `encoding`."""
         return self._get_child_leaves(encoding, direction="0")
 
     def get_right_leaves(self, encoding: str):
+        """Find all leaves to the right of the node at position `encoding`."""
         return self._get_child_leaves(encoding, direction="1")
 
     def update_var_bounds_inplace(
