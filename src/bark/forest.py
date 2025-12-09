@@ -60,7 +60,7 @@ def _pass_one_through_tree(
         leaf_found |= is_leaf(feature_idx)
         child_index = left(index)
         child_index += is_cat * (
-            1 - ((1 << X[feature_idx].astype(jnp.int64)) & threshold.astype(jnp.int64))
+            1 - (1 & (threshold.astype(jnp.int64) >> X[feature_idx].astype(jnp.int64)))
         )
         child_index += (1 - is_cat) * (X[feature_idx] > threshold)
         index = jnp.where(leaf_found, index, child_index)

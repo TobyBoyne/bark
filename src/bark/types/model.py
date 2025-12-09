@@ -20,6 +20,18 @@ class Tree:
         return TreeIterator(self)
 
 
+@struct.dataclass
+class SoftTree(Tree):
+    tau: Float[Array, "*batch"]
+
+    def __getitem__(self, idx) -> Self:
+        return self.__class__(
+            feature_idx=self.feature_idx[idx],
+            threshold=self.threshold[idx],
+            tau=self.tau,
+        )
+
+
 class TreeIterator:
     def __init__(self, tree: Tree):
         self.tree = tree

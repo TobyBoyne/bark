@@ -1,5 +1,5 @@
 from .data import BoundsT, Data, FeatTypesT, Features, IndexT
-from .model import BARKConfig, BARKModel, Tree
+from .model import BARKConfig, BARKModel, SoftTree, Tree
 
 __all__ = [
     "BoundsT",
@@ -8,6 +8,7 @@ __all__ = [
     "Features",
     "Data",
     "Tree",
+    "SoftTree",
     "BARKModel",
     "BARKConfig",
 ]
