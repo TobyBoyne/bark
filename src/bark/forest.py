@@ -37,6 +37,11 @@ def right(idx: IT) -> IT:
     return 2 * idx + 2
 
 
+def _raise(is_cat):
+    if is_cat.any():
+        raise ValueError("Some cat vals")
+
+
 @jax.jit
 def _pass_one_through_tree(
     X: Float[Array, " d"],
@@ -46,7 +51,7 @@ def _pass_one_through_tree(
     # https://github.com/Gattocrucco/bartz/blob/a9607515a328a7e74cf39d9c396e3c1f072c8c93/src/bartz/grove.py#L108
     carry = (
         jnp.zeros((), bool),
-        jnp.zeros((), jnp.int64),
+        jnp.zeros((), jnp.int32),
     )
 
     def loop(carry, _):
@@ -56,13 +61,12 @@ def _pass_one_through_tree(
         threshold = tree.threshold[index]
 
         is_cat = feat_types[feature_idx] == enums.FeatureTypeEnum.Cat.value
-
         leaf_found |= is_leaf(feature_idx)
         child_index = left(index)
+        child_index += (1 - is_cat) * (X[feature_idx] > threshold)
         child_index += is_cat * (
             1 - (1 & (threshold.astype(jnp.int64) >> X[feature_idx].astype(jnp.int64)))
-        )
-        child_index += (1 - is_cat) * (X[feature_idx] > threshold)
+        ).astype(jnp.int32)
         index = jnp.where(leaf_found, index, child_index)
 
         return (leaf_found, index), None

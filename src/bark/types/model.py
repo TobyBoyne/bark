@@ -6,8 +6,7 @@ from flax import struct
 from jaxtyping import Array, Bool, Float, Int
 
 
-@struct.dataclass
-class Tree:
+class Tree(struct.PyTreeNode):
     feature_idx: Int[Array, "*batch max_nodes"]
     threshold: Float[Array, "*batch max_nodes"]
 
@@ -16,11 +15,14 @@ class Tree:
             feature_idx=self.feature_idx[idx], threshold=self.threshold[idx]
         )
 
+    def __len__(self) -> int:
+        # return the number of trees
+        return self.feature_idx.shape[-2]
+
     def __iter__(self):
         return TreeIterator(self)
 
 
-@struct.dataclass
 class SoftTree(Tree):
     tau: Float[Array, "*batch"]
 
@@ -50,8 +52,7 @@ class TreeIterator:
         return self.tree[self.tree_index]
 
 
-@struct.dataclass
-class BARKModel:
+class BARKModel(struct.PyTreeNode):
     trees: Tree
     noise_var: Float[Array, " *batch"]
 
@@ -70,7 +71,7 @@ class BARKModel:
 
     def update_trees(self, other_trees: Tree, accept: Bool[Array, " m"]) -> "BARKModel":
         # this method is a JIT-compatible version of `self if accept else other`
-        return BARKModel(
+        return self.replace(
             trees=Tree(
                 feature_idx=jnp.where(
                     accept, other_trees.feature_idx, self.trees.feature_idx
@@ -79,15 +80,12 @@ class BARKModel:
                     accept, other_trees.threshold, self.trees.threshold
                 ),
             ),
-            noise_var=self.noise_var,
         )
 
     def update_noise(
         self, other_noise: Float[Array, ""], accept: Bool[Array, ""]
     ) -> "BARKModel":
-        return BARKModel(
-            trees=self.trees, noise_var=jnp.where(accept, other_noise, self.noise_var)
-        )
+        return self.replace(noise_var=jnp.where(accept, other_noise, self.noise_var))
 
 
 @struct.dataclass

@@ -1,14 +1,36 @@
 """Sample from the BARK prior."""
 
+from typing import TypeVar
+
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float, Int
 
 import bark.forest as forest
+import bark.soft_bark.soft_forest as soft_forest
 from bark import types
 from bark.enums import NodeState
 from bark.fitting.tree_proposals import grow, sample_splitting_rule
 from bark.fitting.tree_traversal import get_node_subspace
+
+TreeT = TypeVar("TreeT", types.Tree, types.SoftTree)
+
+
+def _sample_forest(
+    trees: TreeT,
+    bounds: types.BoundsT,
+    feat_types: types.FeatTypesT,
+    params: types.BARKConfig,
+    key: jax.Array,
+) -> TreeT:
+    keys = jax.random.split(key, num=len(trees))
+    return jax.vmap(sample_tree, in_axes=(0, None, None, None, 0))(
+        trees,
+        bounds,
+        feat_types,
+        params,
+        keys,
+    )
 
 
 def sample_forest(
@@ -19,23 +41,27 @@ def sample_forest(
     key: jax.Array,
 ) -> types.Tree:
     trees = forest.create_empty_forest(m, max_depth=6)
-    keys = jax.random.split(key, num=m)
-    return jax.vmap(sample_tree, in_axes=(0, None, None, None, 0))(
-        trees,
-        bounds,
-        feat_types,
-        params,
-        keys,
-    )
+    return _sample_forest(trees, bounds, feat_types, params, key)
 
 
-def sample_tree(
-    tree: types.Tree,
+def sample_soft_forest(
+    m: int,
     bounds: types.BoundsT,
     feat_types: types.FeatTypesT,
     params: types.BARKConfig,
     key: jax.Array,
 ) -> types.Tree:
+    trees = soft_forest.create_empty_soft_forest(m, max_depth=6)
+    return _sample_forest(trees, bounds, feat_types, params, key)
+
+
+def sample_tree(
+    tree: TreeT,
+    bounds: types.BoundsT,
+    feat_types: types.FeatTypesT,
+    params: types.BARKConfig,
+    key: jax.Array,
+) -> TreeT:
     def split_node(node_idx: Int[Array, ""], val: tuple[types.Tree, jax.Array]):
         tree, key = val
         key, subkey = jax.random.split(key)

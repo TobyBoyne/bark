@@ -82,7 +82,7 @@ def grow(
         jnp.array([new_threshold, 0.0, 0.0], dtype=tree.threshold.dtype)
     )
 
-    return types.Tree(feature_idx=feature_idx, threshold=threshold)
+    return tree.replace(feature_idx=feature_idx, threshold=threshold)
 
 
 def prune(
@@ -108,7 +108,7 @@ def prune(
         jnp.array([0.0, 0.0, 0.0], dtype=tree.threshold.dtype)
     )
 
-    return types.Tree(feature_idx=feature_idx, threshold=threshold)
+    return tree.replace(feature_idx=feature_idx, threshold=threshold)
 
 
 def change(
@@ -124,7 +124,7 @@ def change(
         new_threshold.astype(tree.threshold.dtype)
     )
 
-    return types.Tree(feature_idx=feature_idx, threshold=threshold)
+    return tree.replace(feature_idx=feature_idx, threshold=threshold)
 
 
 def _get_grow_proposal(
